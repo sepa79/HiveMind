@@ -1,0 +1,6 @@
+{
+  "project_id": "skrybe",
+  "name": "Skrybe",
+  "default_branch": "main",
+  "description": "Standalone MCP memory service for agent and team development context."
+}

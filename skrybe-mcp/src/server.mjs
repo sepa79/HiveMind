@@ -1,0 +1,580 @@
+#!/usr/bin/env node
+
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { z } from "zod";
+import { SkrybeApiClient } from "./api-client.mjs";
+import { createSkrybeRuntime } from "./runtime.mjs";
+
+const apiBaseUrl = process.env.SKRYBE_API_BASE_URL || "http://127.0.0.1:4010";
+
+const server = new McpServer({
+  name: "skrybe",
+  version: "0.1.0"
+});
+
+const runtime = createSkrybeRuntime({
+  apiClient: new SkrybeApiClient({ baseUrl: apiBaseUrl })
+});
+
+server.registerTool(
+  "project.register",
+  {
+    title: "Register or update a Skrybe project",
+    description: "Create or update one project definition in Skrybe.",
+    inputSchema: {
+      project_id: z.string(),
+      name: z.string(),
+      root_path: z.string(),
+      default_branch: z.string(),
+      description: z.string().optional()
+    }
+  },
+  runtime.projectRegister
+);
+
+server.registerTool(
+  "feature.list",
+  {
+    title: "List project features",
+    description: "Fetch the managed feature vocabulary for one project.",
+    inputSchema: {
+      project_id: z.string()
+    }
+  },
+  runtime.featureList
+);
+
+server.registerTool(
+  "feature.add",
+  {
+    title: "Add a project feature",
+    description: "Add one feature name to the managed project vocabulary.",
+    inputSchema: {
+      project_id: z.string(),
+      feature: z.string()
+    }
+  },
+  runtime.featureAdd
+);
+
+server.registerTool(
+  "feature.remove",
+  {
+    title: "Remove a project feature",
+    description: "Remove one feature name from the managed project vocabulary if it is not used in stored project memory.",
+    inputSchema: {
+      project_id: z.string(),
+      feature: z.string()
+    }
+  },
+  runtime.featureRemove
+);
+
+server.registerTool(
+  "feature.rename",
+  {
+    title: "Rename a project feature",
+    description: "Rename one feature in the managed vocabulary and cascade the rename through stored feature references.",
+    inputSchema: {
+      project_id: z.string(),
+      feature: z.string(),
+      new_feature: z.string()
+    }
+  },
+  runtime.featureRename
+);
+
+server.registerTool(
+  "context.open",
+  {
+    title: "Open a reusable Skrybe context",
+    description: "Bind repeated project and tool context once and receive a reusable context token.",
+    inputSchema: {
+      project_id: z.string(),
+      branch: z.string(),
+      workspace_path: z.string(),
+      feature: z.string().optional(),
+      source_tool: z.string().optional(),
+      tool_version: z.string().optional(),
+      environment: z.string().optional(),
+      dataset_version: z.string().optional(),
+      author_id: z.string(),
+      author_type: z.enum(["human", "agent", "system"]),
+      source: z.enum(["mcp", "cli", "web", "import"]),
+      agent_id: z.string().optional(),
+      idempotencyKey: z.string().optional()
+    }
+  },
+  runtime.contextOpen
+);
+
+server.registerTool(
+  "context.get",
+  {
+    title: "Get a reusable Skrybe context",
+    description: "Fetch the stored context behind a context token.",
+    inputSchema: {
+      context_token: z.string()
+    }
+  },
+  runtime.contextGet
+);
+
+server.registerTool(
+  "context.update",
+  {
+    title: "Update a reusable Skrybe context",
+    description: "Patch the mutable fields of a stored context token.",
+    inputSchema: {
+      context_token: z.string(),
+      branch: z.string().optional(),
+      workspace_path: z.string().optional(),
+      feature: z.string().optional(),
+      source_tool: z.string().optional(),
+      tool_version: z.string().optional(),
+      environment: z.string().optional(),
+      dataset_version: z.string().optional(),
+      agent_id: z.string().optional()
+    }
+  },
+  runtime.contextUpdate
+);
+
+server.registerTool(
+  "context.close",
+  {
+    title: "Close a reusable Skrybe context",
+    description: "Mark a stored context token as closed.",
+    inputSchema: {
+      context_token: z.string()
+    }
+  },
+  runtime.contextClose
+);
+
+server.registerTool(
+  "context.get_project_brief",
+  {
+    title: "Get a project brief for a context",
+    description: "Fetch a bounded project summary including rules, recent decisions, recent learnings, active issues, and open threads.",
+    inputSchema: {
+      context_token: z.string()
+    }
+  },
+  runtime.contextGetProjectBrief
+);
+
+server.registerTool(
+  "context.get_branch_brief",
+  {
+    title: "Get a branch brief for a context",
+    description: "Fetch a bounded branch summary including rules, recent decisions, recent learnings, active issues, and open threads.",
+    inputSchema: {
+      context_token: z.string(),
+      branch: z.string().optional()
+    }
+  },
+  runtime.contextGetBranchBrief
+);
+
+server.registerTool(
+  "context.get_open_threads",
+  {
+    title: "Get open threads for a context",
+    description: "Fetch bounded open threads for the resolved project and branch context.",
+    inputSchema: {
+      context_token: z.string(),
+      branch: z.string().optional(),
+      limit: z.number().int().positive().max(50).optional()
+    }
+  },
+  runtime.contextGetOpenThreads
+);
+
+server.registerTool(
+  "learning.capture",
+  {
+    title: "Capture a reusable learning",
+    description: "Store a project learning using an existing context token instead of repeating full project metadata.",
+    inputSchema: {
+      context_token: z.string(),
+      summary: z.string(),
+      details: z.string().optional(),
+      scope: z.enum(["tool", "env", "data", "workflow", "test_strategy"]),
+      recommended_action: z.string(),
+      status: z.enum(["active", "superseded", "resolved"]).optional(),
+      importance: z.enum(["low", "normal", "high"]).optional(),
+      tags: z.array(z.string()).optional(),
+      links: z
+        .array(
+          z.object({
+            kind: z.enum(["file", "repo_file", "commit", "pr", "command", "url"]),
+            target: z.string(),
+            label: z.string().optional()
+          })
+        )
+        .optional(),
+      artifacts: z
+        .array(
+          z.object({
+            kind: z.enum(["file", "repo_file", "commit", "pr", "command", "url"]),
+            target: z.string(),
+            label: z.string().optional()
+          })
+        )
+        .optional(),
+      related_issue_ids: z.array(z.string()).optional(),
+      idempotencyKey: z.string().optional()
+    }
+  },
+  runtime.learningCapture
+);
+
+server.registerTool(
+  "learning.get_recent",
+  {
+    title: "Get recent learnings for a context",
+    description: "Fetch the most relevant recent learnings for a context, defaulting to active learnings for the same feature/tool when present.",
+    inputSchema: {
+      context_token: z.string(),
+      feature: z.string().optional(),
+      source_tool: z.string().optional(),
+      scope: z.enum(["tool", "env", "data", "workflow", "test_strategy"]).optional(),
+      status: z.enum(["active", "superseded", "resolved"]).optional(),
+      limit: z.number().int().positive().max(50).optional()
+    }
+  },
+  runtime.learningGetRecent
+);
+
+server.registerTool(
+  "learning.feedback",
+  {
+    title: "Attach follow-up feedback to a learning",
+    description: "Record confirmation, negative confirmation, or a comment for an existing learning without rewriting the original learning.",
+    inputSchema: {
+      context_token: z.string(),
+      learning_id: z.string(),
+      feedback_type: z.enum(["confirm", "did_not_work", "comment"]),
+      comment: z.string().optional(),
+      idempotencyKey: z.string().optional()
+    }
+  },
+  runtime.learningFeedback
+);
+
+server.registerTool(
+  "learning.search",
+  {
+    title: "Search project learnings",
+    description: "Search project learnings within the project resolved by a context token.",
+    inputSchema: {
+      context_token: z.string(),
+      branch: z.string().optional(),
+      feature: z.string().optional(),
+      source_tool: z.string().optional(),
+      scope: z.enum(["tool", "env", "data", "workflow", "test_strategy"]).optional(),
+      status: z.enum(["active", "superseded", "resolved"]).optional(),
+      tags: z.array(z.string()).optional(),
+      query: z.string().optional(),
+      limit: z.number().int().positive().max(200).optional(),
+      sort: z.enum(["recent", "importance"]).optional()
+    }
+  },
+  runtime.learningSearch
+);
+
+server.registerTool(
+  "issue.report",
+  {
+    title: "Report a tracked issue",
+    description: "Create a first-class issue bound to an existing context token.",
+    inputSchema: {
+      context_token: z.string(),
+      title: z.string(),
+      summary: z.string(),
+      details: z.string().optional(),
+      severity: z.enum(["low", "normal", "high", "critical"]),
+      github_issue_url: z.string().optional(),
+      idempotencyKey: z.string().optional()
+    }
+  },
+  runtime.issueReport
+);
+
+server.registerTool(
+  "issue.get",
+  {
+    title: "Get one tracked issue",
+    description: "Fetch one issue together with its event history.",
+    inputSchema: {
+      context_token: z.string(),
+      issue_id: z.string()
+    }
+  },
+  runtime.issueGet
+);
+
+server.registerTool(
+  "issue.add_event",
+  {
+    title: "Append an issue lifecycle event",
+    description: "Record a workaround, GitHub link, fix link, verification, or reopen event for a tracked issue.",
+    inputSchema: {
+      context_token: z.string(),
+      issue_id: z.string(),
+      event_type: z.enum([
+        "reported",
+        "workaround_added",
+        "github_issue_linked",
+        "fix_linked",
+        "verified_fixed",
+        "reopened"
+      ]),
+      summary: z.string(),
+      details: z.string().optional(),
+      version: z.string().optional(),
+      branch: z.string().optional(),
+      github_issue_url: z.string().optional(),
+      links: z
+        .array(
+          z.object({
+            kind: z.enum(["file", "repo_file", "commit", "pr", "command", "url"]),
+            target: z.string(),
+            label: z.string().optional()
+          })
+        )
+        .optional(),
+      artifacts: z
+        .array(
+          z.object({
+            kind: z.enum(["file", "repo_file", "commit", "pr", "command", "url"]),
+            target: z.string(),
+            label: z.string().optional()
+          })
+        )
+        .optional(),
+      idempotencyKey: z.string().optional()
+    }
+  },
+  runtime.issueAddEvent
+);
+
+server.registerTool(
+  "issue.list",
+  {
+    title: "List tracked issues",
+    description: "List issues for the project resolved by a context token, with filters for branch, feature, tool, and status.",
+    inputSchema: {
+      context_token: z.string(),
+      branch: z.string().optional(),
+      feature: z.string().optional(),
+      source_tool: z.string().optional(),
+      status: z.enum(["open", "fixed_pending_verification", "resolved", "closed", "active", "all"]).optional(),
+      query: z.string().optional(),
+      limit: z.number().int().positive().max(200).optional(),
+      sort: z.enum(["recent", "severity"]).optional()
+    }
+  },
+  runtime.issueList
+);
+
+server.registerTool(
+  "rules.define",
+  {
+    title: "Define or update a project ruleset",
+    description: "Store the active structured ruleset for one project.",
+    inputSchema: {
+      project_id: z.string(),
+      rules: z.array(
+        z.object({
+          rule_id: z.string(),
+          label: z.string(),
+          description: z.string(),
+          severity: z.enum(["required", "advisory"]),
+          check_mode: z.enum([
+            "manual_confirm",
+            "artifact_required",
+            "file_reference_required",
+            "command_reference_required"
+          ]),
+          evidence_hint: z.string().optional(),
+          applies_to: z.array(z.string()).optional(),
+          tags: z.array(z.string()).optional()
+        })
+      )
+    }
+  },
+  runtime.rulesDefine
+);
+
+server.registerTool(
+  "rules.get",
+  {
+    title: "Get the active project ruleset",
+    description: "Fetch the current structured ruleset for one project.",
+    inputSchema: {
+      project_id: z.string()
+    }
+  },
+  runtime.rulesGet
+);
+
+server.registerTool(
+  "session.start",
+  {
+    title: "Start a Skrybe session",
+    description: "Open a Skrybe session and receive the bounded warm-start context.",
+    inputSchema: {
+      project_id: z.string(),
+      branch: z.string(),
+      workspace_path: z.string(),
+      author_id: z.string(),
+      author_type: z.enum(["human", "agent", "system"]),
+      source: z.enum(["mcp", "cli", "web", "import"]),
+      agent_id: z.string(),
+      goal: z.string(),
+      plan_ref: z
+        .object({
+          kind: z.literal("file"),
+          target: z.string(),
+          label: z.string().optional(),
+          source: z.enum(["agent_plan", "human_plan", "imported"]).optional(),
+          digest: z.string().optional()
+        })
+        .optional(),
+      idempotencyKey: z.string().optional()
+    }
+  },
+  runtime.sessionStart
+);
+
+server.registerTool(
+  "session.end",
+  {
+    title: "End a Skrybe session",
+    description: "Close a session as completed or abandoned and return closeout reminders.",
+    inputSchema: {
+      session_id: z.string(),
+      status: z.enum(["completed", "abandoned"])
+    }
+  },
+  runtime.sessionEnd
+);
+
+server.registerTool(
+  "entry.append",
+  {
+    title: "Append a Skrybe entry",
+    description: "Store one structured journal entry in Skrybe.",
+    inputSchema: {
+      project_id: z.string(),
+      session_id: z.string(),
+      branch: z.string(),
+      author_id: z.string(),
+      author_type: z.enum(["human", "agent", "system"]),
+      source: z.enum(["mcp", "cli", "web", "import"]),
+      entry_type: z.enum(["decision", "plan_ref", "progress", "feedback", "artifact_ref", "tooling_note", "risk"]),
+      summary: z.string(),
+      details: z.string().optional(),
+      feature: z.string().optional(),
+      category: z.string().optional(),
+      tags: z.array(z.string()).optional(),
+      links: z
+        .array(
+          z.object({
+            kind: z.enum(["file", "repo_file", "commit", "pr", "command", "url"]),
+            target: z.string(),
+            label: z.string().optional()
+          })
+        )
+        .optional(),
+      artifacts: z
+        .array(
+          z.object({
+            kind: z.enum(["file", "repo_file", "commit", "pr", "command", "url"]),
+            target: z.string(),
+            label: z.string().optional()
+          })
+        )
+        .optional(),
+      lifecycle_state: z.enum(["open", "resolved", "superseded"]).optional(),
+      importance: z.enum(["low", "normal", "high"]).optional(),
+      idempotencyKey: z.string().optional()
+    }
+  },
+  runtime.entryAppend
+);
+
+server.registerTool(
+  "rule_check.submit",
+  {
+    title: "Submit one rule check",
+    description: "Record whether one project rule was followed in a session.",
+    inputSchema: {
+      project_id: z.string(),
+      session_id: z.string(),
+      rule_id: z.string(),
+      author_id: z.string(),
+      author_type: z.enum(["human", "agent", "system"]),
+      source: z.enum(["mcp", "cli", "web", "import"]),
+      status: z.enum(["applied", "not_applicable", "blocked", "skipped"]),
+      evidence: z.string().optional(),
+      note: z.string().optional(),
+      links: z
+        .array(
+          z.object({
+            kind: z.enum(["file", "repo_file", "commit", "pr", "command", "url"]),
+            target: z.string(),
+            label: z.string().optional()
+          })
+        )
+        .optional(),
+      idempotencyKey: z.string().optional()
+    }
+  },
+  runtime.ruleCheckSubmit
+);
+
+server.registerTool(
+  "rule_check.list_for_session",
+  {
+    title: "List rule checks for one session",
+    description: "Fetch stored rule checks for one project session.",
+    inputSchema: {
+      project_id: z.string(),
+      session_id: z.string(),
+      rule_id: z.string().optional(),
+      status: z.enum(["applied", "not_applicable", "blocked", "skipped"]).optional()
+    }
+  },
+  runtime.ruleCheckListForSession
+);
+
+server.registerTool(
+  "entry.search",
+  {
+    title: "Search Skrybe entries",
+    description: "Search entries in one Skrybe project.",
+    inputSchema: {
+      project_id: z.string(),
+      branch: z.string().optional(),
+      session_id: z.string().optional(),
+      entry_type: z
+        .array(z.enum(["decision", "plan_ref", "progress", "feedback", "artifact_ref", "tooling_note", "risk"]))
+        .optional(),
+      feature: z.string().optional(),
+      category: z.string().optional(),
+      tags: z.array(z.string()).optional(),
+      lifecycle_state: z.enum(["open", "resolved", "superseded"]).optional(),
+      query: z.string().optional(),
+      limit: z.number().int().positive().max(200).optional(),
+      sort: z.enum(["recent", "importance"]).optional()
+    }
+  },
+  runtime.entrySearch
+);
+
+const transport = new StdioServerTransport();
+await server.connect(transport);

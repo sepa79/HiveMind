@@ -1,0 +1,107 @@
+{
+  "rules": [
+    {
+      "rule_id": "use_skrybe",
+      "label": "Use Skrybe During Development",
+      "description": "Start or resume a Skrybe session for meaningful work and record important decisions, progress, and feedback as structured entries.",
+      "severity": "required",
+      "check_mode": "manual_confirm",
+      "evidence_hint": "Session start plus concise project-memory entries when work produces durable context.",
+      "tags": ["workflow", "memory"]
+    },
+    {
+      "rule_id": "no_fallbacks",
+      "label": "No Freaking Fallbacks",
+      "description": "Do not add silent fallbacks, auto-recovery chains, or implicit compatibility shims. Prefer explicit failure and explicit configuration.",
+      "severity": "required",
+      "check_mode": "manual_confirm",
+      "tags": ["design", "reliability"]
+    },
+    {
+      "rule_id": "no_implicit_backward_compat",
+      "label": "No Implicit Backward Compatibility",
+      "description": "Do not preserve legacy behavior unless backward compatibility is explicitly required for the task.",
+      "severity": "required",
+      "check_mode": "manual_confirm",
+      "tags": ["contracts", "design"]
+    },
+    {
+      "rule_id": "ssot_contracts",
+      "label": "One Canonical Contract Per Shape",
+      "description": "Keep one canonical schema or contract per REST or MCP shape. Do not duplicate DTOs, validators, or parallel request or response definitions.",
+      "severity": "required",
+      "check_mode": "file_reference_required",
+      "evidence_hint": "Reference the canonical schema file when changing public request or response shapes.",
+      "tags": ["contracts", "api", "mcp"]
+    },
+    {
+      "rule_id": "preserve_architecture_boundaries",
+      "label": "Preserve MCP/API/Storage Boundaries",
+      "description": "Keep skrybe-mcp thin, keep storage concerns inside skrybe-api, and do not let fs-jsonl details leak into MCP contracts.",
+      "severity": "required",
+      "check_mode": "file_reference_required",
+      "evidence_hint": "Reference the files or docs showing the boundary was preserved.",
+      "tags": ["architecture", "backend"]
+    },
+    {
+      "rule_id": "keep_it_simple",
+      "label": "Keep It Simple",
+      "description": "Prefer straightforward implementation over framework cleverness and avoid needless abstraction.",
+      "severity": "advisory",
+      "check_mode": "manual_confirm",
+      "tags": ["design", "maintainability"]
+    },
+    {
+      "rule_id": "repo_portable_refs",
+      "label": "Prefer Repo-Portable References",
+      "description": "Prefer project-relative repo_file references over machine-specific absolute paths whenever a team-safe reference is possible.",
+      "severity": "required",
+      "check_mode": "file_reference_required",
+      "evidence_hint": "Use repo_file artifacts or links in stored entries when referring to repository files.",
+      "tags": ["memory", "references"]
+    },
+    {
+      "rule_id": "idempotent_creates",
+      "label": "Honor Idempotency On Creates",
+      "description": "Session creation, entry append, and rule-check creation must honor Idempotency-Key semantics.",
+      "severity": "required",
+      "check_mode": "command_reference_required",
+      "evidence_hint": "Reference the test command or contract check that covers create idempotency.",
+      "tags": ["api", "reliability", "testing"]
+    },
+    {
+      "rule_id": "test_relevant_slices",
+      "label": "Test Relevant Slices",
+      "description": "Run the most relevant backend or MCP tests before closing work, especially for create flows, contracts, and storage behavior.",
+      "severity": "required",
+      "check_mode": "command_reference_required",
+      "evidence_hint": "Record the command and result summary for the relevant tests.",
+      "tags": ["quality", "testing"]
+    },
+    {
+      "rule_id": "no_transcript_dumping",
+      "label": "No Transcript Dumping",
+      "description": "Store concise structured memory, not raw conversation archives.",
+      "severity": "required",
+      "check_mode": "manual_confirm",
+      "tags": ["memory", "signal"]
+    },
+    {
+      "rule_id": "git_safety_agents",
+      "label": "Respect Git Safety Constraints",
+      "description": "Do not push and do not create commits unless the human explicitly asks for it.",
+      "severity": "required",
+      "check_mode": "manual_confirm",
+      "tags": ["git", "safety"]
+    },
+    {
+      "rule_id": "align_with_mvp_plan",
+      "label": "Align Structural Changes With MVP Plan",
+      "description": "Before widening contracts or making structural changes, align with docs/skrybe-mcp-mvp-plan.md or update the docs first.",
+      "severity": "required",
+      "check_mode": "file_reference_required",
+      "evidence_hint": "Reference the MVP plan or updated design doc when changing structure or public shape.",
+      "tags": ["planning", "architecture", "contracts"]
+    }
+  ]
+}
