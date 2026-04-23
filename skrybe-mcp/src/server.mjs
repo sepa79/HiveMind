@@ -3,25 +3,25 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { SkrybeApiClient } from "./api-client.mjs";
-import { createSkrybeRuntime } from "./runtime.mjs";
+import { HiveMindApiClient } from "./api-client.mjs";
+import { createHiveMindRuntime } from "./runtime.mjs";
 
 const apiBaseUrl = process.env.SKRYBE_API_BASE_URL || "http://127.0.0.1:4010";
 
 const server = new McpServer({
-  name: "skrybe",
+  name: "hivemind",
   version: "0.1.0"
 });
 
-const runtime = createSkrybeRuntime({
-  apiClient: new SkrybeApiClient({ baseUrl: apiBaseUrl })
+const runtime = createHiveMindRuntime({
+  apiClient: new HiveMindApiClient({ baseUrl: apiBaseUrl })
 });
 
 server.registerTool(
   "project.register",
   {
-    title: "Register or update a Skrybe project",
-    description: "Create or update one project definition in Skrybe.",
+    title: "Register or update a HiveMind project",
+    description: "Create or update one project definition in HiveMind.",
     inputSchema: {
       project_id: z.string(),
       name: z.string(),
@@ -88,7 +88,7 @@ server.registerTool(
 server.registerTool(
   "context.open",
   {
-    title: "Open a reusable Skrybe context",
+    title: "Open a reusable HiveMind context",
     description: "Bind repeated project and tool context once and receive a reusable context token.",
     inputSchema: {
       project_id: z.string(),
@@ -112,7 +112,7 @@ server.registerTool(
 server.registerTool(
   "context.get",
   {
-    title: "Get a reusable Skrybe context",
+    title: "Get a reusable HiveMind context",
     description: "Fetch the stored context behind a context token.",
     inputSchema: {
       context_token: z.string()
@@ -124,7 +124,7 @@ server.registerTool(
 server.registerTool(
   "context.update",
   {
-    title: "Update a reusable Skrybe context",
+    title: "Update a reusable HiveMind context",
     description: "Patch the mutable fields of a stored context token.",
     inputSchema: {
       context_token: z.string(),
@@ -144,7 +144,7 @@ server.registerTool(
 server.registerTool(
   "context.close",
   {
-    title: "Close a reusable Skrybe context",
+    title: "Close a reusable HiveMind context",
     description: "Mark a stored context token as closed.",
     inputSchema: {
       context_token: z.string()
@@ -424,8 +424,8 @@ server.registerTool(
 server.registerTool(
   "session.start",
   {
-    title: "Start a Skrybe session",
-    description: "Open a Skrybe session and receive the bounded warm-start context.",
+    title: "Start a HiveMind session",
+    description: "Open a HiveMind session and receive the bounded warm-start context.",
     inputSchema: {
       project_id: z.string(),
       branch: z.string(),
@@ -453,7 +453,7 @@ server.registerTool(
 server.registerTool(
   "session.end",
   {
-    title: "End a Skrybe session",
+    title: "End a HiveMind session",
     description: "Close a session as completed or abandoned and return closeout reminders.",
     inputSchema: {
       session_id: z.string(),
@@ -466,8 +466,8 @@ server.registerTool(
 server.registerTool(
   "entry.append",
   {
-    title: "Append a Skrybe entry",
-    description: "Store one structured journal entry in Skrybe.",
+    title: "Append a HiveMind entry",
+    description: "Store one structured journal entry in HiveMind.",
     inputSchema: {
       project_id: z.string(),
       session_id: z.string(),
@@ -555,8 +555,8 @@ server.registerTool(
 server.registerTool(
   "entry.search",
   {
-    title: "Search Skrybe entries",
-    description: "Search entries in one Skrybe project.",
+    title: "Search HiveMind entries",
+    description: "Search entries in one HiveMind project.",
     inputSchema: {
       project_id: z.string(),
       branch: z.string().optional(),

@@ -1,15 +1,15 @@
 {
-  "name": "skrybe",
+  "name": "hivemind",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Extracted PocketHive MCP feedback loop reference project",
+  "description": "Standalone MCP memory service for agent and team development context",
   "scripts": {
-    "bootstrap:skrybe": "node scripts/bootstrap-skrybe.mjs",
+    "bootstrap:hivemind": "node scripts/bootstrap-skrybe.mjs",
     "start:api": "node skrybe-api/src/server.mjs",
     "start:mcp": "node skrybe-mcp/src/server.mjs",
     "test": "vitest run",
-    "test:skrybe": "vitest run skrybe-api/src skrybe-mcp/src scripts/bootstrap-skrybe.test.mjs",
+    "test:hivemind": "vitest run skrybe-api/src skrybe-mcp/src scripts/bootstrap-skrybe.test.mjs",
     "test:feedback": "vitest run reference/pockethive-orchestrator-debug/*.test.mjs",
     "test:scenario-builder": "vitest run reference/pockethive-scenario-builder-mcp/*.test.mjs"
   },

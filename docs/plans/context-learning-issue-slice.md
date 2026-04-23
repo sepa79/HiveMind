@@ -2,12 +2,12 @@
 
 ## Goal
 
-Turn `Skrybe` from a structured session journal into a more ergonomic agent-memory system that can:
+Turn `HiveMind` from a structured session journal into a more ergonomic agent-memory system that can:
 
 - bind repeated request context once,
 - store actionable operational learnings for the next agent,
 - distinguish between informal learnings and formal tracked issues,
-- support future MCP-to-Skrybe integrations without collapsing into raw telemetry storage.
+- support future MCP-to-HiveMind integrations without collapsing into raw telemetry storage.
 
 This plan focuses on the next product slice after the current `project/session/entry/rules/rule_check` baseline.
 
@@ -27,7 +27,7 @@ But the next practical user need is more specific:
 - some of those learnings are just operational knowledge,
 - some become formal bugs that need tracking and later fix notes.
 
-This means `Skrybe` needs a stronger distinction between:
+This means `HiveMind` needs a stronger distinction between:
 
 - context,
 - learnings,
@@ -52,7 +52,7 @@ This plan documents the whole slice, but implementation should start with phases
 
 This slice should not:
 
-- turn `Skrybe` into a generic logging backend,
+- turn `HiveMind` into a generic logging backend,
 - create a telemetry firehose from every MCP tool call,
 - require agents to repeat full context on every call,
 - replace GitHub Issues or project management tools,
@@ -60,7 +60,7 @@ This slice should not:
 
 ## Core Product Direction
 
-`Skrybe` should support two different but connected layers of memory:
+`HiveMind` should support two different but connected layers of memory:
 
 1. `learning`
    high-signal operational knowledge for the next agent
@@ -416,7 +416,7 @@ The MCP remains thin and forwards to REST.
 
 Do not build generic telemetry ingestion in this slice.
 
-If future MCP-to-Skrybe integrations are added, they should use a separate evidence-oriented model and should not pollute agent recall by default.
+If future MCP-to-HiveMind integrations are added, they should use a separate evidence-oriented model and should not pollute agent recall by default.
 
 ## Storage Considerations
 
@@ -494,4 +494,4 @@ The first implementation pass for this plan is done when:
 - `learning.get_recent` can answer the “show me recent learnings” workflow,
 - `session.start` can surface bounded recent learnings,
 - storage, API, and MCP tests cover the new flow,
-- the plan is executed using `Skrybe` itself through `plan_ref` and progress notes.
+- the plan is executed using `HiveMind` itself through `plan_ref` and progress notes.

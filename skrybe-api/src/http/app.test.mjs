@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { SkrybeService } from "../app/service.mjs";
+import { HiveMindService } from "../app/service.mjs";
 import { createApp } from "./app.mjs";
 import { FsJsonlStorage } from "../storage/fs-jsonl-storage.mjs";
 
@@ -14,7 +14,7 @@ afterEach(() => {
   }
 });
 
-describe("Skrybe API", () => {
+describe("HiveMind API", () => {
   it("creates a project and wraps the result in the standard envelope", async () => {
     const app = createTestApp();
 
@@ -689,7 +689,7 @@ describe("Skrybe API", () => {
         author_type: "agent",
         source: "mcp",
         status: "applied",
-        evidence: "npm run test:skrybe"
+        evidence: "npm run test:hivemind"
       })
     });
 
@@ -760,6 +760,83 @@ describe("Skrybe API", () => {
     const secondPayload = await second.json();
 
     expect(secondPayload.data.session.session_id).toBe(firstPayload.data.session.session_id);
+  });
+
+  it("lists sessions and closes sessions older than the requested threshold", async () => {
+    const app = createTestApp();
+    await createProject(app);
+
+    const first = await app.request("/v1/sessions", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "Idempotency-Key": "session-list-first"
+      },
+      body: JSON.stringify({
+        project_id: "buzz",
+        branch: "main",
+        workspace_path: "/repo/buzz",
+        author_id: "codex-main",
+        author_type: "agent",
+        source: "mcp",
+        agent_id: "codex-main",
+        goal: "First listed session"
+      })
+    });
+    const firstPayload = await first.json();
+
+    await new Promise((resolve) => setTimeout(resolve, 5));
+
+    await app.request("/v1/sessions", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "Idempotency-Key": "session-list-second"
+      },
+      body: JSON.stringify({
+        project_id: "buzz",
+        branch: "main",
+        workspace_path: "/repo/buzz",
+        author_id: "codex-main",
+        author_type: "agent",
+        source: "mcp",
+        agent_id: "codex-main",
+        goal: "Second listed session"
+      })
+    });
+
+    const listResponse = await app.request("/v1/projects/buzz/sessions?status=active");
+    expect(listResponse.status).toBe(200);
+    const listPayload = await listResponse.json();
+    expect(listPayload.data.sessions).toHaveLength(2);
+    expect(listPayload.data.sessions[0].last_seen_at).toBeTruthy();
+
+    const closeResponse = await app.request("/v1/projects/buzz/sessions/close-older-than", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        older_than_hours: 0.000001,
+        status: "abandoned"
+      })
+    });
+
+    expect(closeResponse.status).toBe(200);
+    const closePayload = await closeResponse.json();
+    expect(closePayload.data.cutoff_at).toBeTruthy();
+    expect(
+      closePayload.data.closed_sessions.some(
+        (session) => session.session_id === firstPayload.data.session.session_id && session.status === "abandoned"
+      )
+    ).toBe(true);
+  });
+
+  it("serves the human sessions UI", async () => {
+    const app = createTestApp();
+
+    const response = await app.request("/");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("text/html");
+    expect(await response.text()).toContain("HiveMind Sessions");
   });
 
   it("creates a new session when a new idempotency key is used", async () => {
@@ -1049,7 +1126,7 @@ function createTestApp() {
   const dataRoot = mkdtempSync(join(tmpdir(), "skrybe-api-"));
   roots.push(dataRoot);
   const storage = new FsJsonlStorage({ dataRoot });
-  const service = new SkrybeService({ storage });
+  const service = new HiveMindService({ storage });
   return createApp({ service });
 }
 

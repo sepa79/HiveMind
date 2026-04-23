@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { SkrybeApiClientError } from "./api-client.mjs";
+import { HiveMindApiClientError } from "./api-client.mjs";
 
-export function createSkrybeRuntime({ apiClient }) {
+export function createHiveMindRuntime({ apiClient }) {
   return {
     async projectRegister(input) {
       try {
@@ -286,7 +286,7 @@ function jsonResult(payload) {
 }
 
 function errorResult(error) {
-  if (error instanceof SkrybeApiClientError) {
+  if (error instanceof HiveMindApiClientError) {
     return {
       isError: true,
       ...jsonResult({

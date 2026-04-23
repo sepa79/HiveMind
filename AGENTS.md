@@ -1,4 +1,4 @@
-# AGENTS.md — Skrybe (Slim, Reference-First)
+# AGENTS.md — HiveMind (Slim, Reference-First)
 
 **Scope & intent**  
 This file is the contributor navigation and guardrails page for both human and AI contributors.
@@ -12,10 +12,10 @@ It keeps the core rules here and points to the authoritative project docs for de
 - Agents must not reinterpret, weaken, or silently bypass these rules.
 - Any exception requires explicit human approval for that specific task.
 
-- **Use Skrybe during development.**
-  - Start or resume a Skrybe session for meaningful work.
+- **Use HiveMind during development.**
+  - Start or resume a HiveMind session for meaningful work.
   - Record important decisions, progress milestones, and feedback as structured entries.
-  - Do not treat chat history as the project memory layer when Skrybe is available.
+  - Do not treat chat history as the project memory layer when HiveMind is available.
 - **NFF (No Freaking Fallbacks).**
   - Do not add silent fallbacks, auto-recovery chains, or implicit compatibility shims.
   - Prefer explicit failure and explicit configuration.
@@ -27,7 +27,7 @@ It keeps the core rules here and points to the authoritative project docs for de
 - **KISS.**
   - Prefer straightforward implementation over framework cleverness.
 - **No transcript dumping.**
-  - Skrybe stores concise structured memory, not raw conversation archives.
+  - HiveMind stores concise structured memory, not raw conversation archives.
 - **Repo-portable references first.**
   - Prefer project-relative references (`repo_file`) over machine-specific absolute paths when a team-safe reference is possible.
 - **Idempotency is required on create operations.**
@@ -79,7 +79,7 @@ Keep these boundaries intact:
 ## 4) Development Workflow
 
 1. Read `docs/skrybe-mcp-mvp-plan.md` before structural work.
-2. Start or resume a Skrybe session for meaningful tasks.
+2. Start or resume a HiveMind session for meaningful tasks.
 3. Record:
    - `decision` for important design choices
    - `progress` for meaningful milestones
@@ -110,9 +110,9 @@ Protected areas that should be changed carefully:
 
 ---
 
-## 6) Skrybe Usage For Agents
+## 6) HiveMind Usage For Agents
 
-For meaningful sessions, use Skrybe as part of the workflow:
+For meaningful sessions, use HiveMind as part of the workflow:
 
 - `project.register`
   - only when the project is not already registered or metadata needs updating
@@ -123,7 +123,7 @@ For meaningful sessions, use Skrybe as part of the workflow:
 - `entry.search`
   - before redoing prior thinking or when you need project recall
 
-Do not spam Skrybe with micro-steps.
+Do not spam HiveMind with micro-steps.
 Store only information that will help the next session or next contributor.
 
 ---

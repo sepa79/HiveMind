@@ -852,6 +852,83 @@ describe("FsJsonlStorage", () => {
     });
   });
 
+  it("lists sessions with derived last_seen_at and closes stale active sessions", async () => {
+    const storage = createStorage();
+    await storage.createProject({
+      project_id: "alpha",
+      name: "Alpha",
+      root_path: "/repo/alpha",
+      default_branch: "main",
+      description: "Alpha project"
+    });
+
+    const quietSession = (
+      await storage.createSession(
+        {
+          project_id: "alpha",
+          branch: "main",
+          workspace_path: "/repo/alpha",
+          author_id: "agent-alpha",
+          author_type: "agent",
+          source: "mcp",
+          agent_id: "codex",
+          goal: "Quiet session"
+        },
+        { idempotencyKey: "quiet-session" }
+      )
+    ).session;
+
+    await new Promise((resolve) => setTimeout(resolve, 5));
+
+    const activeSession = (
+      await storage.createSession(
+        {
+          project_id: "alpha",
+          branch: "main",
+          workspace_path: "/repo/alpha",
+          author_id: "agent-alpha",
+          author_type: "agent",
+          source: "mcp",
+          agent_id: "codex",
+          goal: "Active session"
+        },
+        { idempotencyKey: "active-session" }
+      )
+    ).session;
+
+    await storage.appendEntry(
+      {
+        project_id: "alpha",
+        session_id: activeSession.session_id,
+        branch: "main",
+        author_id: "agent-alpha",
+        author_type: "agent",
+        source: "mcp",
+        entry_type: "progress",
+        summary: "Recorded activity"
+      },
+      { idempotencyKey: "active-entry" }
+    );
+
+    const list = await storage.listSessions({
+      project_id: "alpha",
+      status: "active"
+    });
+
+    expect(list.sessions).toHaveLength(2);
+    expect(list.sessions[0].session_id).toBe(activeSession.session_id);
+    expect(list.sessions[0].last_seen_at >= activeSession.updated_at).toBe(true);
+
+    const closeResult = await storage.closeSessionsOlderThan({
+      project_id: "alpha",
+      older_than_hours: 0.000001,
+      status: "abandoned"
+    });
+
+    expect(closeResult.closed_sessions.some((session) => session.session_id === quietSession.session_id)).toBe(true);
+    expect(closeResult.closed_sessions.every((session) => session.status === "abandoned")).toBe(true);
+  });
+
   it("filters unresolved entries by lifecycle_state", async () => {
     const storage = createStorage();
     await storage.createProject({

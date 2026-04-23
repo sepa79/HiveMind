@@ -2,11 +2,11 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { SkrybeService } from "../../skrybe-api/src/app/service.mjs";
+import { HiveMindService } from "../../skrybe-api/src/app/service.mjs";
 import { createApp } from "../../skrybe-api/src/http/app.mjs";
 import { FsJsonlStorage } from "../../skrybe-api/src/storage/fs-jsonl-storage.mjs";
-import { SkrybeApiClient } from "./api-client.mjs";
-import { createSkrybeRuntime } from "./runtime.mjs";
+import { HiveMindApiClient } from "./api-client.mjs";
+import { createHiveMindRuntime } from "./runtime.mjs";
 
 const roots = [];
 
@@ -16,7 +16,7 @@ afterEach(() => {
   }
 });
 
-describe("Skrybe MCP runtime", () => {
+describe("HiveMind MCP runtime", () => {
   it("project.register calls the API and returns structured content", async () => {
     const runtime = createRuntime();
 
@@ -604,7 +604,7 @@ describe("Skrybe MCP runtime", () => {
       author_type: "agent",
       source: "mcp",
       status: "applied",
-      evidence: "npm run test:skrybe"
+      evidence: "npm run test:hivemind"
     });
 
     const ended = await runtime.sessionEnd({
@@ -745,11 +745,11 @@ function createRuntime() {
   const dataRoot = mkdtempSync(join(tmpdir(), "skrybe-mcp-"));
   roots.push(dataRoot);
   const storage = new FsJsonlStorage({ dataRoot });
-  const service = new SkrybeService({ storage });
+  const service = new HiveMindService({ storage });
   const app = createApp({ service });
-  const apiClient = new SkrybeApiClient({
+  const apiClient = new HiveMindApiClient({
     baseUrl: "http://skrybe.test",
     fetchImpl: (input, init) => app.request(input, init)
   });
-  return createSkrybeRuntime({ apiClient });
+  return createHiveMindRuntime({ apiClient });
 }

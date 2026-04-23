@@ -1,15 +1,15 @@
 import { readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { SkrybeService } from "../skrybe-api/src/app/service.mjs";
+import { HiveMindService } from "../skrybe-api/src/app/service.mjs";
 import { createApp } from "../skrybe-api/src/http/app.mjs";
 import { FsJsonlStorage } from "../skrybe-api/src/storage/fs-jsonl-storage.mjs";
-import { SkrybeApiClient } from "../skrybe-mcp/src/api-client.mjs";
+import { HiveMindApiClient } from "../skrybe-mcp/src/api-client.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const bootstrapDir = resolve(__dirname, "..", "bootstrap");
 
-export async function bootstrapSkrybeProject({
+export async function bootstrapHiveMindProject({
   workspaceRoot = process.cwd(),
   dataRoot = process.env.SKRYBE_DATA_ROOT ?? join(workspaceRoot, ".skrybe")
 } = {}) {
@@ -17,10 +17,10 @@ export async function bootstrapSkrybeProject({
   const rulesetTemplate = await readJsonFile(join(bootstrapDir, "skrybe-ruleset.json"));
 
   const storage = new FsJsonlStorage({ dataRoot });
-  const service = new SkrybeService({ storage });
+  const service = new HiveMindService({ storage });
   const app = createApp({ service });
-  const apiClient = new SkrybeApiClient({
-    baseUrl: "http://skrybe.bootstrap",
+  const apiClient = new HiveMindApiClient({
+    baseUrl: "http://hivemind.bootstrap",
     fetchImpl: (input, init) => app.request(input, init)
   });
 
@@ -47,7 +47,7 @@ export async function bootstrapSkrybeProject({
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const result = await bootstrapSkrybeProject();
+  const result = await bootstrapHiveMindProject();
   console.log(JSON.stringify(result, null, 2));
 }
 

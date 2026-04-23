@@ -1,8 +1,8 @@
-# Skrybe MCP MVP Plan
+# HiveMind MCP MVP Plan
 
 ## 1. Goal
 
-`Skrybe` is a standalone MCP server for cross-project development memory.
+`HiveMind` is a standalone MCP server for cross-project development memory.
 
 It should help agents and humans:
 
@@ -13,12 +13,12 @@ It should help agents and humans:
 - recall prior decisions, problems, and useful tooling,
 - search past work across sessions, branches, and projects.
 
-`Skrybe` is not a task runner, planner, or source of truth for code.
+`HiveMind` is not a task runner, planner, or source of truth for code.
 It is a structured project memory and policy layer.
 
 ## 2. Core Product Shape
 
-`Skrybe` combines three loops:
+`HiveMind` combines three loops:
 
 1. `capture`
    Agent writes the important parts of a session.
@@ -37,7 +37,7 @@ This extends the existing feedback-loop concept from PocketHive:
 
 ## 2A. Target Deployment Shape
 
-For team use, `Skrybe` should be a small distributed system, not a single local MCP process with embedded storage.
+For team use, `HiveMind` should be a small distributed system, not a single local MCP process with embedded storage.
 
 Recommended shape:
 
@@ -92,7 +92,7 @@ This is the true storage adapter.
 
 ## 3. Non-Goals
 
-For MVP, `Skrybe` should not:
+For MVP, `HiveMind` should not:
 
 - become a full PM system,
 - replace git, PRs, issues, docs, or code review,
@@ -170,7 +170,7 @@ Suggested `status` values:
 
 Notes:
 
-- `branch` is a git branch name scoped to the project, not globally unique across the whole Skrybe instance.
+- `branch` is a git branch name scoped to the project, not globally unique across the whole HiveMind instance.
 - `session_id` should be globally unique within one `skrybe-api` instance.
 - `ruleset_version` should be a monotonically increasing integer per project.
 - `agent_id` identifies the executing agent implementation for agent-driven sessions; in v0.1, direct human-authored sessions are a secondary path and can be normalized through `author_type` and `source`.
@@ -332,16 +332,16 @@ Recommended long-term direction:
 
 ### 6.2A `/plan` fit
 
-If the agent framework exposes a `/plan` workflow, `Skrybe` should not model it as a special first-class planning engine in v0.1.
+If the agent framework exposes a `/plan` workflow, `HiveMind` should not model it as a special first-class planning engine in v0.1.
 
 Instead:
 
-- the plan itself remains outside Skrybe,
-- `Skrybe` stores a `plan_ref`,
+- the plan itself remains outside HiveMind,
+- `HiveMind` stores a `plan_ref`,
 - plan execution updates are stored as `progress` entries,
 - plan corrections or plan failures are stored as `feedback` or `decision` entries.
 
-That keeps `Skrybe` compatible with multiple agent frameworks without binding it to one planner implementation.
+That keeps `HiveMind` compatible with multiple agent frameworks without binding it to one planner implementation.
 
 ### 6.3 `progress`
 
@@ -471,7 +471,9 @@ Recommended endpoints:
 
 - `POST /v1/sessions`
 - `GET /v1/sessions/:sessionId`
+- `GET /v1/projects/:projectId/sessions`
 - `POST /v1/sessions/:sessionId/end`
+- `POST /v1/projects/:projectId/sessions/close-older-than`
 
 ### 7A.3 Rules
 
@@ -505,6 +507,19 @@ REST is the right first transport between `skrybe-mcp` and `skrybe-api` because:
 - stable enough for domain-style endpoints.
 
 If later there is a need for streaming or subscriptions, that can be added without changing the storage model.
+
+## 7C. Human UI v0.1
+
+HiveMind should expose a small human-facing UI from `skrybe-api` for operational cleanup.
+
+The first UI should stay narrow:
+
+- list sessions for a project
+- show session status, goal, branch, author, start time, and `last_seen_at`
+- close a single active or paused session as `abandoned`
+- close active or paused sessions older than an explicit hour threshold
+
+`last_seen_at` is a read-model field derived from the session record plus session entries and rule checks.
 
 ## 8. Tool Semantics
 
@@ -722,7 +737,7 @@ Request:
   "author_type": "agent",
   "source": "mcp",
   "agent_id": "codex-main",
-  "goal": "Define Skrybe MVP architecture",
+  "goal": "Define HiveMind MVP architecture",
   "plan_ref": {
     "kind": "file",
     "target": "/home/sepa/buzz/docs/skrybe-mcp-mvp-plan.md"
@@ -962,7 +977,7 @@ This keeps writes simple and recovery easy.
 
 ## 10A. Storage Adapter
 
-`Skrybe` should define one storage boundary early and keep `skrybe-mcp` unaware of backend details.
+`HiveMind` should define one storage boundary early and keep `skrybe-mcp` unaware of backend details.
 
 ### 10A.1 Why it matters
 
@@ -1199,7 +1214,7 @@ In other words:
 ## 12. Reuse From Feedback MCP
 
 The PocketHive feedback MCP already validated several good concepts.
-`Skrybe` should reuse them directly.
+`HiveMind` should reuse them directly.
 
 ### 12.1 Reuse as-is
 
@@ -1220,7 +1235,7 @@ The PocketHive feedback MCP already validated several good concepts.
 
 ### 12.3 Important boundary
 
-Do not force every tool call into Skrybe from day one.
+Do not force every tool call into HiveMind from day one.
 
 For MVP, store only meaningful entries:
 
@@ -1287,7 +1302,7 @@ This split keeps the MCP integration thin and avoids coupling storage evolution 
 ### 13.1 Start of work
 
 1. Agent reads project instructions from `AGENTS.md`.
-2. `AGENTS.md` says to use `Skrybe`.
+2. `AGENTS.md` says to use `HiveMind`.
 3. Agent calls `session.start`.
 4. Agent receives project brief, rules, open threads, recent decisions.
 
@@ -1313,7 +1328,7 @@ Agent appends only important entries:
 ### 13.4 Next session
 
 1. New agent calls `context.get_project_brief` or `session.start`.
-2. Skrybe returns compact prior memory.
+2. HiveMind returns compact prior memory.
 3. Agent resumes with less context loss.
 
 ## 14. Example Records
@@ -1427,14 +1442,14 @@ Mitigation:
 
 ### 15.3 Truth drift
 
-If entries restate docs badly, Skrybe becomes a misinformation cache.
+If entries restate docs badly, HiveMind becomes a misinformation cache.
 
 Mitigation:
 
 - prefer links to source artifacts,
 - use concise summaries,
 - keep `details` optional,
-- never treat Skrybe as canonical design source.
+- never treat HiveMind as canonical design source.
 
 ### 15.4 Retrieval overload
 
@@ -1481,7 +1496,7 @@ Deliver:
 
 Success criteria:
 
-- agent can use Skrybe entirely through MCP,
+- agent can use HiveMind entirely through MCP,
 - MCP stays thin and transport-oriented,
 - API failures map cleanly to MCP responses.
 
@@ -1523,7 +1538,7 @@ Deliver:
 
 Success criteria:
 
-- multiple users can share one Skrybe instance,
+- multiple users can share one HiveMind instance,
 - writes and searches stay stable under concurrent use,
 - MCP contract remains unchanged.
 
@@ -1544,8 +1559,8 @@ These are the decisions I would lock early:
 - REST between MCP and backend,
 - storage adapter behind API,
 - `fs-jsonl` as first backend, not as MCP-local persistence,
-- `project_id` unique within one Skrybe instance,
-- `session_id`, `entry_id`, and `rule_check_id` globally unique within one Skrybe instance,
+- `project_id` unique within one HiveMind instance,
+- `session_id`, `entry_id`, and `rule_check_id` globally unique within one HiveMind instance,
 - `branch` scoped to project, not globally unique,
 - append-only JSONL for journal records,
 - mandatory `summary`,

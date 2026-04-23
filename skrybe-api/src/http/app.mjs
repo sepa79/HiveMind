@@ -1,9 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { Hono } from "hono";
 import { ApiError } from "../app/errors.mjs";
+import { renderHumanUi } from "./ui.mjs";
 
 export function createApp({ service }) {
   const app = new Hono();
+
+  app.get("/", (c) => c.html(renderHumanUi()));
+  app.get("/favicon.ico", (c) => c.body(null, 204));
 
   app.use("*", async (c, next) => {
     const requestId = c.req.header("x-request-id") || randomUUID();
@@ -243,6 +247,26 @@ export function createApp({ service }) {
     const payload = await readJsonBody(c);
     const data = await service.endSession({
       session_id: c.req.param("sessionId"),
+      ...payload
+    });
+    return success(c, data);
+  });
+
+  app.get("/v1/projects/:projectId/sessions", async (c) => {
+    const limit = c.req.query("limit");
+    const data = await service.listSessions({
+      project_id: c.req.param("projectId"),
+      status: c.req.query("status") || undefined,
+      branch: c.req.query("branch") || undefined,
+      limit: limit ? Number.parseInt(limit, 10) : undefined
+    });
+    return success(c, data);
+  });
+
+  app.post("/v1/projects/:projectId/sessions/close-older-than", async (c) => {
+    const payload = await readJsonBody(c);
+    const data = await service.closeSessionsOlderThan({
+      project_id: c.req.param("projectId"),
       ...payload
     });
     return success(c, data);

@@ -1,8 +1,8 @@
-# Skrybe User Guide
+# HiveMind User Guide
 
-## 1. What Skrybe Is
+## 1. What HiveMind Is
 
-`Skrybe` is a small project-memory service for coding sessions.
+`HiveMind` is a small project-memory service for coding sessions.
 
 It gives you:
 
@@ -27,7 +27,7 @@ npm install
 Seed the local repo with the built-in `skrybe` project bootstrap:
 
 ```bash
-npm run bootstrap:skrybe
+npm run bootstrap:hivemind
 ```
 
 This creates repo-local persistent files under:
@@ -50,7 +50,7 @@ The bootstrap is intentionally small:
 Running it again is safe.
 If the bundled ruleset has not changed, the ruleset version stays the same.
 
-## 3. Running Skrybe Locally
+## 3. Running HiveMind Locally
 
 Start the API:
 
@@ -67,6 +67,7 @@ npm run start:mcp
 Default local endpoints:
 
 - API: `http://127.0.0.1:4010`
+- human session UI: `http://127.0.0.1:4010/`
 - data root: `<repo>/.skrybe`
 
 Environment variables:
@@ -78,7 +79,24 @@ Environment variables:
 - `SKRYBE_API_BASE_URL`
   point the MCP server at a different API instance
 
-## 4. Persistence Model
+## 4. Human Session UI
+
+The API serves a simple session dashboard at:
+
+```text
+http://127.0.0.1:4010/
+```
+
+The dashboard can:
+
+- list sessions for a project
+- show `last_seen_at`, derived from session updates plus session entries and rule checks
+- close one active or paused session as `abandoned`
+- close active or paused sessions older than a chosen number of hours
+
+The default project ID is still `skrybe` for the current repository runtime state.
+
+## 5. Persistence Model
 
 Persistence is per `skrybe-api` instance and per `SKRYBE_DATA_ROOT`.
 
@@ -97,7 +115,7 @@ For a registered project, these files are persisted automatically:
 - `rule-checks.jsonl`
 - `idempotency.jsonl`
 
-For new projects, persistence is automatic once they are created through Skrybe:
+For new projects, persistence is automatic once they are created through HiveMind:
 
 1. register the project
 2. define the ruleset
@@ -105,7 +123,7 @@ For new projects, persistence is automatic once they are created through Skrybe:
 
 Nothing else is required to make those records durable in the current data root.
 
-## 5. Recommended Workflow
+## 6. Recommended Workflow
 
 For meaningful work:
 
@@ -130,7 +148,7 @@ The goal is to help the next agent orient quickly without forcing a full brief o
 
 For the `skrybe` repo itself, the bundled ruleset already reflects the hard constraints in `AGENTS.md`.
 
-## 6. Bootstrap vs Runtime State
+## 7. Bootstrap vs Runtime State
 
 Keep a clean separation between:
 
@@ -143,12 +161,12 @@ Runtime state should stay local and disposable.
 This is why the bootstrap does not rely on committed live session files.
 It seeds only the stable starting state that a fresh clone should have.
 
-## 7. Verifying the Setup
+## 8. Verifying the Setup
 
 Run the targeted test slice:
 
 ```bash
-npm run test:skrybe
+npm run test:hivemind
 ```
 
 You can also inspect the resulting files directly, for example:
@@ -158,7 +176,7 @@ cat .skrybe/projects/skrybe/project.json
 cat .skrybe/projects/skrybe/ruleset.json
 ```
 
-## 8. Extending the Pattern for Other Projects
+## 9. Extending the Pattern for Other Projects
 
 The built-in bootstrap is specific to this repo.
 

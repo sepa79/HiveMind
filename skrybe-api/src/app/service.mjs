@@ -39,15 +39,19 @@ import {
   RulesetDefineInputSchema,
   RulesetRecordSchema,
   SearchResultSchema,
+  SessionCloseOlderThanInputSchema,
+  SessionCloseOlderThanResultSchema,
   SessionEndInputSchema,
   SessionEndResultSchema,
+  SessionListInputSchema,
+  SessionListResultSchema,
   SessionStartContextSchema,
   SessionStartInputSchema,
   SessionStartResultSchema
 } from "../domain/schemas.mjs";
 import { ApiError } from "./errors.mjs";
 
-export class SkrybeService {
+export class HiveMindService {
   constructor({ storage }) {
     this.storage = storage;
   }
@@ -250,6 +254,19 @@ export class SkrybeService {
       session,
       reminder: await this.#buildSessionEndReminder(session)
     });
+  }
+
+  async listSessions(input) {
+    const payload = parseWithSchema(SessionListInputSchema, input);
+    return parseWithSchema(SessionListResultSchema, await this.storage.listSessions(payload));
+  }
+
+  async closeSessionsOlderThan(input) {
+    const payload = parseWithSchema(SessionCloseOlderThanInputSchema, input);
+    return parseWithSchema(
+      SessionCloseOlderThanResultSchema,
+      await this.storage.closeSessionsOlderThan(payload)
+    );
   }
 
   async appendEntry(input, { idempotencyKey }) {

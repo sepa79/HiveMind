@@ -1,4 +1,4 @@
-# skrybe
+# HiveMind
 
 Standalone MCP memory service extracted from PocketHive concepts and rebuilt as:
 
@@ -12,14 +12,20 @@ Standalone MCP memory service extracted from PocketHive concepts and rebuilt as:
 - `reference/`
   - original PocketHive feedback-loop and scenario-builder POCs kept as reference material
 - `docs/`
-  - design notes and the current Skrybe MVP plan
+  - design notes and the current HiveMind MVP plan
 
 ## Quick Start
 
 ```bash
 npm install
-npm run bootstrap:skrybe
+npm run bootstrap:hivemind
 npm run start:api
+```
+
+Open the human session UI at:
+
+```text
+http://127.0.0.1:4010/
 ```
 
 In another terminal:
@@ -51,10 +57,10 @@ npm run start:mcp
 npm test
 ```
 
-Or only the new Skrybe slice:
+Or only the new HiveMind slice:
 
 ```bash
-npm run test:skrybe
+npm run test:hivemind
 ```
 
 ## Guide
@@ -62,6 +68,7 @@ npm run test:skrybe
 See [docs/user-guide.md](docs/user-guide.md) for:
 
 - fresh-clone bootstrap
+- human session UI
 - persistence layout
 - local runtime workflow
 - extending the bootstrap pattern to other projects

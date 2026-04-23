@@ -419,6 +419,35 @@ export const SessionEndResultSchema = z.object({
   reminder: SessionEndReminderSchema.nullable()
 });
 
+export const SessionSummarySchema = SessionRecordSchema.extend({
+  last_seen_at: NonEmptyString
+});
+
+export const SessionListInputSchema = z.object({
+  project_id: NonEmptyString,
+  status: z.enum(["active", "paused", "completed", "abandoned"]).optional(),
+  branch: z.string().trim().min(1).optional(),
+  limit: z.number().int().positive().max(200).optional()
+});
+
+export const SessionListResultSchema = z.object({
+  sessions: z.array(SessionSummarySchema),
+  summary: NonEmptyString
+});
+
+export const SessionCloseOlderThanInputSchema = z.object({
+  project_id: NonEmptyString,
+  older_than_hours: z.number().positive().max(87600),
+  status: z.enum(["completed", "abandoned"]),
+  branch: z.string().trim().min(1).optional()
+});
+
+export const SessionCloseOlderThanResultSchema = z.object({
+  closed_sessions: z.array(SessionSummarySchema),
+  cutoff_at: NonEmptyString,
+  summary: NonEmptyString
+});
+
 export const SessionStartResultSchema = z.object({
   session: SessionRecordSchema,
   context: z.lazy(() => SessionStartContextSchema),

@@ -111,6 +111,14 @@ export class StorageAdapter {
     throw new Error("Not implemented");
   }
 
+  async listSessions(_query) {
+    throw new Error("Not implemented");
+  }
+
+  async closeSessionsOlderThan(_query) {
+    throw new Error("Not implemented");
+  }
+
   async getSession(_sessionId) {
     throw new Error("Not implemented");
   }

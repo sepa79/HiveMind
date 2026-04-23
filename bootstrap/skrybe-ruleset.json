@@ -1,9 +1,9 @@
 {
   "rules": [
     {
-      "rule_id": "use_skrybe",
-      "label": "Use Skrybe During Development",
-      "description": "Start or resume a Skrybe session for meaningful work and record important decisions, progress, and feedback as structured entries.",
+      "rule_id": "use_hivemind",
+      "label": "Use HiveMind During Development",
+      "description": "Start or resume a HiveMind session for meaningful work and record important decisions, progress, and feedback as structured entries.",
       "severity": "required",
       "check_mode": "manual_confirm",
       "evidence_hint": "Session start plus concise project-memory entries when work produces durable context.",

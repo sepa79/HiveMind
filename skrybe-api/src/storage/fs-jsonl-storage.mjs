@@ -915,6 +915,68 @@ export class FsJsonlStorage extends StorageAdapter {
     return ended;
   }
 
+  async listSessions({ project_id, status, branch, limit }) {
+    const project = await this.getProject(project_id);
+    ensure(project, 404, "PROJECT_NOT_FOUND", `No project exists with id '${project_id}'.`, {
+      project_id
+    });
+
+    const entries = this.#readJsonLines(this.#entriesFile(project_id));
+    const ruleChecks = this.#readJsonLines(this.#ruleChecksFile(project_id));
+    const sessions = this.#listProjectSessions(project_id)
+      .filter((session) => !status || session.status === status)
+      .filter((session) => !branch || session.branch === branch)
+      .map((session) => this.#withLastSeen(session, entries, ruleChecks))
+      .sort((left, right) => {
+        const byLastSeen = right.last_seen_at.localeCompare(left.last_seen_at);
+        if (byLastSeen !== 0) {
+          return byLastSeen;
+        }
+        return right.started_at.localeCompare(left.started_at);
+      })
+      .slice(0, limit ?? 100);
+
+    return {
+      sessions,
+      summary:
+        sessions.length === 1
+          ? "1 session matched the query."
+          : `${sessions.length} sessions matched the query.`
+    };
+  }
+
+  async closeSessionsOlderThan({ project_id, older_than_hours, status, branch }) {
+    const project = await this.getProject(project_id);
+    ensure(project, 404, "PROJECT_NOT_FOUND", `No project exists with id '${project_id}'.`, {
+      project_id
+    });
+
+    const cutoffAt = new Date(Date.now() - older_than_hours * 60 * 60 * 1000).toISOString();
+    const entries = this.#readJsonLines(this.#entriesFile(project_id));
+    const ruleChecks = this.#readJsonLines(this.#ruleChecksFile(project_id));
+    const staleSessions = this.#listProjectSessions(project_id)
+      .filter((session) => session.status === "active" || session.status === "paused")
+      .filter((session) => !branch || session.branch === branch)
+      .map((session) => this.#withLastSeen(session, entries, ruleChecks))
+      .filter((session) => session.last_seen_at < cutoffAt)
+      .sort((left, right) => left.last_seen_at.localeCompare(right.last_seen_at));
+
+    const closedSessions = [];
+    for (const session of staleSessions) {
+      const closed = await this.endSession(session.session_id, status);
+      closedSessions.push(this.#withLastSeen(closed, entries, ruleChecks));
+    }
+
+    return {
+      closed_sessions: closedSessions,
+      cutoff_at: cutoffAt,
+      summary:
+        closedSessions.length === 1
+          ? "Closed 1 stale session."
+          : `Closed ${closedSessions.length} stale sessions.`
+    };
+  }
+
   async getSession(sessionId) {
     for (const projectId of this.#listProjectIds()) {
       const sessionPath = this.#sessionFile(projectId, sessionId);
@@ -1784,6 +1846,24 @@ export class FsJsonlStorage extends StorageAdapter {
       .filter(Boolean);
   }
 
+  #withLastSeen(session, entries, ruleChecks) {
+    const observedAt = [session.updated_at, session.started_at];
+    for (const entry of entries) {
+      if (entry.session_id === session.session_id) {
+        observedAt.push(entry.timestamp);
+      }
+    }
+    for (const ruleCheck of ruleChecks) {
+      if (ruleCheck.session_id === session.session_id) {
+        observedAt.push(ruleCheck.timestamp);
+      }
+    }
+    return {
+      ...session,
+      last_seen_at: observedAt.sort().at(-1)
+    };
+  }
+
   async #buildContextBrief({ projectId, branch, includeBranch = false }) {
     const project = await this.getProject(projectId);
     ensure(project, 404, "PROJECT_NOT_FOUND", `No project exists with id '${projectId}'.`, {
@@ -1905,7 +1985,7 @@ export class FsJsonlStorage extends StorageAdapter {
         open_threads: openThreads.slice(0, STARTUP_SUMMARY_LIMITS.open_threads)
       },
       hint: "Use context.get_project_brief, context.get_open_threads, learning.get_recent, or issue.list for details.",
-      summary: `Skrybe sees ${counts.active_learnings} active learning${counts.active_learnings === 1 ? "" : "s"}, ${counts.active_issues} active issue${counts.active_issues === 1 ? "" : "s"}, and ${counts.open_threads} open thread${counts.open_threads === 1 ? "" : "s"} on branch '${branch}'.`
+      summary: `HiveMind sees ${counts.active_learnings} active learning${counts.active_learnings === 1 ? "" : "s"}, ${counts.active_issues} active issue${counts.active_issues === 1 ? "" : "s"}, and ${counts.open_threads} open thread${counts.open_threads === 1 ? "" : "s"} on branch '${branch}'.`
     };
   }
 }

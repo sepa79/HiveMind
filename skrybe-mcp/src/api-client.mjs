@@ -1,7 +1,7 @@
-export class SkrybeApiClientError extends Error {
+export class HiveMindApiClientError extends Error {
   constructor({ status, code, message, details, meta }) {
     super(message);
-    this.name = "SkrybeApiClientError";
+    this.name = "HiveMindApiClientError";
     this.status = status;
     this.code = code;
     this.details = details;
@@ -9,7 +9,7 @@ export class SkrybeApiClientError extends Error {
   }
 }
 
-export class SkrybeApiClient {
+export class HiveMindApiClient {
   constructor({ baseUrl, fetchImpl = fetch }) {
     this.baseUrl = baseUrl.replace(/\/$/, "");
     this.fetchImpl = fetchImpl;
@@ -279,7 +279,7 @@ export class SkrybeApiClient {
 
     const payload = await response.json();
     if (!response.ok || !payload.ok) {
-      throw new SkrybeApiClientError({
+      throw new HiveMindApiClientError({
         status: response.status,
         code: payload?.error?.code ?? "API_REQUEST_FAILED",
         message: payload?.error?.message ?? `Request failed with status ${response.status}.`,
