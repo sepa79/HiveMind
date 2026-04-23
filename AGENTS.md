@@ -41,7 +41,7 @@ It keeps the core rules here and points to the authoritative project docs for de
 ## 2) Authoritative Sources
 
 - MVP architecture and product contract:
-  - `docs/skrybe-mcp-mvp-plan.md`
+  - `docs/hivemind-mcp-mvp-plan.md`
 - Feedback-loop concepts and source lineage:
   - `docs/mcp-feedback-loop-concept.md`
   - `docs/mcp-authoring-feedback-loop-v0.1.md`
@@ -55,14 +55,14 @@ It keeps the core rules here and points to the authoritative project docs for de
 
 ## 3) Architecture Boundaries
 
-- `skrybe-mcp`
+- `hivemind-mcp`
   - thin MCP layer only
   - owns MCP tool registration and API client behavior
   - must not know storage details
-- `skrybe-api`
+- `hivemind-api`
   - owns HTTP API, validation, service logic, and response envelopes
 - storage adapter
-  - owned by `skrybe-api`
+  - owned by `hivemind-api`
   - hides backend-specific persistence details
 - `fs-jsonl`
   - current backend implementation detail for v0.1
@@ -78,7 +78,7 @@ Keep these boundaries intact:
 
 ## 4) Development Workflow
 
-1. Read `docs/skrybe-mcp-mvp-plan.md` before structural work.
+1. Read `docs/hivemind-mcp-mvp-plan.md` before structural work.
 2. Start or resume a HiveMind session for meaningful tasks.
 3. Record:
    - `decision` for important design choices
@@ -94,7 +94,7 @@ Protected areas that should be changed carefully:
 - API envelopes
 - idempotency behavior
 - storage adapter contract
-- core schemas in `skrybe-api/src/domain/`
+- core schemas in `hivemind-api/src/domain/`
 - MCP tool names and public input shapes
 
 ---
@@ -131,5 +131,5 @@ Store only information that will help the next session or next contributor.
 ## 7) When In Doubt
 
 - Do not guess.
-- Align code to `docs/skrybe-mcp-mvp-plan.md`.
+- Align code to `docs/hivemind-mcp-mvp-plan.md`.
 - If you need new behavior, update the plan/doc first or get an explicit human decision before widening the contract.

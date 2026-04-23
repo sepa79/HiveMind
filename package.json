@@ -5,11 +5,11 @@
   "type": "module",
   "description": "Standalone MCP memory service for agent and team development context",
   "scripts": {
-    "bootstrap:hivemind": "node scripts/bootstrap-skrybe.mjs",
-    "start:api": "node skrybe-api/src/server.mjs",
-    "start:mcp": "node skrybe-mcp/src/server.mjs",
+    "bootstrap:hivemind": "node scripts/bootstrap-hivemind.mjs",
+    "start:api": "node hivemind-api/src/server.mjs",
+    "start:mcp": "node hivemind-mcp/src/server.mjs",
     "test": "vitest run",
-    "test:hivemind": "vitest run skrybe-api/src skrybe-mcp/src scripts/bootstrap-skrybe.test.mjs",
+    "test:hivemind": "vitest run hivemind-api/src hivemind-mcp/src scripts/bootstrap-hivemind.test.mjs",
     "test:feedback": "vitest run reference/pockethive-orchestrator-debug/*.test.mjs",
     "test:scenario-builder": "vitest run reference/pockethive-scenario-builder-mcp/*.test.mjs"
   },

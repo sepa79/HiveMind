@@ -1174,7 +1174,7 @@ describe("FsJsonlStorage", () => {
 });
 
 function createStorage() {
-  const dataRoot = mkdtempSync(join(tmpdir(), "skrybe-storage-"));
+  const dataRoot = mkdtempSync(join(tmpdir(), "hivemind-storage-"));
   roots.push(dataRoot);
   return new FsJsonlStorage({ dataRoot });
 }

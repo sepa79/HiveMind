@@ -14,7 +14,7 @@ It gives you:
 - a short startup digest when a context or session begins
 
 For the current MVP, persistence is filesystem-backed.
-By default, data lives in `.skrybe/` under the current working directory.
+By default, data lives in `.hivemind/` under the current working directory.
 
 ## 2. Fresh Clone Setup
 
@@ -24,7 +24,7 @@ Install dependencies:
 npm install
 ```
 
-Seed the local repo with the built-in `skrybe` project bootstrap:
+Seed the local repo with the built-in `HiveMind` project bootstrap:
 
 ```bash
 npm run bootstrap:hivemind
@@ -33,17 +33,17 @@ npm run bootstrap:hivemind
 This creates repo-local persistent files under:
 
 ```text
-.skrybe/projects/skrybe/
+.hivemind/projects/hivemind/
 ```
 
 The bootstrap uses the seed files in:
 
-- `bootstrap/skrybe-project.json`
-- `bootstrap/skrybe-ruleset.json`
+- `bootstrap/hivemind-project.json`
+- `bootstrap/hivemind-ruleset.json`
 
 The bootstrap is intentionally small:
 
-- it registers the local `skrybe` project
+- it registers the local `HiveMind` project
 - it sets `root_path` to the current repo root
 - it writes the bundled ruleset into persistent storage
 
@@ -68,15 +68,15 @@ Default local endpoints:
 
 - API: `http://127.0.0.1:4010`
 - human session UI: `http://127.0.0.1:4010/`
-- data root: `<repo>/.skrybe`
+- data root: `<repo>/.hivemind`
 
 Environment variables:
 
-- `SKRYBE_DATA_ROOT`
+- `HIVEMIND_DATA_ROOT`
   use a different persistence directory
-- `SKRYBE_API_PORT`
+- `HIVEMIND_API_PORT`
   change the API port
-- `SKRYBE_API_BASE_URL`
+- `HIVEMIND_API_BASE_URL`
   point the MCP server at a different API instance
 
 ## 4. Human Session UI
@@ -94,16 +94,16 @@ The dashboard can:
 - close one active or paused session as `abandoned`
 - close active or paused sessions older than a chosen number of hours
 
-The default project ID is still `skrybe` for the current repository runtime state.
+The default project ID is `hivemind` for the current repository runtime state.
 
 ## 5. Persistence Model
 
-Persistence is per `skrybe-api` instance and per `SKRYBE_DATA_ROOT`.
+Persistence is per `hivemind-api` instance and per `HIVEMIND_DATA_ROOT`.
 
 That means:
 
 - if you restart the API, data stays
-- if you keep the same `.skrybe/` directory, projects and rulesets stay
+- if you keep the same `.hivemind/` directory, projects and rulesets stay
 - if you point the API at a different data root, you get a different storage universe
 
 For a registered project, these files are persisted automatically:
@@ -146,14 +146,14 @@ It is the “menu” for the project state:
 
 The goal is to help the next agent orient quickly without forcing a full brief on every start.
 
-For the `skrybe` repo itself, the bundled ruleset already reflects the hard constraints in `AGENTS.md`.
+For the `hivemind` repo itself, the bundled ruleset already reflects the hard constraints in `AGENTS.md`.
 
 ## 7. Bootstrap vs Runtime State
 
 Keep a clean separation between:
 
 - seed assets committed to the repo
-- live runtime state created in `.skrybe/`
+- live runtime state created in `.hivemind/`
 
 Committed seed assets belong in `bootstrap/`.
 Runtime state should stay local and disposable.
@@ -172,8 +172,8 @@ npm run test:hivemind
 You can also inspect the resulting files directly, for example:
 
 ```bash
-cat .skrybe/projects/skrybe/project.json
-cat .skrybe/projects/skrybe/ruleset.json
+cat .hivemind/projects/hivemind/project.json
+cat .hivemind/projects/hivemind/ruleset.json
 ```
 
 ## 9. Extending the Pattern for Other Projects
@@ -190,6 +190,6 @@ You can do that through:
 
 - the REST API
 - the MCP tools
-- a repo-local bootstrap script similar to `scripts/bootstrap-skrybe.mjs`
+- a repo-local bootstrap script similar to `scripts/bootstrap-hivemind.mjs`
 
 If you want team-safe repeatability for another project, create a repo-committed seed file and a small bootstrap command for that repo too.

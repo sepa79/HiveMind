@@ -836,7 +836,23 @@ describe("HiveMind API", () => {
     const response = await app.request("/");
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toContain("text/html");
-    expect(await response.text()).toContain("HiveMind Sessions");
+    const html = await response.text();
+    expect(html).toContain("HiveMind Sessions");
+    expect(html).toContain("/assets/hivemind-radial-grid-mark.svg");
+  });
+
+  it("serves allowlisted HiveMind SVG assets", async () => {
+    const app = createTestApp();
+
+    const response = await app.request("/assets/hivemind-radial-grid-mark.svg");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("image/svg+xml");
+    expect(await response.text()).toContain("<svg");
+
+    const missingResponse = await app.request("/assets/not-allowed.svg");
+    expect(missingResponse.status).toBe(404);
+    const missingPayload = await missingResponse.json();
+    expect(missingPayload.error.code).toBe("ASSET_NOT_FOUND");
   });
 
   it("creates a new session when a new idempotency key is used", async () => {
@@ -1123,7 +1139,7 @@ describe("HiveMind API", () => {
 });
 
 function createTestApp() {
-  const dataRoot = mkdtempSync(join(tmpdir(), "skrybe-api-"));
+  const dataRoot = mkdtempSync(join(tmpdir(), "hivemind-api-"));
   roots.push(dataRoot);
   const storage = new FsJsonlStorage({ dataRoot });
   const service = new HiveMindService({ storage });

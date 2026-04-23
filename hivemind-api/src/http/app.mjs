@@ -1,18 +1,37 @@
 import { randomUUID } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { Hono } from "hono";
 import { ApiError } from "../app/errors.mjs";
 import { renderHumanUi } from "./ui.mjs";
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const assetsDir = resolve(__dirname, "..", "..", "..", "assets");
+const allowedSvgAssets = new Set(["hivemind-radial-grid-logo.svg", "hivemind-radial-grid-mark.svg"]);
+
 export function createApp({ service }) {
   const app = new Hono();
-
-  app.get("/", (c) => c.html(renderHumanUi()));
-  app.get("/favicon.ico", (c) => c.body(null, 204));
 
   app.use("*", async (c, next) => {
     const requestId = c.req.header("x-request-id") || randomUUID();
     c.set("requestId", requestId);
     await next();
+  });
+
+  app.get("/", (c) => c.html(renderHumanUi()));
+  app.get("/favicon.ico", (c) => c.body(null, 204));
+  app.get("/assets/:assetName", async (c) => {
+    const assetName = c.req.param("assetName");
+    if (!allowedSvgAssets.has(assetName)) {
+      throw new ApiError(404, "ASSET_NOT_FOUND", `No asset exists with name '${assetName}'.`, {
+        asset_name: assetName
+      });
+    }
+
+    return c.body(await readFile(join(assetsDir, assetName), "utf8"), 200, {
+      "content-type": "image/svg+xml; charset=utf-8"
+    });
   });
 
   app.onError((error, c) => {

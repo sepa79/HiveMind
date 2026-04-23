@@ -6,7 +6,7 @@ import { z } from "zod";
 import { HiveMindApiClient } from "./api-client.mjs";
 import { createHiveMindRuntime } from "./runtime.mjs";
 
-const apiBaseUrl = process.env.SKRYBE_API_BASE_URL || "http://127.0.0.1:4010";
+const apiBaseUrl = process.env.HIVEMIND_API_BASE_URL || "http://127.0.0.1:4010";
 
 const server = new McpServer({
   name: "hivemind",

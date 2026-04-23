@@ -41,18 +41,18 @@ For team use, `HiveMind` should be a small distributed system, not a single loca
 
 Recommended shape:
 
-1. `skrybe-mcp`
+1. `hivemind-mcp`
    MCP server used by agents inside coding sessions.
-2. `skrybe-api`
+2. `hivemind-api`
    HTTP backend exposing the domain API.
 3. `storage adapter`
-   backend abstraction used by `skrybe-api`.
+   backend abstraction used by `hivemind-api`.
 4. `storage backend`
    concrete implementation such as `fs-jsonl`, later `mongo`, and optionally search indexing.
 
 Logical flow:
 
-`agent -> skrybe-mcp -> HTTP -> skrybe-api -> storage adapter -> backend`
+`agent -> hivemind-mcp -> HTTP -> hivemind-api -> storage adapter -> backend`
 
 This is the correct boundary if:
 
@@ -67,11 +67,11 @@ There are two different adapter layers and they should not be conflated.
 
 ### 2B.1 MCP-side API client
 
-Lives inside `skrybe-mcp`.
+Lives inside `hivemind-mcp`.
 
 Responsibilities:
 
-- call `skrybe-api`,
+- call `hivemind-api`,
 - translate HTTP failures into MCP-friendly responses,
 - apply request idempotency headers when needed,
 - keep MCP handlers thin.
@@ -80,7 +80,7 @@ This is an API client or gateway, not a storage adapter.
 
 ### 2B.2 API-side storage adapter
 
-Lives inside `skrybe-api`.
+Lives inside `hivemind-api`.
 
 Responsibilities:
 
@@ -137,7 +137,7 @@ Notes:
 - `features[]` are product/domain areas like `billing`, `auth`, `editor`.
 - `categories[]` are generic work buckets like `backend`, `frontend`, `infra`, `testing`, `docs`.
 - both should be extendable by the project.
-- `project_id` should be unique within one `skrybe-api` instance.
+- `project_id` should be unique within one `hivemind-api` instance.
 - `root_path` is the canonical default repository root for the project; actual per-session checkout paths belong in `workspace_path`.
 
 ### 5.2 Session
@@ -171,7 +171,7 @@ Suggested `status` values:
 Notes:
 
 - `branch` is a git branch name scoped to the project, not globally unique across the whole HiveMind instance.
-- `session_id` should be globally unique within one `skrybe-api` instance.
+- `session_id` should be globally unique within one `hivemind-api` instance.
 - `ruleset_version` should be a monotonically increasing integer per project.
 - `agent_id` identifies the executing agent implementation for agent-driven sessions; in v0.1, direct human-authored sessions are a secondary path and can be normalized through `author_type` and `source`.
 
@@ -213,7 +213,7 @@ Suggested `importance` values:
 
 Notes:
 
-- `entry_id` should be globally unique within one `skrybe-api` instance.
+- `entry_id` should be globally unique within one `hivemind-api` instance.
 - `summary` is mandatory and should stay short enough to be useful in search results and brief views.
 - `lifecycle_state` is mainly relevant for `risk` and unresolved `feedback` style entries.
 
@@ -284,7 +284,7 @@ Suggested `status` values:
 
 Notes:
 
-- `rule_check_id` should be globally unique within one `skrybe-api` instance.
+- `rule_check_id` should be globally unique within one `hivemind-api` instance.
 
 ## 6. Entry Types
 
@@ -455,7 +455,7 @@ The first version should stay small.
 
 ## 7A. API Surface v0.1
 
-The HTTP API should mirror the domain model closely enough that `skrybe-mcp` stays thin.
+The HTTP API should mirror the domain model closely enough that `hivemind-mcp` stays thin.
 
 Recommended endpoints:
 
@@ -498,7 +498,7 @@ Recommended endpoints:
 
 ## 7B. Why REST First
 
-REST is the right first transport between `skrybe-mcp` and `skrybe-api` because:
+REST is the right first transport between `hivemind-mcp` and `hivemind-api` because:
 
 - it is easy to debug,
 - easy to proxy,
@@ -510,7 +510,7 @@ If later there is a need for streaming or subscriptions, that can be added witho
 
 ## 7C. Human UI v0.1
 
-HiveMind should expose a small human-facing UI from `skrybe-api` for operational cleanup.
+HiveMind should expose a small human-facing UI from `hivemind-api` for operational cleanup.
 
 The first UI should stay narrow:
 
@@ -731,7 +731,7 @@ Request:
 ```json
 {
   "project_id": "buzz",
-  "branch": "feat/skrybe-mvp",
+  "branch": "feat/hivemind-mvp",
   "workspace_path": "/home/sepa/buzz",
   "author_id": "codex-main",
   "author_type": "agent",
@@ -740,7 +740,7 @@ Request:
   "goal": "Define HiveMind MVP architecture",
   "plan_ref": {
     "kind": "file",
-    "target": "/home/sepa/buzz/docs/skrybe-mcp-mvp-plan.md"
+    "target": "/home/sepa/buzz/docs/hivemind-mcp-mvp-plan.md"
   }
 }
 ```
@@ -754,7 +754,7 @@ Response:
     "session": {
       "session_id": "sess-123",
       "project_id": "buzz",
-      "branch": "feat/skrybe-mvp",
+      "branch": "feat/hivemind-mvp",
       "status": "active"
     },
     "context": {
@@ -780,13 +780,13 @@ Request:
 {
   "project_id": "buzz",
   "session_id": "sess-123",
-  "branch": "feat/skrybe-mvp",
+  "branch": "feat/hivemind-mvp",
   "author_id": "codex-main",
   "author_type": "agent",
   "source": "mcp",
   "entry_type": "decision",
   "summary": "Chosen HTTP API plus storage adapter split",
-  "details": "MCP will call skrybe-api over REST. Backend storage stays behind API.",
+  "details": "MCP will call hivemind-api over REST. Backend storage stays behind API.",
   "feature": "architecture",
   "category": "backend",
   "tags": ["api", "storage"],
@@ -897,7 +897,7 @@ Example:
 
 ## 10. Storage Model
 
-Filesystem-first is still the correct first backend choice, but it should sit behind `skrybe-api`.
+Filesystem-first is still the correct first backend choice, but it should sit behind `hivemind-api`.
 
 Important extension:
 
@@ -917,16 +917,16 @@ This layout should be understood as one backend data root, not as one project-on
 
 So:
 
-- one `skrybe-api` instance can serve many projects,
+- one `hivemind-api` instance can serve many projects,
 - each project gets its own subdirectory under the shared data root,
-- `.skrybe/` is acceptable for local development, but not the only intended placement.
+- `.hivemind/` is acceptable for local development, but not the only intended placement.
 
 Recommended mental model:
 
 - `data_root` is configurable, for example:
-  - local dev: `/home/sepa/buzz/.skrybe/`
-  - shared server: `/var/lib/skrybe/`
-  - container volume: `/data/skrybe/`
+  - local dev: `/home/sepa/buzz/.hivemind/`
+  - shared server: `/var/lib/hivemind/`
+  - container volume: `/data/hivemind/`
 
 ```text
 <data_root>/
@@ -955,11 +955,11 @@ Recommended mental model:
 If team usage becomes the default, I would avoid repo-local placement as the primary deployment shape.
 In that mode the preferred setup is:
 
-- shared `skrybe-api`
+- shared `hivemind-api`
 - one shared `data_root`
 - many projects under `projects/<project_id>/`
 
-Repo-local `.skrybe/` still makes sense for:
+Repo-local `.hivemind/` still makes sense for:
 
 - local development,
 - offline testing,
@@ -977,14 +977,14 @@ This keeps writes simple and recovery easy.
 
 ## 10A. Storage Adapter
 
-`HiveMind` should define one storage boundary early and keep `skrybe-mcp` unaware of backend details.
+`HiveMind` should define one storage boundary early and keep `hivemind-mcp` unaware of backend details.
 
 ### 10A.1 Why it matters
 
 The likely evolution path is:
 
-1. local `skrybe-api` with JSONL backend in one repo,
-2. shared `skrybe-api` with local or synced volume for a small team,
+1. local `hivemind-api` with JSONL backend in one repo,
+2. shared `hivemind-api` with local or synced volume for a small team,
 3. real multi-user backend such as MongoDB, with optional search indexing.
 
 If writes, filters, and summaries are coupled directly to files, migration cost will be high and behavior will drift.
@@ -1110,8 +1110,8 @@ Weaknesses:
 
 The practical order is:
 
-1. `fs-jsonl` behind `skrybe-api` for MVP
-2. `mongo` behind `skrybe-api` for first shared team rollout
+1. `fs-jsonl` behind `hivemind-api` for MVP
+2. `mongo` behind `hivemind-api` for first shared team rollout
 3. optional search adapter later, either:
    - keep Mongo as system of record and add OpenSearch as search index
    - or keep a single backend if search demands stay modest
@@ -1253,13 +1253,13 @@ If you log everything, recall quality collapses.
 
 The clean repo split is:
 
-### 12A.1 `skrybe-mcp`
+### 12A.1 `hivemind-mcp`
 
 Responsibilities:
 
 - MCP tool registration,
 - request validation specific to MCP inputs,
-- calling `skrybe-api`,
+- calling `hivemind-api`,
 - converting API errors into MCP-friendly responses.
 
 Suggested internal modules:
@@ -1269,7 +1269,7 @@ Suggested internal modules:
 - `src/contracts/`
 - `src/mappers/`
 
-### 12A.2 `skrybe-api`
+### 12A.2 `hivemind-api`
 
 Responsibilities:
 
@@ -1291,9 +1291,9 @@ Suggested internal modules:
 
 ### 12A.3 Optional future packages
 
-- `skrybe-cli`
-- `skrybe-web`
-- `skrybe-sdk`
+- `hivemind-cli`
+- `hivemind-web`
+- `hivemind-sdk`
 
 This split keeps the MCP integration thin and avoids coupling storage evolution to agent tooling.
 
@@ -1340,7 +1340,7 @@ Agent appends only important entries:
   "entry_id": "ent-001",
   "project_id": "buzz",
   "session_id": "sess-123",
-  "branch": "feat/skrybe-mvp",
+  "branch": "feat/hivemind-mvp",
   "author_id": "codex-main",
   "author_type": "agent",
   "source": "mcp",
@@ -1350,7 +1350,7 @@ Agent appends only important entries:
   "links": [
     {
       "kind": "file",
-      "target": "/home/sepa/buzz/docs/skrybe-mcp-mvp-plan.md"
+      "target": "/home/sepa/buzz/docs/hivemind-mcp-mvp-plan.md"
     }
   ],
   "importance": "high"
@@ -1364,7 +1364,7 @@ Agent appends only important entries:
   "entry_id": "ent-002",
   "project_id": "buzz",
   "session_id": "sess-123",
-  "branch": "feat/skrybe-mvp",
+  "branch": "feat/hivemind-mvp",
   "author_id": "codex-main",
   "author_type": "agent",
   "source": "mcp",
@@ -1386,7 +1386,7 @@ Agent appends only important entries:
   "entry_id": "ent-003",
   "project_id": "buzz",
   "session_id": "sess-123",
-  "branch": "feat/skrybe-mvp",
+  "branch": "feat/hivemind-mvp",
   "author_id": "codex-main",
   "author_type": "agent",
   "source": "mcp",
@@ -1467,7 +1467,7 @@ Mitigation:
 
 Deliver:
 
-- `skrybe-api` skeleton,
+- `hivemind-api` skeleton,
 - storage adapter contract,
 - `fs-jsonl` backend,
 - `POST /v1/projects`,
@@ -1486,7 +1486,7 @@ Success criteria:
 
 Deliver:
 
-- `skrybe-mcp` skeleton,
+- `hivemind-mcp` skeleton,
 - API client layer,
 - MCP tools for:
   - `project.register`
@@ -1532,7 +1532,7 @@ Success criteria:
 
 Deliver:
 
-- `mongo` backend for `skrybe-api`,
+- `mongo` backend for `hivemind-api`,
 - migration/import path from `fs-jsonl`,
 - basic auth or service-level access control if needed.
 
@@ -1555,7 +1555,7 @@ Deliver later if useful:
 
 These are the decisions I would lock early:
 
-- separate `skrybe-mcp` and `skrybe-api`,
+- separate `hivemind-mcp` and `hivemind-api`,
 - REST between MCP and backend,
 - storage adapter behind API,
 - `fs-jsonl` as first backend, not as MCP-local persistence,
@@ -1582,11 +1582,11 @@ These are the decisions I would lock early:
 
 The best next implementation step is:
 
-1. create `skrybe-api` skeleton,
+1. create `hivemind-api` skeleton,
 2. define the storage adapter contract,
 3. implement `fs-jsonl` backend,
 4. expose `POST /v1/projects`, `POST /v1/sessions`, `POST /v1/entries`, `POST /v1/entries/search`,
-5. create `skrybe-mcp` skeleton with API client,
+5. create `hivemind-mcp` skeleton with API client,
 6. wire MCP tools for `project.register`, `session.start`, `entry.append`, `entry.search`,
 7. only then add rules and recall briefs.
 

@@ -2,7 +2,7 @@ import { mkdtempSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { bootstrapHiveMindProject } from "./bootstrap-skrybe.mjs";
+import { bootstrapHiveMindProject } from "./bootstrap-hivemind.mjs";
 
 const roots = [];
 
@@ -15,16 +15,16 @@ afterEach(() => {
 describe("bootstrapHiveMindProject", () => {
   it("creates persistent project and ruleset files for a fresh clone", async () => {
     const workspaceRoot = mkdtempSync(join(tmpdir(), "hivemind-workspace-"));
-    const dataRoot = join(workspaceRoot, ".skrybe");
+    const dataRoot = join(workspaceRoot, ".hivemind");
     roots.push(workspaceRoot);
     mkdirSync(workspaceRoot, { recursive: true });
 
     const result = await bootstrapHiveMindProject({ workspaceRoot, dataRoot });
 
-    const project = JSON.parse(readFileSync(join(dataRoot, "projects", "skrybe", "project.json"), "utf8"));
-    const ruleset = JSON.parse(readFileSync(join(dataRoot, "projects", "skrybe", "ruleset.json"), "utf8"));
+    const project = JSON.parse(readFileSync(join(dataRoot, "projects", "hivemind", "project.json"), "utf8"));
+    const ruleset = JSON.parse(readFileSync(join(dataRoot, "projects", "hivemind", "ruleset.json"), "utf8"));
 
-    expect(result.project.project_id).toBe("skrybe");
+    expect(result.project.project_id).toBe("hivemind");
     expect(result.project.root_path).toBe(workspaceRoot);
     expect(project.root_path).toBe(workspaceRoot);
     expect(ruleset.version).toBe(1);
@@ -33,7 +33,7 @@ describe("bootstrapHiveMindProject", () => {
 
   it("does not bump the ruleset version when bootstrapped twice without changes", async () => {
     const workspaceRoot = mkdtempSync(join(tmpdir(), "hivemind-workspace-"));
-    const dataRoot = join(workspaceRoot, ".skrybe");
+    const dataRoot = join(workspaceRoot, ".hivemind");
     roots.push(workspaceRoot);
 
     const first = await bootstrapHiveMindProject({ workspaceRoot, dataRoot });

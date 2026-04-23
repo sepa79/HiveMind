@@ -5,8 +5,8 @@ import { HiveMindService } from "./app/service.mjs";
 import { createApp } from "./http/app.mjs";
 import { FsJsonlStorage } from "./storage/fs-jsonl-storage.mjs";
 
-const port = Number(process.env.SKRYBE_API_PORT || "4010");
-const dataRoot = process.env.SKRYBE_DATA_ROOT || `${process.cwd()}/.skrybe`;
+const port = Number(process.env.HIVEMIND_API_PORT || "4010");
+const dataRoot = process.env.HIVEMIND_DATA_ROOT || `${process.cwd()}/.hivemind`;
 
 const storage = new FsJsonlStorage({ dataRoot });
 const service = new HiveMindService({ storage });

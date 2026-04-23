@@ -37,7 +37,7 @@
     {
       "rule_id": "preserve_architecture_boundaries",
       "label": "Preserve MCP/API/Storage Boundaries",
-      "description": "Keep skrybe-mcp thin, keep storage concerns inside skrybe-api, and do not let fs-jsonl details leak into MCP contracts.",
+      "description": "Keep hivemind-mcp thin, keep storage concerns inside hivemind-api, and do not let fs-jsonl details leak into MCP contracts.",
       "severity": "required",
       "check_mode": "file_reference_required",
       "evidence_hint": "Reference the files or docs showing the boundary was preserved.",
@@ -97,7 +97,7 @@
     {
       "rule_id": "align_with_mvp_plan",
       "label": "Align Structural Changes With MVP Plan",
-      "description": "Before widening contracts or making structural changes, align with docs/skrybe-mcp-mvp-plan.md or update the docs first.",
+      "description": "Before widening contracts or making structural changes, align with docs/hivemind-mcp-mvp-plan.md or update the docs first.",
       "severity": "required",
       "check_mode": "file_reference_required",
       "evidence_hint": "Reference the MVP plan or updated design doc when changing structure or public shape.",

@@ -5,6 +5,7 @@ export function renderHumanUi() {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>HiveMind Sessions</title>
+  <link rel="icon" href="/assets/hivemind-radial-grid-mark.svg" type="image/svg+xml">
   <style>
     :root {
       color-scheme: light;
@@ -58,6 +59,22 @@ export function renderHumanUi() {
       font-size: 22px;
       font-weight: 700;
       letter-spacing: 0;
+    }
+
+    .brand-lockup {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .brand-mark {
+      width: 42px;
+      height: 42px;
+      border-radius: 6px;
+      background: #12151b;
+      padding: 5px;
+      flex: 0 0 auto;
     }
 
     main {
@@ -248,7 +265,10 @@ export function renderHumanUi() {
 <body>
   <header>
     <div class="wrap topbar">
-      <h1>HiveMind Sessions</h1>
+      <div class="brand-lockup">
+        <img class="brand-mark" src="/assets/hivemind-radial-grid-mark.svg" alt="" aria-hidden="true">
+        <h1>HiveMind Sessions</h1>
+      </div>
       <button id="refresh" class="secondary" type="button" title="Refresh sessions">Refresh</button>
     </div>
   </header>
@@ -256,7 +276,7 @@ export function renderHumanUi() {
     <section class="toolbar" aria-label="Session controls">
       <label>
         Project ID
-        <input id="projectId" value="skrybe" autocomplete="off">
+        <input id="projectId" value="hivemind" autocomplete="off">
       </label>
       <label>
         Status

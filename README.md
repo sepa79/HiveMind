@@ -1,14 +1,16 @@
 # HiveMind
 
+![HiveMind](assets/hivemind-radial-grid-logo.svg)
+
 Standalone MCP memory service extracted from PocketHive concepts and rebuilt as:
 
-- `skrybe-api`
+- `hivemind-api`
   - Hono REST backend
   - system of record for projects, sessions, and entries
   - `fs-jsonl` storage adapter for v0.1
-- `skrybe-mcp`
+- `hivemind-mcp`
   - thin MCP server
-  - talks to `skrybe-api` over REST
+  - talks to `hivemind-api` over REST
 - `reference/`
   - original PocketHive feedback-loop and scenario-builder POCs kept as reference material
 - `docs/`
@@ -36,18 +38,18 @@ npm run start:mcp
 
 ## Environment
 
-`skrybe-api`:
+`hivemind-api`:
 
-- `SKRYBE_DATA_ROOT`
+- `HIVEMIND_DATA_ROOT`
   - optional
-  - defaults to `<cwd>/.skrybe`
-- `SKRYBE_API_PORT`
+  - defaults to `<cwd>/.hivemind`
+- `HIVEMIND_API_PORT`
   - optional
   - defaults to `4010`
 
-`skrybe-mcp`:
+`hivemind-mcp`:
 
-- `SKRYBE_API_BASE_URL`
+- `HIVEMIND_API_BASE_URL`
   - optional
   - defaults to `http://127.0.0.1:4010`
 

@@ -2,9 +2,9 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { HiveMindService } from "../../skrybe-api/src/app/service.mjs";
-import { createApp } from "../../skrybe-api/src/http/app.mjs";
-import { FsJsonlStorage } from "../../skrybe-api/src/storage/fs-jsonl-storage.mjs";
+import { HiveMindService } from "../../hivemind-api/src/app/service.mjs";
+import { createApp } from "../../hivemind-api/src/http/app.mjs";
+import { FsJsonlStorage } from "../../hivemind-api/src/storage/fs-jsonl-storage.mjs";
 import { HiveMindApiClient } from "./api-client.mjs";
 import { createHiveMindRuntime } from "./runtime.mjs";
 
@@ -742,13 +742,13 @@ describe("HiveMind MCP runtime", () => {
 });
 
 function createRuntime() {
-  const dataRoot = mkdtempSync(join(tmpdir(), "skrybe-mcp-"));
+  const dataRoot = mkdtempSync(join(tmpdir(), "hivemind-mcp-"));
   roots.push(dataRoot);
   const storage = new FsJsonlStorage({ dataRoot });
   const service = new HiveMindService({ storage });
   const app = createApp({ service });
   const apiClient = new HiveMindApiClient({
-    baseUrl: "http://skrybe.test",
+    baseUrl: "http://hivemind.test",
     fetchImpl: (input, init) => app.request(input, init)
   });
   return createHiveMindRuntime({ apiClient });
