@@ -82,6 +82,15 @@ export class FsJsonlStorage extends StorageAdapter {
     return this.#readJsonFile(this.#projectFile(projectId), null);
   }
 
+  async listProjects() {
+    return {
+      projects: this.#listProjectIds()
+        .map((projectId) => this.#readJsonFile(this.#projectFile(projectId), null))
+        .filter(Boolean)
+        .sort((left, right) => left.project_id.localeCompare(right.project_id))
+    };
+  }
+
   async listFeatures(projectId) {
     const project = await this.getProject(projectId);
     ensure(project, 404, "PROJECT_NOT_FOUND", `No project exists with id '${projectId}'.`, {
@@ -888,17 +897,18 @@ export class FsJsonlStorage extends StorageAdapter {
     ensure(session, 404, "SESSION_NOT_FOUND", `No session exists with id '${sessionId}'.`, {
       session_id: sessionId
     });
+    const finalStatus = status ?? "completed";
 
     if (session.status === "completed" || session.status === "abandoned") {
       ensure(
-        session.status === status,
+        session.status === finalStatus,
         409,
         "SESSION_ALREADY_ENDED_WITH_DIFFERENT_STATUS",
-        `Session '${sessionId}' is already '${session.status}' and cannot be changed to '${status}'.`,
+        `Session '${sessionId}' is already '${session.status}' and cannot be changed to '${finalStatus}'.`,
         {
           session_id: sessionId,
           status: session.status,
-          requested_status: status
+          requested_status: finalStatus
         }
       );
       return session;
@@ -907,7 +917,7 @@ export class FsJsonlStorage extends StorageAdapter {
     const now = isoNow();
     const ended = {
       ...session,
-      status,
+      status: finalStatus,
       ended_at: now,
       updated_at: now
     };
@@ -926,7 +936,7 @@ export class FsJsonlStorage extends StorageAdapter {
     const sessions = this.#listProjectSessions(project_id)
       .filter((session) => !status || session.status === status)
       .filter((session) => !branch || session.branch === branch)
-      .map((session) => this.#withLastSeen(session, entries, ruleChecks))
+      .map((session) => this.#withSessionActivity(session, entries, ruleChecks))
       .sort((left, right) => {
         const byLastSeen = right.last_seen_at.localeCompare(left.last_seen_at);
         if (byLastSeen !== 0) {
@@ -945,38 +955,6 @@ export class FsJsonlStorage extends StorageAdapter {
     };
   }
 
-  async closeSessionsOlderThan({ project_id, older_than_hours, status, branch }) {
-    const project = await this.getProject(project_id);
-    ensure(project, 404, "PROJECT_NOT_FOUND", `No project exists with id '${project_id}'.`, {
-      project_id
-    });
-
-    const cutoffAt = new Date(Date.now() - older_than_hours * 60 * 60 * 1000).toISOString();
-    const entries = this.#readJsonLines(this.#entriesFile(project_id));
-    const ruleChecks = this.#readJsonLines(this.#ruleChecksFile(project_id));
-    const staleSessions = this.#listProjectSessions(project_id)
-      .filter((session) => session.status === "active" || session.status === "paused")
-      .filter((session) => !branch || session.branch === branch)
-      .map((session) => this.#withLastSeen(session, entries, ruleChecks))
-      .filter((session) => session.last_seen_at < cutoffAt)
-      .sort((left, right) => left.last_seen_at.localeCompare(right.last_seen_at));
-
-    const closedSessions = [];
-    for (const session of staleSessions) {
-      const closed = await this.endSession(session.session_id, status);
-      closedSessions.push(this.#withLastSeen(closed, entries, ruleChecks));
-    }
-
-    return {
-      closed_sessions: closedSessions,
-      cutoff_at: cutoffAt,
-      summary:
-        closedSessions.length === 1
-          ? "Closed 1 stale session."
-          : `Closed ${closedSessions.length} stale sessions.`
-    };
-  }
-
   async getSession(sessionId) {
     for (const projectId of this.#listProjectIds()) {
       const sessionPath = this.#sessionFile(projectId, sessionId);
@@ -985,6 +963,80 @@ export class FsJsonlStorage extends StorageAdapter {
       }
     }
     return null;
+  }
+
+  async getSessionCloseout(sessionId) {
+    const session = await this.getSession(sessionId);
+    ensure(session, 404, "SESSION_NOT_FOUND", `No session exists with id '${sessionId}'.`, {
+      session_id: sessionId
+    });
+
+    const entries = this.#readJsonLines(this.#entriesFile(session.project_id));
+    const ruleChecks = this.#readJsonLines(this.#ruleChecksFile(session.project_id));
+    const sessionEntries = entries.filter((entry) => entry.session_id === session.session_id);
+    const sessionRuleChecks = ruleChecks.filter((ruleCheck) => ruleCheck.session_id === session.session_id);
+    const sessionWithActivity = this.#withSessionActivity(session, entries, ruleChecks);
+    const ruleset = await this.getRuleset(session.project_id);
+    const coveredRuleIds = new Set(sessionRuleChecks.map((ruleCheck) => ruleCheck.rule_id));
+    const missingRequiredRules = (ruleset?.rules ?? []).filter(
+      (rule) => rule.severity === "required" && !coveredRuleIds.has(rule.rule_id)
+    );
+    const activeLearningSummaries = await this.listActiveBranchLearnings(session.project_id, session.branch, 5);
+    const activeIssueSummaries = await this.listActiveIssues(session.project_id, session.branch, 5);
+
+    const entryGroups = [...groupBy(sessionEntries, (entry) => entry.entry_type).entries()]
+      .sort((left, right) => left[0].localeCompare(right[0]))
+      .map(([entryType, groupedEntries]) => ({
+        entry_type: entryType,
+        count: groupedEntries.length,
+        entries: groupedEntries.sort((left, right) => right.timestamp.localeCompare(left.timestamp))
+      }));
+
+    const parts = [
+      `Session '${session.goal}' recorded ${sessionEntries.length} entr${sessionEntries.length === 1 ? "y" : "ies"} and ${sessionRuleChecks.length} rule check${sessionRuleChecks.length === 1 ? "" : "s"}.`
+    ];
+    if (missingRequiredRules.length > 0) {
+      parts.push(
+        missingRequiredRules.length === 1
+          ? "1 required rule still has no check for this work unit."
+          : `${missingRequiredRules.length} required rules still have no checks for this work unit.`
+      );
+    }
+    if (activeLearningSummaries.length > 0) {
+      parts.push(
+        activeLearningSummaries.length === 1
+          ? "1 active learning remains on this branch."
+          : `${activeLearningSummaries.length} active learnings remain on this branch.`
+      );
+    }
+    if (activeIssueSummaries.length > 0) {
+      parts.push(
+        activeIssueSummaries.length === 1
+          ? "1 active issue remains on this branch."
+          : `${activeIssueSummaries.length} active issues remain on this branch.`
+      );
+    }
+
+    return {
+      session_id: session.session_id,
+      project_id: session.project_id,
+      branch: session.branch,
+      goal: session.goal,
+      plan_ref: session.plan_ref,
+      status: session.status,
+      started_at: session.started_at,
+      ended_at: session.ended_at,
+      last_seen_at: sessionWithActivity.last_seen_at,
+      activity_counts: sessionWithActivity.activity_counts,
+      entry_groups: entryGroups,
+      rule_checks: sessionRuleChecks.sort((left, right) => right.timestamp.localeCompare(left.timestamp)),
+      missing_required_rules: missingRequiredRules,
+      active_learning_count: activeLearningSummaries.length,
+      active_learning_summaries: activeLearningSummaries,
+      active_issue_count: activeIssueSummaries.length,
+      active_issue_summaries: activeIssueSummaries,
+      summary: parts.join(" ")
+    };
   }
 
   async getSessionStartContext({ project_id, branch }) {
@@ -1001,6 +1053,7 @@ export class FsJsonlStorage extends StorageAdapter {
 
     return {
       rules: ruleset?.rules ?? [],
+      features: project.features ?? [],
       recent_decisions: this.#selectRecallEntries(entries, {
         branch,
         entryTypes: ["decision"],
@@ -1846,21 +1899,29 @@ export class FsJsonlStorage extends StorageAdapter {
       .filter(Boolean);
   }
 
-  #withLastSeen(session, entries, ruleChecks) {
+  #withSessionActivity(session, entries, ruleChecks) {
     const observedAt = [session.updated_at, session.started_at];
+    let entryCount = 0;
     for (const entry of entries) {
       if (entry.session_id === session.session_id) {
+        entryCount += 1;
         observedAt.push(entry.timestamp);
       }
     }
+    let ruleCheckCount = 0;
     for (const ruleCheck of ruleChecks) {
       if (ruleCheck.session_id === session.session_id) {
+        ruleCheckCount += 1;
         observedAt.push(ruleCheck.timestamp);
       }
     }
     return {
       ...session,
-      last_seen_at: observedAt.sort().at(-1)
+      last_seen_at: observedAt.sort().at(-1),
+      activity_counts: {
+        entries: entryCount,
+        rule_checks: ruleCheckCount
+      }
     };
   }
 
@@ -2024,6 +2085,17 @@ function toCountFacet(values) {
       return left[0].localeCompare(right[0]);
     })
     .map(([value, count]) => ({ value, count }));
+}
+
+function groupBy(values, keyFn) {
+  const groups = new Map();
+  for (const value of values) {
+    const key = keyFn(value);
+    const group = groups.get(key) ?? [];
+    group.push(value);
+    groups.set(key, group);
+  }
+  return groups;
 }
 
 function compareBranchMatch(left, right, branch) {

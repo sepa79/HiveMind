@@ -6,19 +6,20 @@
   "description": "Standalone MCP memory service for agent and team development context",
   "scripts": {
     "bootstrap:hivemind": "node scripts/bootstrap-hivemind.mjs",
+    "bootstrap:demo": "./bootstrap.sh",
+    "doctor": "node scripts/hivemind-work-unit.mjs doctor",
+    "hivemind:init": "node scripts/hivemind-work-unit.mjs init",
+    "hivemind:save-demo": "./scripts/save-demo-state.sh",
+    "hivemind:work": "node scripts/hivemind-work-unit.mjs",
     "start:api": "node hivemind-api/src/server.mjs",
     "start:mcp": "node hivemind-mcp/src/server.mjs",
     "test": "vitest run",
-    "test:hivemind": "vitest run hivemind-api/src hivemind-mcp/src scripts/bootstrap-hivemind.test.mjs",
-    "test:feedback": "vitest run reference/pockethive-orchestrator-debug/*.test.mjs",
-    "test:scenario-builder": "vitest run reference/pockethive-scenario-builder-mcp/*.test.mjs"
+    "test:hivemind": "vitest run hivemind-api/src hivemind-mcp/src scripts/bootstrap-hivemind.test.mjs scripts/hivemind-work-unit.test.mjs"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.14",
     "@modelcontextprotocol/sdk": "^1.25.1",
-    "amqplib": "^0.10.4",
     "hono": "^4.12.14",
-    "yaml": "^2.8.1",
     "zod": "^3.24.1"
   },
   "devDependencies": {

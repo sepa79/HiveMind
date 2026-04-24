@@ -13,8 +13,11 @@ It keeps the core rules here and points to the authoritative project docs for de
 - Any exception requires explicit human approval for that specific task.
 
 - **Use HiveMind during development.**
-  - Start or resume a HiveMind session for meaningful work.
+  - Start a dedicated HiveMind session at the beginning of each meaningful task or work unit.
+  - Resume an existing HiveMind session only when continuing the same unfinished work unit.
+  - Do not attach new work to an already ended session.
   - Record important decisions, progress milestones, and feedback as structured entries.
+  - Call `session.end` when the work unit is done or abandoned, so HiveMind can produce a closeout report.
   - Do not treat chat history as the project memory layer when HiveMind is available.
 - **NFF (No Freaking Fallbacks).**
   - Do not add silent fallbacks, auto-recovery chains, or implicit compatibility shims.
@@ -40,13 +43,10 @@ It keeps the core rules here and points to the authoritative project docs for de
 
 ## 2) Authoritative Sources
 
-- MVP architecture and product contract:
-  - `docs/hivemind-mcp-mvp-plan.md`
-- Feedback-loop concepts and source lineage:
-  - `docs/mcp-feedback-loop-concept.md`
-  - `docs/mcp-authoring-feedback-loop-v0.1.md`
 - Runtime and local usage:
   - `README.md`
+- Current product/user behavior:
+  - `docs/user-guide.md`
 
 > Precedence: if a referenced doc conflicts with §1 Rules, §1 Rules win.
 > On conflict or ambiguity, stop and ask for an explicit human decision.
@@ -78,16 +78,18 @@ Keep these boundaries intact:
 
 ## 4) Development Workflow
 
-1. Read `docs/hivemind-mcp-mvp-plan.md` before structural work.
-2. Start or resume a HiveMind session for meaningful tasks.
-3. Record:
+1. Start a HiveMind session for the current task/work unit.
+2. Read the specific docs or code relevant to the change.
+3. For broad architecture or public contract changes, align with the current docs or update them in the same change.
+4. Record:
    - `decision` for important design choices
    - `progress` for meaningful milestones
    - `feedback` for friction, bad ideas, or lessons learned
-   - `plan_ref` when work is driven by a plan file
-4. Implement within the architecture boundaries in §3.
-5. Test relevant slices before closing work.
-6. Review your own changes before presenting them.
+   - `plan_ref` only when work is explicitly driven by a plan file
+5. Implement within the architecture boundaries in §3.
+6. Test relevant slices before closing work.
+7. Review your own changes.
+8. Call `session.end` and inspect the closeout before presenting the work.
 
 Protected areas that should be changed carefully:
 
@@ -112,12 +114,16 @@ Protected areas that should be changed carefully:
 
 ## 6) HiveMind Usage For Agents
 
-For meaningful sessions, use HiveMind as part of the workflow:
+For meaningful tasks, use HiveMind as part of the workflow:
 
 - `project.register`
   - only when the project is not already registered or metadata needs updating
 - `session.start`
-  - at the beginning of meaningful work
+  - at the beginning of each meaningful task/work unit
+  - provide a useful `goal`; if there is no plan file, the goal is the ad-hoc task summary
+- `session.end`
+  - when the task is completed or abandoned
+  - inspect the returned closeout report before final response
 - `entry.append`
   - for decisions, progress, feedback, risks, and plan references
 - `entry.search`
@@ -125,11 +131,12 @@ For meaningful sessions, use HiveMind as part of the workflow:
 
 Do not spam HiveMind with micro-steps.
 Store only information that will help the next session or next contributor.
+Do not reuse ended sessions as a generic project log.
 
 ---
 
 ## 7) When In Doubt
 
 - Do not guess.
-- Align code to `docs/hivemind-mcp-mvp-plan.md`.
-- If you need new behavior, update the plan/doc first or get an explicit human decision before widening the contract.
+- Check the current code and `docs/user-guide.md`.
+- If you need new behavior or widen a public contract, update the relevant docs in the same change or get an explicit human decision first.

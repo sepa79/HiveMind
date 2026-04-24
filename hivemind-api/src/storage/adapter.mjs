@@ -7,6 +7,10 @@ export class StorageAdapter {
     throw new Error("Not implemented");
   }
 
+  async listProjects() {
+    throw new Error("Not implemented");
+  }
+
   async listFeatures(_projectId) {
     throw new Error("Not implemented");
   }
@@ -115,7 +119,7 @@ export class StorageAdapter {
     throw new Error("Not implemented");
   }
 
-  async closeSessionsOlderThan(_query) {
+  async getSessionCloseout(_sessionId) {
     throw new Error("Not implemented");
   }
 

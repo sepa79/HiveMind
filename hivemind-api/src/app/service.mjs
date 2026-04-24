@@ -31,6 +31,7 @@ import {
   LearningRecordSchema,
   LearningGetRecentInputSchema,
   LearningSearchInputSchema,
+  ProjectListResultSchema,
   ProjectRegisterInputSchema,
   RuleCheckCreateInputSchema,
   RuleCheckListInputSchema,
@@ -39,8 +40,8 @@ import {
   RulesetDefineInputSchema,
   RulesetRecordSchema,
   SearchResultSchema,
-  SessionCloseOlderThanInputSchema,
-  SessionCloseOlderThanResultSchema,
+  SessionCloseoutInputSchema,
+  SessionCloseoutResultSchema,
   SessionEndInputSchema,
   SessionEndResultSchema,
   SessionListInputSchema,
@@ -52,8 +53,25 @@ import {
 import { ApiError } from "./errors.mjs";
 
 export class HiveMindService {
-  constructor({ storage }) {
+  constructor({ storage, dataRoot = null } = {}) {
     this.storage = storage;
+    this.dataRoot = dataRoot;
+  }
+
+  async getHealth() {
+    const { projects } = await this.storage.listProjects();
+    return {
+      status: "ok",
+      service: "hivemind-api",
+      version: "0.1.0",
+      data_root: this.dataRoot,
+      project_count: projects.length,
+      projects: projects.map((project) => ({
+        project_id: project.project_id,
+        name: project.name,
+        features: project.features
+      }))
+    };
   }
 
   async registerProject(input) {
@@ -61,6 +79,10 @@ export class HiveMindService {
     return {
       project: await this.storage.createProject(payload)
     };
+  }
+
+  async listProjects() {
+    return parseWithSchema(ProjectListResultSchema, await this.storage.listProjects());
   }
 
   async listFeatures(projectId) {
@@ -252,21 +274,20 @@ export class HiveMindService {
     const session = await this.storage.endSession(payload.session_id, payload.status);
     return parseWithSchema(SessionEndResultSchema, {
       session,
-      reminder: await this.#buildSessionEndReminder(session)
+      closeout: await this.storage.getSessionCloseout(session.session_id)
+    });
+  }
+
+  async getSessionCloseout(input) {
+    const payload = parseWithSchema(SessionCloseoutInputSchema, input);
+    return parseWithSchema(SessionCloseoutResultSchema, {
+      closeout: await this.storage.getSessionCloseout(payload.session_id)
     });
   }
 
   async listSessions(input) {
     const payload = parseWithSchema(SessionListInputSchema, input);
     return parseWithSchema(SessionListResultSchema, await this.storage.listSessions(payload));
-  }
-
-  async closeSessionsOlderThan(input) {
-    const payload = parseWithSchema(SessionCloseOlderThanInputSchema, input);
-    return parseWithSchema(
-      SessionCloseOlderThanResultSchema,
-      await this.storage.closeSessionsOlderThan(payload)
-    );
   }
 
   async appendEntry(input, { idempotencyKey }) {
@@ -330,56 +351,6 @@ export class HiveMindService {
     };
   }
 
-  async #buildSessionEndReminder(session) {
-    const ruleChecks = await this.storage.listRuleChecks({
-      project_id: session.project_id,
-      session_id: session.session_id
-    });
-    const ruleset = await this.storage.getRuleset(session.project_id);
-    const coveredRuleIds = new Set(ruleChecks.rule_checks.map((ruleCheck) => ruleCheck.rule_id));
-    const missingRequiredRules = (ruleset?.rules ?? []).filter(
-      (rule) => rule.severity === "required" && !coveredRuleIds.has(rule.rule_id)
-    );
-
-    const activeLearningSummaries = await this.storage.listActiveBranchLearnings(session.project_id, session.branch, 3);
-    const activeIssueSummaries = await this.storage.listActiveIssues(session.project_id, session.branch, 3);
-
-    if (missingRequiredRules.length === 0 && activeLearningSummaries.length === 0 && activeIssueSummaries.length === 0) {
-      return null;
-    }
-
-    const parts = [];
-    if (missingRequiredRules.length > 0) {
-      parts.push(
-        missingRequiredRules.length === 1
-          ? "1 required rule still has no check for this session."
-          : `${missingRequiredRules.length} required rules still have no checks for this session.`
-      );
-    }
-    if (activeLearningSummaries.length > 0) {
-      parts.push(
-        activeLearningSummaries.length === 1
-          ? "1 active learning still exists on this branch."
-          : `${activeLearningSummaries.length} active learnings still exist on this branch.`
-      );
-    }
-    if (activeIssueSummaries.length > 0) {
-      parts.push(
-        activeIssueSummaries.length === 1
-          ? "1 active issue still exists on this branch."
-          : `${activeIssueSummaries.length} active issues still exist on this branch.`
-      );
-    }
-
-    return {
-      missing_required_rules: missingRequiredRules,
-      active_learning_count: activeLearningSummaries.length,
-      active_learning_summaries: activeLearningSummaries,
-      active_issue_count: activeIssueSummaries.length,
-      active_issue_summaries: activeIssueSummaries,
-      summary: parts.join(" ")
-    };
-  }
 }
 
 function parseWithSchema(schema, input) {

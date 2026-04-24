@@ -76,10 +76,20 @@ export function createApp({ service }) {
     )
   );
 
+  app.get("/health", async (c) => {
+    const data = await service.getHealth();
+    return success(c, data);
+  });
+
   app.post("/v1/projects", async (c) => {
     const payload = await readJsonBody(c);
     const data = await service.registerProject(payload);
     return success(c, data, 201);
+  });
+
+  app.get("/v1/projects", async (c) => {
+    const data = await service.listProjects();
+    return success(c, data);
   });
 
   app.get("/v1/projects/:projectId/features", async (c) => {
@@ -271,6 +281,13 @@ export function createApp({ service }) {
     return success(c, data);
   });
 
+  app.get("/v1/sessions/:sessionId/closeout", async (c) => {
+    const data = await service.getSessionCloseout({
+      session_id: c.req.param("sessionId")
+    });
+    return success(c, data);
+  });
+
   app.get("/v1/projects/:projectId/sessions", async (c) => {
     const limit = c.req.query("limit");
     const data = await service.listSessions({
@@ -278,15 +295,6 @@ export function createApp({ service }) {
       status: c.req.query("status") || undefined,
       branch: c.req.query("branch") || undefined,
       limit: limit ? Number.parseInt(limit, 10) : undefined
-    });
-    return success(c, data);
-  });
-
-  app.post("/v1/projects/:projectId/sessions/close-older-than", async (c) => {
-    const payload = await readJsonBody(c);
-    const data = await service.closeSessionsOlderThan({
-      project_id: c.req.param("projectId"),
-      ...payload
     });
     return success(c, data);
   });

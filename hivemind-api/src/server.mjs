@@ -9,7 +9,7 @@ const port = Number(process.env.HIVEMIND_API_PORT || "4010");
 const dataRoot = process.env.HIVEMIND_DATA_ROOT || `${process.cwd()}/.hivemind`;
 
 const storage = new FsJsonlStorage({ dataRoot });
-const service = new HiveMindService({ storage });
+const service = new HiveMindService({ storage, dataRoot });
 const app = createApp({ service });
 
 serve(
@@ -21,4 +21,3 @@ serve(
     console.log(`HiveMind API listening on http://127.0.0.1:${info.port}`);
   }
 );
-

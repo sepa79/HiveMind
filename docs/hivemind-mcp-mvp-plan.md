@@ -27,13 +27,7 @@ It is a structured project memory and policy layer.
 3. `recall`
    Next session retrieves the most relevant prior context.
 
-This extends the existing feedback-loop concept from PocketHive:
-
-- keep `tool_event` style structured telemetry,
-- keep `feedback_event` style structured reflection,
-- add durable project/session/branch memory,
-- add project rules and compliance confirmation,
-- add retrieval-oriented summaries for the next agent.
+This combines structured development telemetry, concise human/agent reflection, durable project/session/branch memory, project rules, compliance confirmation, and retrieval-oriented summaries for the next agent.
 
 ## 2A. Target Deployment Shape
 
@@ -142,7 +136,11 @@ Notes:
 
 ### 5.2 Session
 
-Represents one development/chat session.
+Represents one work-unit write context and provenance envelope.
+
+A session is operational metadata, not durable project truth. It should help answer who wrote durable memory, from which branch/workspace, under which goal and plan reference.
+
+Project recall must not depend on a session still being active or open. Entries, learnings, issues, and rule checks written through a session remain durable project memory after `session.end`.
 
 Required fields:
 
@@ -157,6 +155,7 @@ Required fields:
 - `started_at`
 - `ended_at`
 - `status`
+- `last_seen_at`
 - `goal`
 - `plan_ref`
 - `ruleset_version`
@@ -174,6 +173,8 @@ Notes:
 - `session_id` should be globally unique within one `hivemind-api` instance.
 - `ruleset_version` should be a monotonically increasing integer per project.
 - `agent_id` identifies the executing agent implementation for agent-driven sessions; in v0.1, direct human-authored sessions are a secondary path and can be normalized through `author_type` and `source`.
+- `session.end` is a closeout checkpoint. It returns reminders and a summary of recorded work; it is not cleanup.
+- old sessions should remain listable for audit and provenance.
 
 ### 5.3 Entry
 
@@ -365,7 +366,7 @@ Examples:
 - architecture assumption was wrong,
 - repeated source of friction.
 
-This is the direct descendant of the PocketHive `feedback_event` concept.
+Feedback should stay concise and actionable; it is not a transcript dump.
 
 ### 6.5 `artifact_ref`
 
@@ -473,7 +474,6 @@ Recommended endpoints:
 - `GET /v1/sessions/:sessionId`
 - `GET /v1/projects/:projectId/sessions`
 - `POST /v1/sessions/:sessionId/end`
-- `POST /v1/projects/:projectId/sessions/close-older-than`
 
 ### 7A.3 Rules
 
@@ -510,14 +510,14 @@ If later there is a need for streaming or subscriptions, that can be added witho
 
 ## 7C. Human UI v0.1
 
-HiveMind should expose a small human-facing UI from `hivemind-api` for operational cleanup.
+HiveMind should expose a small human-facing UI from `hivemind-api` for work-unit activity and audit.
 
 The first UI should stay narrow:
 
 - list sessions for a project
-- show session status, goal, branch, author, start time, and `last_seen_at`
-- close a single active or paused session as `abandoned`
-- close active or paused sessions older than an explicit hour threshold
+- show session status, goal, branch, author, start time, end time, and `last_seen_at`
+- show activity counts such as entries and rule checks
+- avoid cleanup actions; old sessions are useful provenance
 
 `last_seen_at` is a read-model field derived from the session record plus session entries and rule checks.
 
@@ -543,7 +543,7 @@ Output:
 
 ### 8.2 `session.start`
 
-Opens a new session for a project and branch.
+Opens a new work-unit write context for a project and branch.
 
 Input:
 
@@ -570,9 +570,24 @@ This is one of the most important tools because it gives the next agent a compac
 
 Additional v0.1 behavior:
 
-- if a matching active session already exists for the same `project_id`, `branch`, and `agent_id`, the API may return that session instead of creating a duplicate, provided idempotency semantics are satisfied,
+- each successful start creates or idempotently returns a write/provenance context for one task,
 - `session.start` should attach the current `ruleset_version` to the new session snapshot,
 - `session.start` should include recall context, but the output must stay bounded and summary-oriented.
+
+### 8.2A `session.end`
+
+Ends the work-unit write context and returns a closeout report.
+
+The closeout report should include:
+
+- session goal and plan reference
+- entry groups recorded during the work unit
+- submitted rule checks
+- missing required rule checks
+- active branch learnings and issues
+- a short summary for the next agent
+
+This is not a cleanup operation. It is a reminder/reporting checkpoint.
 
 ### 8.3 `entry.append`
 
@@ -1211,12 +1226,11 @@ In other words:
 - use `entry.search` when the caller knows what they are looking for,
 - use `context.get_*` when the caller needs a warm start.
 
-## 12. Reuse From Feedback MCP
+## 12. Proven MVP Patterns
 
-The PocketHive feedback MCP already validated several good concepts.
-`HiveMind` should reuse them directly.
+The MVP should keep these implementation patterns explicit and simple.
 
-### 12.1 Reuse as-is
+### 12.1 Keep
 
 - structured `session_id`
 - structured `event_id`
@@ -1225,11 +1239,11 @@ The PocketHive feedback MCP already validated several good concepts.
 - explicit summary field
 - searchable aggregation by type
 
-### 12.2 Extend
+### 12.2 Current mapping
 
-- `feedback_event` becomes generic `feedback` entry type,
-- `tool_event` becomes optional `artifact_ref` or future `tool_event`,
-- per-session summary becomes project/session recall context,
+- generic `feedback` entry type,
+- optional `artifact_ref` entries for outputs and commands,
+- per-session summary as project/session recall context,
 - add rules and rule-check confirmations,
 - add project and branch scope.
 
@@ -1324,6 +1338,7 @@ Agent appends only important entries:
 1. Agent submits relevant `rule_check` entries.
 2. Agent appends final `progress` and `feedback`.
 3. Agent calls `session.end`.
+4. HiveMind returns a closeout report with completed and missing reminders.
 
 ### 13.4 Next session
 

@@ -2,56 +2,61 @@
 
 ![HiveMind](assets/hivemind-radial-grid-logo.svg)
 
-Standalone MCP memory service extracted from PocketHive concepts and rebuilt as:
+HiveMind is a local-first project memory service for AI-assisted software work. It gives agents and teammates a shared, structured record of what happened across coding sessions: decisions, progress, feedback, rule checks, learnings, issues, and the work-unit context that produced them.
 
-- `hivemind-api`
-  - Hono REST backend
-  - system of record for projects, sessions, and entries
-  - `fs-jsonl` storage adapter for v0.1
-- `hivemind-mcp`
-  - thin MCP server
-  - talks to `hivemind-api` over REST
-- `reference/`
-  - original PocketHive feedback-loop and scenario-builder POCs kept as reference material
-- `docs/`
-  - design notes and the current HiveMind MVP plan
+The problem it solves: chat history is fragile, private, and hard to audit. HiveMind turns the useful parts of development work into durable project memory that the next agent or teammate can search, inspect, and reuse.
+
+## Shape
+
+- `hivemind-api` is the HTTP backend and system of record.
+- `hivemind-mcp` is the thin MCP server agents connect to.
+- `.hivemind/` is the default local filesystem data root.
+- `bootstrap/` contains committed seed/demo state for local onboarding.
 
 ## Quick Start
 
 ```bash
-npm install
-npm run bootstrap:hivemind
+./bootstrap.sh
 npm run start:api
 ```
 
-Open the human session UI at:
+Open:
 
 ```text
 http://127.0.0.1:4010/
 ```
 
-In another terminal:
+Run:
+
+```bash
+npm run doctor
+```
+
+For the full local onboarding flow, use [docs/team-quickstart.md](docs/team-quickstart.md).
+For runtime concepts and workflow, use [docs/user-guide.md](docs/user-guide.md).
+
+## MCP
+
+Start the MCP server in another terminal:
 
 ```bash
 npm run start:mcp
 ```
 
-## Environment
+Example client configs:
 
-`hivemind-api`:
+- [docs/examples/codex-mcp.json](docs/examples/codex-mcp.json)
+- [docs/examples/claude-desktop-mcp.json](docs/examples/claude-desktop-mcp.json)
 
-- `HIVEMIND_DATA_ROOT`
-  - optional
-  - defaults to `<cwd>/.hivemind`
-- `HIVEMIND_API_PORT`
-  - optional
-  - defaults to `4010`
+## Demo State
 
-`hivemind-mcp`:
+`./bootstrap.sh` restores `bootstrap/demo-hivemind-state.tar.gz` when present, so a fresh clone can show useful demo history immediately.
 
-- `HIVEMIND_API_BASE_URL`
-  - optional
-  - defaults to `http://127.0.0.1:4010`
+Refresh that snapshot intentionally:
+
+```bash
+npm run hivemind:save-demo
+```
 
 ## Tests
 
@@ -59,18 +64,8 @@ npm run start:mcp
 npm test
 ```
 
-Or only the new HiveMind slice:
+Focused HiveMind slice:
 
 ```bash
 npm run test:hivemind
 ```
-
-## Guide
-
-See [docs/user-guide.md](docs/user-guide.md) for:
-
-- fresh-clone bootstrap
-- human session UI
-- persistence layout
-- local runtime workflow
-- extending the bootstrap pattern to other projects

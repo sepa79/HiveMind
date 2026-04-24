@@ -66,6 +66,10 @@ export const ProjectRecordSchema = z.object({
   updated_at: NonEmptyString
 });
 
+export const ProjectListResultSchema = z.object({
+  projects: z.array(ProjectRecordSchema)
+});
+
 export const FeatureListResultSchema = z.object({
   project_id: NonEmptyString,
   features: z.array(NonEmptyString)
@@ -382,7 +386,11 @@ export const SessionStartInputSchema = z.object({
 
 export const SessionEndInputSchema = z.object({
   session_id: NonEmptyString,
-  status: z.enum(["completed", "abandoned"])
+  status: z.enum(["completed", "abandoned"]).optional()
+});
+
+export const SessionCloseoutInputSchema = z.object({
+  session_id: NonEmptyString
 });
 
 export const SessionRecordSchema = z.object({
@@ -405,7 +413,30 @@ export const SessionRecordSchema = z.object({
   updated_at: NonEmptyString
 });
 
-export const SessionEndReminderSchema = z.object({
+export const SessionActivityCountsSchema = z.object({
+  entries: z.number().int().nonnegative(),
+  rule_checks: z.number().int().nonnegative()
+});
+
+export const SessionCloseoutEntryGroupSchema = z.object({
+  entry_type: z.enum(ENTRY_TYPE_VALUES),
+  count: z.number().int().nonnegative(),
+  entries: z.array(z.lazy(() => EntryRecordSchema))
+});
+
+export const SessionCloseoutReportSchema = z.object({
+  session_id: NonEmptyString,
+  project_id: NonEmptyString,
+  branch: NonEmptyString,
+  goal: NonEmptyString,
+  plan_ref: PlanRefSchema.nullable(),
+  status: z.enum(["active", "paused", "completed", "abandoned"]),
+  started_at: NonEmptyString,
+  ended_at: NonEmptyString.nullable(),
+  last_seen_at: NonEmptyString,
+  activity_counts: SessionActivityCountsSchema,
+  entry_groups: z.array(SessionCloseoutEntryGroupSchema),
+  rule_checks: z.array(z.lazy(() => RuleCheckSchema)),
   missing_required_rules: z.array(z.lazy(() => RuleSchema)),
   active_learning_count: z.number().int().nonnegative(),
   active_learning_summaries: z.array(LearningRecordSchema),
@@ -416,11 +447,16 @@ export const SessionEndReminderSchema = z.object({
 
 export const SessionEndResultSchema = z.object({
   session: SessionRecordSchema,
-  reminder: SessionEndReminderSchema.nullable()
+  closeout: SessionCloseoutReportSchema
+});
+
+export const SessionCloseoutResultSchema = z.object({
+  closeout: SessionCloseoutReportSchema
 });
 
 export const SessionSummarySchema = SessionRecordSchema.extend({
-  last_seen_at: NonEmptyString
+  last_seen_at: NonEmptyString,
+  activity_counts: SessionActivityCountsSchema
 });
 
 export const SessionListInputSchema = z.object({
@@ -432,19 +468,6 @@ export const SessionListInputSchema = z.object({
 
 export const SessionListResultSchema = z.object({
   sessions: z.array(SessionSummarySchema),
-  summary: NonEmptyString
-});
-
-export const SessionCloseOlderThanInputSchema = z.object({
-  project_id: NonEmptyString,
-  older_than_hours: z.number().positive().max(87600),
-  status: z.enum(["completed", "abandoned"]),
-  branch: z.string().trim().min(1).optional()
-});
-
-export const SessionCloseOlderThanResultSchema = z.object({
-  closed_sessions: z.array(SessionSummarySchema),
-  cutoff_at: NonEmptyString,
   summary: NonEmptyString
 });
 
@@ -581,6 +604,7 @@ export const OpenThreadSummarySchema = z.object({
 
 export const SessionStartContextSchema = z.object({
   rules: z.array(RuleSchema),
+  features: z.array(NonEmptyString),
   recent_decisions: z.array(RecallEntrySummarySchema),
   recent_risks: z.array(RecallEntrySummarySchema),
   recent_tooling_notes: z.array(RecallEntrySummarySchema),

@@ -140,7 +140,7 @@ describe("FsJsonlStorage", () => {
           branch: "feat/a",
           workspace_path: "/repo/alpha",
           feature: "SMARTER_NFT_TESTS",
-          source_tool: "scenario-builder",
+          source_tool: "fixture-tool",
           tool_version: "7.43",
           environment: "local",
           author_id: "agent-alpha",
@@ -219,7 +219,7 @@ describe("FsJsonlStorage", () => {
         branch: "feat/a",
         workspace_path: "/repo/alpha",
         feature: "NFT_TESTS",
-        source_tool: "scenario-builder",
+        source_tool: "fixture-tool",
         tool_version: "7.43",
         environment: "local",
         author_id: "agent-alpha",
@@ -262,7 +262,7 @@ describe("FsJsonlStorage", () => {
           branch: "feat/nft",
           workspace_path: "/repo/alpha",
           feature: "SMARTER_NFT_TESTS",
-          source_tool: "scenario-builder",
+          source_tool: "fixture-tool",
           tool_version: "7.43",
           environment: "local",
           author_id: "agent-alpha",
@@ -280,7 +280,7 @@ describe("FsJsonlStorage", () => {
           branch: "feat/legacy",
           workspace_path: "/repo/alpha",
           feature: "LEGACY_TESTS",
-          source_tool: "scenario-builder",
+          source_tool: "fixture-tool",
           tool_version: "7.43",
           environment: "local",
           author_id: "agent-alpha",
@@ -392,7 +392,7 @@ describe("FsJsonlStorage", () => {
           branch: "feat/issues",
           workspace_path: "/repo/alpha",
           feature: "SMARTER_NFT_TESTS",
-          source_tool: "scenario-builder",
+          source_tool: "fixture-tool",
           tool_version: "7.43",
           environment: "local",
           author_id: "agent-alpha",
@@ -430,7 +430,7 @@ describe("FsJsonlStorage", () => {
         issue_id: reported.issue.issue_id,
         event_type: "github_issue_linked",
         summary: "Linked upstream GitHub issue",
-        github_issue_url: "https://github.com/acme/pockethive/issues/123"
+        github_issue_url: "https://github.com/acme/hivemind/issues/123"
       },
       { idempotencyKey: "issue-github" }
     );
@@ -466,7 +466,7 @@ describe("FsJsonlStorage", () => {
     });
 
     expect(fetched.issue.status).toBe("resolved");
-    expect(fetched.issue.github_issue_url).toBe("https://github.com/acme/pockethive/issues/123");
+    expect(fetched.issue.github_issue_url).toBe("https://github.com/acme/hivemind/issues/123");
     expect(fetched.events).toHaveLength(5);
     expect(fetched.events.at(-1).event_type).toBe("verified_fixed");
     expect(active.issues).toHaveLength(0);
@@ -524,7 +524,7 @@ describe("FsJsonlStorage", () => {
           branch: "feat/brief",
           workspace_path: "/repo/alpha",
           feature: "SMARTER_NFT_TESTS",
-          source_tool: "scenario-builder",
+          source_tool: "fixture-tool",
           tool_version: "7.43",
           environment: "local",
           author_id: "agent-alpha",
@@ -655,7 +655,7 @@ describe("FsJsonlStorage", () => {
           branch: "main",
           workspace_path: "/repo/alpha",
           feature: "SMARTER_NFT_TESTS",
-          source_tool: "scenario-builder",
+          source_tool: "fixture-tool",
           tool_version: "7.43",
           environment: "local",
           author_id: "agent-alpha",
@@ -852,7 +852,7 @@ describe("FsJsonlStorage", () => {
     });
   });
 
-  it("lists sessions with derived last_seen_at and closes stale active sessions", async () => {
+  it("lists sessions with derived last_seen_at and activity counts", async () => {
     const storage = createStorage();
     await storage.createProject({
       project_id: "alpha",
@@ -861,22 +861,32 @@ describe("FsJsonlStorage", () => {
       default_branch: "main",
       description: "Alpha project"
     });
-
-    const quietSession = (
-      await storage.createSession(
+    await storage.upsertRuleset("alpha", {
+      project_id: "alpha",
+      rules: [
         {
-          project_id: "alpha",
-          branch: "main",
-          workspace_path: "/repo/alpha",
-          author_id: "agent-alpha",
-          author_type: "agent",
-          source: "mcp",
-          agent_id: "codex",
-          goal: "Quiet session"
-        },
-        { idempotencyKey: "quiet-session" }
-      )
-    ).session;
+          rule_id: "review",
+          label: "Review",
+          description: "Review changes.",
+          severity: "required",
+          check_mode: "manual_confirm"
+        }
+      ]
+    });
+
+    await storage.createSession(
+      {
+        project_id: "alpha",
+        branch: "main",
+        workspace_path: "/repo/alpha",
+        author_id: "agent-alpha",
+        author_type: "agent",
+        source: "mcp",
+        agent_id: "codex",
+        goal: "Quiet session"
+      },
+      { idempotencyKey: "quiet-session" }
+    );
 
     await new Promise((resolve) => setTimeout(resolve, 5));
 
@@ -909,6 +919,18 @@ describe("FsJsonlStorage", () => {
       },
       { idempotencyKey: "active-entry" }
     );
+    await storage.appendRuleCheck(
+      {
+        project_id: "alpha",
+        session_id: activeSession.session_id,
+        rule_id: "review",
+        author_id: "agent-alpha",
+        author_type: "agent",
+        source: "mcp",
+        status: "applied"
+      },
+      { idempotencyKey: "active-rule-check" }
+    );
 
     const list = await storage.listSessions({
       project_id: "alpha",
@@ -918,15 +940,99 @@ describe("FsJsonlStorage", () => {
     expect(list.sessions).toHaveLength(2);
     expect(list.sessions[0].session_id).toBe(activeSession.session_id);
     expect(list.sessions[0].last_seen_at >= activeSession.updated_at).toBe(true);
+    expect(list.sessions[0].activity_counts).toEqual({
+      entries: 1,
+      rule_checks: 1
+    });
+  });
 
-    const closeResult = await storage.closeSessionsOlderThan({
+  it("returns a closeout report without affecting durable recall", async () => {
+    const storage = createStorage();
+    await storage.createProject({
       project_id: "alpha",
-      older_than_hours: 0.000001,
-      status: "abandoned"
+      name: "Alpha",
+      root_path: "/repo/alpha",
+      default_branch: "main",
+      description: "Alpha project"
+    });
+    await storage.upsertRuleset("alpha", {
+      project_id: "alpha",
+      rules: [
+        {
+          rule_id: "test",
+          label: "Test",
+          description: "Run tests.",
+          severity: "required",
+          check_mode: "command_reference_required"
+        },
+        {
+          rule_id: "review",
+          label: "Review",
+          description: "Review changes.",
+          severity: "required",
+          check_mode: "manual_confirm"
+        }
+      ]
     });
 
-    expect(closeResult.closed_sessions.some((session) => session.session_id === quietSession.session_id)).toBe(true);
-    expect(closeResult.closed_sessions.every((session) => session.status === "abandoned")).toBe(true);
+    const session = (
+      await storage.createSession(
+        {
+          project_id: "alpha",
+          branch: "main",
+          workspace_path: "/repo/alpha",
+          author_id: "agent-alpha",
+          author_type: "agent",
+          source: "mcp",
+          agent_id: "codex",
+          goal: "Closeout session"
+        },
+        { idempotencyKey: "closeout-session" }
+      )
+    ).session;
+
+    await storage.appendEntry(
+      {
+        project_id: "alpha",
+        session_id: session.session_id,
+        branch: "main",
+        author_id: "agent-alpha",
+        author_type: "agent",
+        source: "mcp",
+        entry_type: "progress",
+        summary: "Recorded activity"
+      },
+      { idempotencyKey: "closeout-entry" }
+    );
+    await storage.appendRuleCheck(
+      {
+        project_id: "alpha",
+        session_id: session.session_id,
+        rule_id: "test",
+        author_id: "agent-alpha",
+        author_type: "agent",
+        source: "mcp",
+        status: "applied",
+        evidence: "npm test"
+      },
+      { idempotencyKey: "closeout-rule-check" }
+    );
+
+    await storage.endSession(session.session_id, "completed");
+    const closeout = await storage.getSessionCloseout(session.session_id);
+    const search = await storage.searchEntries({
+      project_id: "alpha",
+      branch: "main"
+    });
+
+    expect(closeout.activity_counts).toEqual({
+      entries: 1,
+      rule_checks: 1
+    });
+    expect(closeout.entry_groups[0].entry_type).toBe("progress");
+    expect(closeout.rule_checks[0].rule_id).toBe("test");
+    expect(closeout.missing_required_rules.map((rule) => rule.rule_id)).toEqual(["review"]);
+    expect(search.entries.some((entry) => entry.summary === "Recorded activity")).toBe(true);
   });
 
   it("filters unresolved entries by lifecycle_state", async () => {
@@ -1036,7 +1142,7 @@ describe("FsJsonlStorage", () => {
           branch: "feat/a",
           workspace_path: "/repo/alpha",
           feature: "SMARTER_NFT_TESTS",
-          source_tool: "scenario-builder",
+          source_tool: "fixture-tool",
           tool_version: "7.43",
           environment: "local",
           author_id: "agent-alpha",

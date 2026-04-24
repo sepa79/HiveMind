@@ -1,195 +1,128 @@
 # HiveMind User Guide
 
-## 1. What HiveMind Is
+## What HiveMind Is
 
-`HiveMind` is a small project-memory service for coding sessions.
+HiveMind is a small project-memory service for coding sessions. It stores concise structured records that survive beyond one chat or agent run.
 
-It gives you:
+It is meant for:
 
-- durable project metadata
-- durable rulesets
-- durable contexts, sessions, entries, and rule checks
-- durable learnings and tracked issues
-- bounded recall context for the next session
-- a short startup digest when a context or session begins
+- project and branch memory
+- work-unit provenance
+- important decisions and progress
+- feedback and friction
+- project rules and rule checks
+- reusable learnings and tracked issues
+- bounded recall for the next session
 
-For the current MVP, persistence is filesystem-backed.
-By default, data lives in `.hivemind/` under the current working directory.
+It is not a task runner, source-control replacement, or detailed project-management system.
 
-## 2. Fresh Clone Setup
+For first-run setup, use `docs/team-quickstart.md`. This guide focuses on the runtime model.
 
-Install dependencies:
+## Runtime Shape
 
-```bash
-npm install
-```
+Default local pieces:
 
-Seed the local repo with the built-in `HiveMind` project bootstrap:
+- `hivemind-api`
+  HTTP API, validation, service logic, and persistence orchestration.
+- `hivemind-mcp`
+  Thin MCP layer that talks to the API over REST.
+- `.hivemind/`
+  Default local filesystem data root.
+- `bootstrap/`
+  Committed seed/demo assets for local onboarding.
 
-```bash
-npm run bootstrap:hivemind
-```
-
-This creates repo-local persistent files under:
-
-```text
-.hivemind/projects/hivemind/
-```
-
-The bootstrap uses the seed files in:
-
-- `bootstrap/hivemind-project.json`
-- `bootstrap/hivemind-ruleset.json`
-
-The bootstrap is intentionally small:
-
-- it registers the local `HiveMind` project
-- it sets `root_path` to the current repo root
-- it writes the bundled ruleset into persistent storage
-
-Running it again is safe.
-If the bundled ruleset has not changed, the ruleset version stays the same.
-
-## 3. Running HiveMind Locally
-
-Start the API:
-
-```bash
-npm run start:api
-```
-
-In another terminal, start the MCP server:
-
-```bash
-npm run start:mcp
-```
-
-Default local endpoints:
+Default endpoints:
 
 - API: `http://127.0.0.1:4010`
-- human session UI: `http://127.0.0.1:4010/`
-- data root: `<repo>/.hivemind`
+- UI: `http://127.0.0.1:4010/`
+- health diagnostics: `http://127.0.0.1:4010/health`
 
-Environment variables:
+## Memory Model
 
-- `HIVEMIND_DATA_ROOT`
-  use a different persistence directory
-- `HIVEMIND_API_PORT`
-  change the API port
-- `HIVEMIND_API_BASE_URL`
-  point the MCP server at a different API instance
+Durable project memory lives in:
 
-## 4. Human Session UI
+- project metadata
+- rulesets
+- entries
+- learnings
+- issues
+- rule checks
 
-The API serves a simple session dashboard at:
+Sessions are work-unit write contexts and provenance envelopes. A session helps answer "who wrote this, on which branch, during what task?" The session itself is not project truth, and recall should not depend on a session remaining active.
 
-```text
-http://127.0.0.1:4010/
-```
+`session.end` is a closeout checkpoint. It records end metadata and returns a report with entries, rule checks, missing required checks, and active learnings/issues. It is not a cleanup operation.
 
-The dashboard can:
+## Entry Types
 
-- list sessions for a project
-- show `last_seen_at`, derived from session updates plus session entries and rule checks
-- close one active or paused session as `abandoned`
-- close active or paused sessions older than a chosen number of hours
+Use entries for concise, high-signal memory:
 
-The default project ID is `hivemind` for the current repository runtime state.
+- `decision`
+  durable design or implementation choice
+- `plan_ref`
+  link to a plan file or external plan
+- `progress`
+  meaningful milestone
+- `feedback`
+  friction, lesson, or follow-up note
+- `artifact_ref`
+  output reference such as a file, command, commit, or PR
+- `tooling_note`
+  local workflow/tool behavior worth remembering
+- `risk`
+  unresolved concern
 
-## 5. Persistence Model
+Use `feature`, `category`, `tags`, and `links` when they improve future recall. Prefer repo-relative `repo_file` links for repository files.
 
-Persistence is per `hivemind-api` instance and per `HIVEMIND_DATA_ROOT`.
-
-That means:
-
-- if you restart the API, data stays
-- if you keep the same `.hivemind/` directory, projects and rulesets stay
-- if you point the API at a different data root, you get a different storage universe
-
-For a registered project, these files are persisted automatically:
-
-- `project.json`
-- `ruleset.json`
-- `sessions/*.json`
-- `entries.jsonl`
-- `rule-checks.jsonl`
-- `idempotency.jsonl`
-
-For new projects, persistence is automatic once they are created through HiveMind:
-
-1. register the project
-2. define the ruleset
-3. start sessions and append entries as needed
-
-Nothing else is required to make those records durable in the current data root.
-
-## 6. Recommended Workflow
+## Recommended Agent Workflow
 
 For meaningful work:
 
-1. open a context or start a session early
-2. read the returned `startup_summary`
-3. drill down only if needed with `context.get_project_brief`, `context.get_open_threads`, `learning.get_recent`, or `issue.list`
-4. record important decisions, progress, learnings, and feedback
-5. run relevant tests
-6. submit relevant rule checks before closing out
+1. Start a session early with a useful goal.
+2. Read the returned startup summary and project features.
+3. Record important decisions, progress, feedback, risks, and plan references.
+4. Use features/tags for useful grouping, not micro-task tracking.
+5. Run relevant tests.
+6. Submit relevant rule checks.
+7. End the session and inspect the closeout report.
 
-The startup digest is intentionally short.
-It is the “menu” for the project state:
+For local shell work, `npm run hivemind:work -- ...` wraps the common `session.start`, progress logging, rule checks, and `session.end` flow. See `docs/team-quickstart.md` for exact commands.
 
-- active learning count
-- active issue count
-- open thread count
-- a few top learnings
-- a few top issues
-- a few top open threads
+## Human UI
 
-The goal is to help the next agent orient quickly without forcing a full brief on every start.
+The API serves a local dashboard at `http://127.0.0.1:4010/`.
 
-For the `hivemind` repo itself, the bundled ruleset already reflects the hard constraints in `AGENTS.md`.
+The dashboard is for human inspection:
 
-## 7. Bootstrap vs Runtime State
+- work-unit/session list
+- session details and closeout activity
+- project-memory entry search
+- filters by project, branch, feature, tag, and type
 
-Keep a clean separation between:
+Session IDs are mostly provenance; normal users should drill into them only when auditing details.
 
-- seed assets committed to the repo
-- live runtime state created in `.hivemind/`
+## Local Data
 
-Committed seed assets belong in `bootstrap/`.
-Runtime state should stay local and disposable.
+Persistence is per API instance and per `HIVEMIND_DATA_ROOT`.
 
-This is why the bootstrap does not rely on committed live session files.
-It seeds only the stable starting state that a fresh clone should have.
+Default data root:
 
-## 8. Verifying the Setup
-
-Run the targeted test slice:
-
-```bash
-npm run test:hivemind
+```text
+<repo>/.hivemind
 ```
 
-You can also inspect the resulting files directly, for example:
+Important environment variables:
 
-```bash
-cat .hivemind/projects/hivemind/project.json
-cat .hivemind/projects/hivemind/ruleset.json
-```
+- `HIVEMIND_DATA_ROOT`
+  choose a different data root
+- `HIVEMIND_API_PORT`
+  choose a different API port
+- `HIVEMIND_API_BASE_URL`
+  point the MCP server or wrapper at a different API instance
 
-## 9. Extending the Pattern for Other Projects
+Committed seed/demo files live under `bootstrap/`. Runtime data under `.hivemind/` stays local and should not be committed directly.
 
-The built-in bootstrap is specific to this repo.
+## Other Projects
 
-For another repo, the same model applies:
+HiveMind can track other local repos against the same API. Register them through REST, MCP, or the helper command described in `docs/team-quickstart.md`.
 
-- define project metadata
-- define a durable ruleset
-- store both in the target API data root
-
-You can do that through:
-
-- the REST API
-- the MCP tools
-- a repo-local bootstrap script similar to `scripts/bootstrap-hivemind.mjs`
-
-If you want team-safe repeatability for another project, create a repo-committed seed file and a small bootstrap command for that repo too.
+Use a small, explicit feature vocabulary for each project. Good feature names are broad work streams, user stories, or plan names.

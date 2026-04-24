@@ -116,7 +116,7 @@ describe("HiveMind MCP runtime", () => {
       branch: "feat/context",
       workspace_path: "/repo/buzz",
       feature: "NFT_TESTS",
-      source_tool: "scenario-builder",
+      source_tool: "fixture-tool",
       tool_version: "7.43",
       environment: "local",
       author_id: "codex-main",
@@ -162,7 +162,7 @@ describe("HiveMind MCP runtime", () => {
       branch: "feat/nft",
       workspace_path: "/repo/buzz",
       feature: "SMARTER_NFT_TESTS",
-      source_tool: "scenario-builder",
+      source_tool: "fixture-tool",
       tool_version: "7.43",
       environment: "local",
       author_id: "codex-main",
@@ -175,7 +175,7 @@ describe("HiveMind MCP runtime", () => {
       branch: "feat/legacy",
       workspace_path: "/repo/buzz",
       feature: "LEGACY_TESTS",
-      source_tool: "scenario-builder",
+      source_tool: "fixture-tool",
       tool_version: "7.43",
       environment: "local",
       author_id: "codex-main",
@@ -251,7 +251,7 @@ describe("HiveMind MCP runtime", () => {
       branch: "feat/issues",
       workspace_path: "/repo/buzz",
       feature: "SMARTER_NFT_TESTS",
-      source_tool: "scenario-builder",
+      source_tool: "fixture-tool",
       tool_version: "7.43",
       environment: "local",
       author_id: "codex-main",
@@ -274,7 +274,7 @@ describe("HiveMind MCP runtime", () => {
       issue_id: issueId,
       event_type: "github_issue_linked",
       summary: "Linked upstream issue",
-      github_issue_url: "https://github.com/acme/pockethive/issues/123"
+      github_issue_url: "https://github.com/acme/hivemind/issues/123"
     });
     await runtime.issueAddEvent({
       context_token: contextToken,
@@ -301,7 +301,7 @@ describe("HiveMind MCP runtime", () => {
 
     expect(reported.isError).toBeUndefined();
     expect(fetched.structuredContent.issue.status).toBe("resolved");
-    expect(fetched.structuredContent.issue.github_issue_url).toBe("https://github.com/acme/pockethive/issues/123");
+    expect(fetched.structuredContent.issue.github_issue_url).toBe("https://github.com/acme/hivemind/issues/123");
     expect(fetched.structuredContent.events).toHaveLength(4);
     expect(resolved.structuredContent.issues).toHaveLength(1);
     expect(resolved.structuredContent.issues[0].issue_id).toBe(issueId);
@@ -328,6 +328,10 @@ describe("HiveMind MCP runtime", () => {
         }
       ]
     });
+    await runtime.featureAdd({
+      project_id: "buzz",
+      feature: "SMARTER_NFT_TESTS"
+    });
 
     const session = await runtime.sessionStart({
       project_id: "buzz",
@@ -350,7 +354,7 @@ describe("HiveMind MCP runtime", () => {
       branch: "feat/brief",
       workspace_path: "/repo/buzz",
       feature: "SMARTER_NFT_TESTS",
-      source_tool: "scenario-builder",
+      source_tool: "fixture-tool",
       tool_version: "7.43",
       environment: "local",
       author_id: "codex-main",
@@ -446,6 +450,10 @@ describe("HiveMind MCP runtime", () => {
         }
       ]
     });
+    await runtime.featureAdd({
+      project_id: "buzz",
+      feature: "SMARTER_NFT_TESTS"
+    });
 
     const seed = await runtime.sessionStart({
       project_id: "buzz",
@@ -462,7 +470,7 @@ describe("HiveMind MCP runtime", () => {
       branch: "feat/start",
       workspace_path: "/repo/buzz",
       feature: "SMARTER_NFT_TESTS",
-      source_tool: "scenario-builder",
+      source_tool: "fixture-tool",
       tool_version: "7.43",
       environment: "local",
       author_id: "codex-main",
@@ -528,6 +536,7 @@ describe("HiveMind MCP runtime", () => {
     expect(result.structuredContent.startup_summary.counts.active_learnings).toBe(1);
     expect(result.structuredContent.startup_summary.counts.open_threads).toBe(2);
     expect(result.structuredContent.context.recent_decisions).toHaveLength(1);
+    expect(result.structuredContent.context.features).toEqual(["SMARTER_NFT_TESTS"]);
     expect(result.structuredContent.context.recent_decisions[0].summary).toBe("Persist important architecture choices");
     expect(result.structuredContent.context.recent_learnings).toHaveLength(1);
     expect(result.structuredContent.context.recent_learnings[0].summary).toBe("Regenerate fixtures before authoring NFT tests");
@@ -581,7 +590,7 @@ describe("HiveMind MCP runtime", () => {
       branch: "feat/closeout",
       workspace_path: "/repo/buzz",
       feature: "SMARTER_NFT_TESTS",
-      source_tool: "scenario-builder",
+      source_tool: "fixture-tool",
       tool_version: "7.43",
       environment: "local",
       author_id: "codex-main",
@@ -614,9 +623,11 @@ describe("HiveMind MCP runtime", () => {
 
     expect(ended.isError).toBeUndefined();
     expect(ended.structuredContent.session.status).toBe("completed");
-    expect(ended.structuredContent.reminder.missing_required_rules).toHaveLength(1);
-    expect(ended.structuredContent.reminder.missing_required_rules[0].rule_id).toBe("always_review");
-    expect(ended.structuredContent.reminder.active_learning_count).toBe(1);
+    expect(ended.structuredContent.closeout.goal).toBe("Close out work");
+    expect(ended.structuredContent.closeout.activity_counts.rule_checks).toBe(1);
+    expect(ended.structuredContent.closeout.missing_required_rules).toHaveLength(1);
+    expect(ended.structuredContent.closeout.missing_required_rules[0].rule_id).toBe("always_review");
+    expect(ended.structuredContent.closeout.active_learning_count).toBe(1);
   });
 
   it("entry.append maps validation errors cleanly", async () => {

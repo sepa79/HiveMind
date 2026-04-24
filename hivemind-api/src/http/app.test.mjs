@@ -37,6 +37,29 @@ describe("HiveMind API", () => {
     expect(payload.meta.request_id).toBeTruthy();
   });
 
+  it("lists registered projects for the human UI", async () => {
+    const app = createTestApp();
+    await createProject(app);
+
+    const response = await app.request("/v1/projects");
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload.data.projects.map((project) => project.project_id)).toEqual(["buzz"]);
+  });
+
+  it("returns health diagnostics", async () => {
+    const app = createTestApp();
+    await createProject(app);
+
+    const response = await app.request("/health");
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload.data.status).toBe("ok");
+    expect(payload.data.service).toBe("hivemind-api");
+    expect(payload.data.project_count).toBe(1);
+    expect(payload.data.projects[0].project_id).toBe("buzz");
+  });
+
   it("stores and returns the active ruleset", async () => {
     const app = createTestApp();
     await createProject(app);
@@ -164,7 +187,7 @@ describe("HiveMind API", () => {
         branch: "feat/context",
         workspace_path: "/repo/buzz",
         feature: "NFT_TESTS",
-        source_tool: "scenario-builder",
+        source_tool: "fixture-tool",
         tool_version: "7.43",
         environment: "local",
         author_id: "codex-main",
@@ -347,7 +370,7 @@ describe("HiveMind API", () => {
         context_token: contextToken,
         event_type: "github_issue_linked",
         summary: "Linked upstream issue",
-        github_issue_url: "https://github.com/acme/pockethive/issues/123"
+        github_issue_url: "https://github.com/acme/hivemind/issues/123"
       })
     });
     expect(githubResponse.status).toBe(201);
@@ -382,7 +405,7 @@ describe("HiveMind API", () => {
     expect(getResponse.status).toBe(200);
     const getPayload = await getResponse.json();
     expect(getPayload.data.issue.status).toBe("resolved");
-    expect(getPayload.data.issue.github_issue_url).toBe("https://github.com/acme/pockethive/issues/123");
+    expect(getPayload.data.issue.github_issue_url).toBe("https://github.com/acme/hivemind/issues/123");
     expect(getPayload.data.events).toHaveLength(4);
 
     const activeResponse = await app.request(`/v1/issues?context_token=${encodeURIComponent(contextToken)}&status=active`);
@@ -413,6 +436,13 @@ describe("HiveMind API", () => {
             check_mode: "command_reference_required"
           }
         ]
+      })
+    });
+    await app.request("/v1/projects/buzz/features", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        feature: "SMARTER_NFT_TESTS"
       })
     });
 
@@ -661,6 +691,23 @@ describe("HiveMind API", () => {
       branch: "feat/closeout",
       feature: "SMARTER_NFT_TESTS"
     });
+    await app.request("/v1/entries", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "Idempotency-Key": "closeout-entry"
+      },
+      body: JSON.stringify({
+        project_id: "buzz",
+        branch: "feat/closeout",
+        session_id: sessionId,
+        author_id: "codex-main",
+        author_type: "agent",
+        source: "mcp",
+        entry_type: "progress",
+        summary: "Implemented closeout"
+      })
+    });
     await app.request("/v1/learnings", {
       method: "POST",
       headers: {
@@ -705,12 +752,20 @@ describe("HiveMind API", () => {
     const endPayload = await endResponse.json();
     expect(endPayload.data.session.status).toBe("completed");
     expect(endPayload.data.session.ended_at).toBeTruthy();
-    expect(endPayload.data.reminder.missing_required_rules).toHaveLength(1);
-    expect(endPayload.data.reminder.missing_required_rules[0].rule_id).toBe("always_review");
-    expect(endPayload.data.reminder.active_learning_count).toBe(1);
-    expect(endPayload.data.reminder.active_learning_summaries[0].summary).toBe(
+    expect(endPayload.data.closeout.goal).toBe("Close out work");
+    expect(endPayload.data.closeout.activity_counts.rule_checks).toBe(1);
+    expect(endPayload.data.closeout.missing_required_rules).toHaveLength(1);
+    expect(endPayload.data.closeout.missing_required_rules[0].rule_id).toBe("always_review");
+    expect(endPayload.data.closeout.active_learning_count).toBe(1);
+    expect(endPayload.data.closeout.active_learning_summaries[0].summary).toBe(
       "Regenerate fixtures before authoring NFT tests"
     );
+
+    const detailResponse = await app.request(`/v1/sessions/${sessionId}/closeout`);
+    expect(detailResponse.status).toBe(200);
+    const detailPayload = await detailResponse.json();
+    expect(detailPayload.data.closeout.session_id).toBe(sessionId);
+    expect(detailPayload.data.closeout.entry_groups[0].entries[0].summary).toBe("Implemented closeout");
 
     const conflictResponse = await app.request(`/v1/sessions/${sessionId}/end`, {
       method: "POST",
@@ -762,7 +817,7 @@ describe("HiveMind API", () => {
     expect(secondPayload.data.session.session_id).toBe(firstPayload.data.session.session_id);
   });
 
-  it("lists sessions and closes sessions older than the requested threshold", async () => {
+  it("lists sessions with activity counts for audit", async () => {
     const app = createTestApp();
     await createProject(app);
 
@@ -785,49 +840,31 @@ describe("HiveMind API", () => {
     });
     const firstPayload = await first.json();
 
-    await new Promise((resolve) => setTimeout(resolve, 5));
-
-    await app.request("/v1/sessions", {
+    await app.request("/v1/entries", {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        "Idempotency-Key": "session-list-second"
+        "Idempotency-Key": "session-list-entry"
       },
       body: JSON.stringify({
         project_id: "buzz",
         branch: "main",
-        workspace_path: "/repo/buzz",
+        session_id: firstPayload.data.session.session_id,
         author_id: "codex-main",
         author_type: "agent",
         source: "mcp",
-        agent_id: "codex-main",
-        goal: "Second listed session"
+        entry_type: "progress",
+        summary: "Recorded progress"
       })
     });
 
     const listResponse = await app.request("/v1/projects/buzz/sessions?status=active");
     expect(listResponse.status).toBe(200);
     const listPayload = await listResponse.json();
-    expect(listPayload.data.sessions).toHaveLength(2);
+    expect(listPayload.data.sessions).toHaveLength(1);
     expect(listPayload.data.sessions[0].last_seen_at).toBeTruthy();
-
-    const closeResponse = await app.request("/v1/projects/buzz/sessions/close-older-than", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        older_than_hours: 0.000001,
-        status: "abandoned"
-      })
-    });
-
-    expect(closeResponse.status).toBe(200);
-    const closePayload = await closeResponse.json();
-    expect(closePayload.data.cutoff_at).toBeTruthy();
-    expect(
-      closePayload.data.closed_sessions.some(
-        (session) => session.session_id === firstPayload.data.session.session_id && session.status === "abandoned"
-      )
-    ).toBe(true);
+    expect(listPayload.data.sessions[0].activity_counts.entries).toBe(1);
+    expect(listPayload.data.sessions[0].activity_counts.rule_checks).toBe(0);
   });
 
   it("serves the human sessions UI", async () => {
@@ -837,8 +874,23 @@ describe("HiveMind API", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toContain("text/html");
     const html = await response.text();
-    expect(html).toContain("HiveMind Sessions");
+    expect(html).toContain("HiveMind Work Units");
     expect(html).toContain("/assets/hivemind-radial-grid-mark.svg");
+    expect(html).toContain('select id="projectId"');
+    expect(html).toContain('select id="branch"');
+    expect(html).toContain('id="themeToggle"');
+    expect(html).toContain('id="detailsPanel"');
+    expect(html).toContain('id="entryResults"');
+    expect(html).toContain('id="entryFeature"');
+    expect(html).toContain('id="entryTag"');
+    expect(html).toContain('id="workUnitsTab"');
+    expect(html).toContain('id="memoryTab"');
+    expect(html).toContain('hidden');
+    expect(html).toContain("/closeout");
+    expect(html).toContain("/v1/entries/search");
+    expect(html).not.toContain('select id="status"');
+    expect(html).not.toContain("<th>Session ID</th>");
+    expect(html).not.toContain("Close Older");
   });
 
   it("serves allowlisted HiveMind SVG assets", async () => {
@@ -909,6 +961,13 @@ describe("HiveMind API", () => {
             check_mode: "command_reference_required"
           }
         ]
+      })
+    });
+    await app.request("/v1/projects/buzz/features", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        feature: "SMARTER_NFT_TESTS"
       })
     });
 
@@ -1029,6 +1088,7 @@ describe("HiveMind API", () => {
     expect(payload.data.startup_summary.counts.active_learnings).toBe(1);
     expect(payload.data.startup_summary.counts.open_threads).toBe(2);
     expect(payload.data.startup_summary.highlights.issues).toHaveLength(0);
+    expect(payload.data.context.features).toEqual(["SMARTER_NFT_TESTS"]);
     expect(payload.data.context.recent_decisions).toHaveLength(1);
     expect(payload.data.context.recent_decisions[0].summary).toBe("Prefer storage adapter boundaries");
     expect(payload.data.context.recent_learnings).toHaveLength(1);
@@ -1172,7 +1232,7 @@ async function openContext(app, { branch, feature }) {
       branch,
       workspace_path: "/repo/buzz",
       feature,
-      source_tool: "scenario-builder",
+      source_tool: "fixture-tool",
       tool_version: "7.43",
       environment: "local",
       author_id: "codex-main",

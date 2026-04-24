@@ -49,7 +49,7 @@ server.registerTool(
   "feature.add",
   {
     title: "Add a project feature",
-    description: "Add one feature name to the managed project vocabulary.",
+    description: "Add one feature or user-story name to the managed project vocabulary so agents can tag future entries consistently.",
     inputSchema: {
       project_id: z.string(),
       feature: z.string()
@@ -425,7 +425,7 @@ server.registerTool(
   "session.start",
   {
     title: "Start a HiveMind session",
-    description: "Open a HiveMind session and receive the bounded warm-start context.",
+    description: "Open a HiveMind session and receive bounded warm-start context, including project features agents should use when tagging entries.",
     inputSchema: {
       project_id: z.string(),
       branch: z.string(),
@@ -454,10 +454,10 @@ server.registerTool(
   "session.end",
   {
     title: "End a HiveMind session",
-    description: "Close a session as completed or abandoned and return closeout reminders.",
+    description: "Mark a work-unit session ended and return a closeout report.",
     inputSchema: {
       session_id: z.string(),
-      status: z.enum(["completed", "abandoned"])
+      status: z.enum(["completed", "abandoned"]).optional()
     }
   },
   runtime.sessionEnd
@@ -467,7 +467,7 @@ server.registerTool(
   "entry.append",
   {
     title: "Append a HiveMind entry",
-    description: "Store one structured journal entry in HiveMind.",
+    description: "Store one structured journal entry in HiveMind. Use a feature from session.start context when the entry belongs to a feature, user story, or work stream.",
     inputSchema: {
       project_id: z.string(),
       session_id: z.string(),
