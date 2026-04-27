@@ -11,7 +11,7 @@ docker compose up
 ```
 
 Set `HIVEMIND_API_IMAGE` to the published API image first. GitHub Actions
-publishes the default API image to GHCR:
+publishes versioned API images to GHCR from `v*.*.*` tags:
 
 ```bash
 HIVEMIND_API_IMAGE=ghcr.io/<owner>/<repo>/hivemind-api:0.1.0

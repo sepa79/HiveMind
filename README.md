@@ -66,7 +66,7 @@ The stack runs `hivemind-api` with `HIVEMIND_STORAGE_BACKEND=opensearch` and a s
 - Changelog: [CHANGELOG.md](CHANGELOG.md)
 - GitHub Actions workflow: [`.github/workflows/publish.yml`](.github/workflows/publish.yml)
 
-On pushes to `main`, CI runs tests, publishes the API container image to GHCR, and uploads the packed MCP tarball as a workflow artifact. On `v*.*.*` tags, CI also attaches the MCP tarball to a GitHub Release.
+On pushes to `main`, CI runs tests and uploads the packed MCP tarball as a workflow artifact. On `v*.*.*` tags, CI publishes the API container image to GHCR as the tagged version and `latest`, then attaches the MCP tarball to a GitHub Release.
 
 ## MCP
 

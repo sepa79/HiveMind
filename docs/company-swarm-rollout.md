@@ -27,9 +27,9 @@ does not implement a secret backend.
 
 ## 2. Build And Publish The API Image
 
-CI publishes the API image to GHCR on pushes to `main` and version tags.
-For a private company registry, mirror or rebuild the image from a trusted build
-machine:
+CI publishes the API image to GHCR only from version tags such as `v0.1.0`.
+For a private company registry, mirror or rebuild the tagged image from a
+trusted build machine:
 
 ```bash
 docker build -t registry.company.example/hivemind-api:0.1.0 .
