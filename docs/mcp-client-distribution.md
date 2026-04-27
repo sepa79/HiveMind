@@ -7,7 +7,14 @@ HiveMind can run as a central API/storage stack while developers install only th
 Run the shared service on a server, VM, or Docker host:
 
 ```bash
-docker compose up --build
+docker compose up
+```
+
+Set `HIVEMIND_API_IMAGE` to the published API image first. GitHub Actions
+publishes the default API image to GHCR:
+
+```bash
+HIVEMIND_API_IMAGE=ghcr.io/<owner>/<repo>/hivemind-api:0.1.0
 ```
 
 Expose only the HiveMind API endpoint to clients, for example:
@@ -33,6 +40,8 @@ dist/hivemind-mcp-0.1.0.tgz
 ```
 
 For a company registry, publish `hivemind-mcp/` as the package instead of distributing the tarball.
+CI also uploads the packed MCP tarball as a workflow artifact, and attaches it
+to GitHub Releases created from `v*.*.*` tags.
 
 ## Install In VS Code
 

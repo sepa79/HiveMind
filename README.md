@@ -40,7 +40,7 @@ For runtime concepts and workflow, use [docs/user-guide.md](docs/user-guide.md).
 For a shared API backed by OpenSearch:
 
 ```bash
-docker compose up --build
+docker compose up
 ```
 
 Create a local `.env` file first:
@@ -49,7 +49,7 @@ Create a local `.env` file first:
 OPENSEARCH_INITIAL_ADMIN_PASSWORD=<strong-bootstrap-admin-password>
 HIVEMIND_OPENSEARCH_USERNAME=hivemind_api
 HIVEMIND_OPENSEARCH_PASSWORD=<strong-service-user-password>
-HIVEMIND_API_IMAGE=hivemind-api:latest
+HIVEMIND_API_IMAGE=ghcr.io/<owner>/<repo>/hivemind-api:0.1.0
 ```
 
 Open:
@@ -58,7 +58,15 @@ Open:
 http://127.0.0.1:4010/
 ```
 
-The stack runs `hivemind-api` with `HIVEMIND_STORAGE_BACKEND=opensearch` and a single private OpenSearch node. OpenSearch `9200` is not published on the host. For Docker Swarm, build and publish `HIVEMIND_API_IMAGE` before `docker stack deploy`. See [docs/plans/opensearch-storage-stack.md](docs/plans/opensearch-storage-stack.md). For a company rollout with shared VS Code MCP clients, use [docs/company-swarm-rollout.md](docs/company-swarm-rollout.md).
+The stack runs `hivemind-api` with `HIVEMIND_STORAGE_BACKEND=opensearch` and a single private OpenSearch node. OpenSearch `9200` is not published on the host. `docker-compose.yml` uses the image named by `HIVEMIND_API_IMAGE`; CI publishes the API image to GHCR. See [docs/plans/opensearch-storage-stack.md](docs/plans/opensearch-storage-stack.md). For a company rollout with shared VS Code MCP clients, use [docs/company-swarm-rollout.md](docs/company-swarm-rollout.md).
+
+## Releases
+
+- Current version: [VERSION](VERSION)
+- Changelog: [CHANGELOG.md](CHANGELOG.md)
+- GitHub Actions workflow: [`.github/workflows/publish.yml`](.github/workflows/publish.yml)
+
+On pushes to `main`, CI runs tests, publishes the API container image to GHCR, and uploads the packed MCP tarball as a workflow artifact. On `v*.*.*` tags, CI also attaches the MCP tarball to a GitHub Release.
 
 ## MCP
 

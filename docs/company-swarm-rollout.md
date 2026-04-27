@@ -15,7 +15,7 @@ Choose these values before deployment:
 
 ```text
 HIVEMIND_PUBLIC_URL=https://hivemind.company.example
-REGISTRY_IMAGE=registry.company.example/hivemind-api:0.1.0
+REGISTRY_IMAGE=ghcr.io/<owner>/<repo>/hivemind-api:0.1.0
 STACK_NAME=hivemind
 INDEX_PREFIX=hivemind
 SERVICE_USER=hivemind_api
@@ -27,7 +27,9 @@ does not implement a secret backend.
 
 ## 2. Build And Publish The API Image
 
-Run this from a trusted build machine with access to the company registry:
+CI publishes the API image to GHCR on pushes to `main` and version tags.
+For a private company registry, mirror or rebuild the image from a trusted build
+machine:
 
 ```bash
 docker build -t registry.company.example/hivemind-api:0.1.0 .
@@ -46,7 +48,7 @@ export OPENSEARCH_INITIAL_ADMIN_PASSWORD='<strong-bootstrap-admin-password>'
 export HIVEMIND_OPENSEARCH_USERNAME='hivemind_api'
 export HIVEMIND_OPENSEARCH_PASSWORD='<strong-service-user-password>'
 export HIVEMIND_OPENSEARCH_INDEX_PREFIX='hivemind'
-export HIVEMIND_API_IMAGE='registry.company.example/hivemind-api:0.1.0'
+export HIVEMIND_API_IMAGE='ghcr.io/<owner>/<repo>/hivemind-api:0.1.0'
 ```
 
 Deploy:
@@ -274,9 +276,10 @@ Client:
 ```bash
 node --version
 code --version
-npx -y hivemind-mcp --help
+npm view hivemind-mcp version
 ```
 
-If `npx` cannot reach the package, fix npm registry access or distribute the
-tarball. If the MCP server starts but tools fail, verify
+For tarball installs, verify that the tarball path used in VS Code exists
+instead. If `npm view` cannot reach the package, fix npm registry access or
+distribute the tarball. If the MCP server starts but tools fail, verify
 `HIVEMIND_API_BASE_URL` and network access to the shared API.

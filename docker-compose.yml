@@ -89,10 +89,7 @@ services:
         delay: 5s
 
   hivemind-api:
-    image: ${HIVEMIND_API_IMAGE:-hivemind-api:latest}
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ${HIVEMIND_API_IMAGE:?HIVEMIND_API_IMAGE is required}
     restart: on-failure
     environment:
       HIVEMIND_API_PORT: "4010"
