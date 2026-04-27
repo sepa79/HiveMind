@@ -58,7 +58,7 @@ Open:
 http://127.0.0.1:4010/
 ```
 
-The stack runs `hivemind-api` with `HIVEMIND_STORAGE_BACKEND=opensearch` and a single private OpenSearch node. OpenSearch `9200` is not published on the host. For Docker Swarm, build and publish `HIVEMIND_API_IMAGE` before `docker stack deploy`. See [docs/plans/opensearch-storage-stack.md](docs/plans/opensearch-storage-stack.md).
+The stack runs `hivemind-api` with `HIVEMIND_STORAGE_BACKEND=opensearch` and a single private OpenSearch node. OpenSearch `9200` is not published on the host. For Docker Swarm, build and publish `HIVEMIND_API_IMAGE` before `docker stack deploy`. See [docs/plans/opensearch-storage-stack.md](docs/plans/opensearch-storage-stack.md). For a company rollout with shared VS Code MCP clients, use [docs/company-swarm-rollout.md](docs/company-swarm-rollout.md).
 
 ## MCP
 
