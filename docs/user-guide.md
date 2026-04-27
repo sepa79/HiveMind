@@ -28,6 +28,8 @@ Default local pieces:
   Thin MCP layer that talks to the API over REST.
 - `.hivemind/`
   Default local filesystem data root.
+- OpenSearch
+  Optional shared backend for Docker/team use.
 - `bootstrap/`
   Committed seed/demo assets for local onboarding.
 
@@ -110,10 +112,23 @@ Default data root:
 <repo>/.hivemind
 ```
 
+Shared Docker deployments can use OpenSearch instead of the filesystem data root:
+
+```bash
+HIVEMIND_STORAGE_BACKEND=opensearch
+HIVEMIND_OPENSEARCH_NODE=http://opensearch:9200
+```
+
 Important environment variables:
 
+- `HIVEMIND_STORAGE_BACKEND`
+  choose `fs-jsonl` or `opensearch`
 - `HIVEMIND_DATA_ROOT`
   choose a different data root
+- `HIVEMIND_OPENSEARCH_NODE`
+  OpenSearch URL when `HIVEMIND_STORAGE_BACKEND=opensearch`
+- `HIVEMIND_OPENSEARCH_INDEX_PREFIX`
+  OpenSearch index prefix; default is `hivemind`
 - `HIVEMIND_API_PORT`
   choose a different API port
 - `HIVEMIND_API_BASE_URL`

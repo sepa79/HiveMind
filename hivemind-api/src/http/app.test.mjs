@@ -353,12 +353,14 @@ describe("HiveMind API", () => {
         title: "Scenario Builder stale schema cache",
         summary: "Generated NFT scenarios fail until fixtures are regenerated.",
         details: "Observed during SMARTER_NFT_TESTS authoring on local fixtures.",
-        severity: "high"
+        severity: "high",
+        tags: ["XYZ", "fixtures"]
       })
     });
     expect(reportResponse.status).toBe(201);
     const reportPayload = await reportResponse.json();
     const issueId = reportPayload.data.issue.issue_id;
+    expect(reportPayload.data.issue.tags).toEqual(["XYZ", "fixtures"]);
 
     const githubResponse = await app.request(`/v1/issues/${issueId}/events`, {
       method: "POST",
@@ -418,6 +420,11 @@ describe("HiveMind API", () => {
     const resolvedPayload = await resolvedResponse.json();
     expect(resolvedPayload.data.issues).toHaveLength(1);
     expect(resolvedPayload.data.issues[0].issue_id).toBe(issueId);
+
+    const taggedResponse = await app.request(`/v1/issues?context_token=${encodeURIComponent(contextToken)}&tags=XYZ`);
+    const taggedPayload = await taggedResponse.json();
+    expect(taggedPayload.data.issues).toHaveLength(1);
+    expect(taggedPayload.data.issues[0].tags).toEqual(["XYZ", "fixtures"]);
   });
 
   it("returns project briefs, branch briefs, and open threads for a context", async () => {

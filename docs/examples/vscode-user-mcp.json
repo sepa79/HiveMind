@@ -1,0 +1,12 @@
+{
+  "servers": {
+    "hivemind": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "hivemind-mcp"],
+      "env": {
+        "HIVEMIND_API_BASE_URL": "https://hivemind.example.com"
+      }
+    }
+  }
+}

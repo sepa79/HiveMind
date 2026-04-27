@@ -1,0 +1,38 @@
+name: hivemind
+
+services:
+  opensearch:
+    image: opensearchproject/opensearch:2.17.1
+    environment:
+      discovery.type: single-node
+      plugins.security.disabled: "true"
+      OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
+      DISABLE_INSTALL_DEMO_CONFIG: "true"
+    ports:
+      - "9200:9200"
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9200/_cluster/health >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  hivemind-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      HIVEMIND_API_PORT: "4010"
+      HIVEMIND_STORAGE_BACKEND: opensearch
+      HIVEMIND_OPENSEARCH_NODE: http://opensearch:9200
+      HIVEMIND_OPENSEARCH_INDEX_PREFIX: ${HIVEMIND_OPENSEARCH_INDEX_PREFIX:-hivemind}
+    ports:
+      - "4010:4010"
+    depends_on:
+      opensearch:
+        condition: service_healthy
+
+volumes:
+  opensearch-data:

@@ -1,0 +1,6 @@
+node_modules
+.hivemind
+.git
+coverage
+dist
+npm-debug.log

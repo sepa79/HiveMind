@@ -296,6 +296,7 @@ server.registerTool(
       summary: z.string(),
       details: z.string().optional(),
       severity: z.enum(["low", "normal", "high", "critical"]),
+      tags: z.array(z.string()).optional(),
       github_issue_url: z.string().optional(),
       idempotencyKey: z.string().optional()
     }
@@ -372,6 +373,7 @@ server.registerTool(
       feature: z.string().optional(),
       source_tool: z.string().optional(),
       status: z.enum(["open", "fixed_pending_verification", "resolved", "closed", "active", "all"]).optional(),
+      tags: z.array(z.string()).optional(),
       query: z.string().optional(),
       limit: z.number().int().positive().max(200).optional(),
       sort: z.enum(["recent", "severity"]).optional()

@@ -11,7 +11,9 @@
     "hivemind:init": "node scripts/hivemind-work-unit.mjs init",
     "hivemind:save-demo": "./scripts/save-demo-state.sh",
     "hivemind:work": "node scripts/hivemind-work-unit.mjs",
+    "pack:mcp": "mkdir -p dist && npm pack ./hivemind-mcp --pack-destination dist",
     "start:api": "node hivemind-api/src/server.mjs",
+    "start:api:opensearch": "HIVEMIND_STORAGE_BACKEND=opensearch HIVEMIND_OPENSEARCH_NODE=http://127.0.0.1:9200 node hivemind-api/src/server.mjs",
     "start:mcp": "node hivemind-mcp/src/server.mjs",
     "test": "vitest run",
     "test:hivemind": "vitest run hivemind-api/src hivemind-mcp/src scripts/bootstrap-hivemind.test.mjs scripts/hivemind-work-unit.test.mjs"
@@ -19,6 +21,7 @@
   "dependencies": {
     "@hono/node-server": "^1.19.14",
     "@modelcontextprotocol/sdk": "^1.25.1",
+    "@opensearch-project/opensearch": "^3.5.1",
     "hono": "^4.12.14",
     "zod": "^3.24.1"
   },

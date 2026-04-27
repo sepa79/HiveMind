@@ -580,6 +580,7 @@ export class FsJsonlStorage extends StorageAdapter {
       details: issueInput.details,
       status: "open",
       severity: issueInput.severity,
+      tags: issueInput.tags ?? [],
       github_issue_url: issueInput.github_issue_url ?? null,
       created_at: now,
       updated_at: now
@@ -1385,6 +1386,14 @@ export class FsJsonlStorage extends StorageAdapter {
         }
       } else if (issue.status !== query.status) {
         return false;
+      }
+    }
+    if (query.tags?.length) {
+      const issueTags = new Set(issue.tags ?? []);
+      for (const tag of query.tags) {
+        if (!issueTags.has(tag)) {
+          return false;
+        }
       }
     }
     if (query.query) {

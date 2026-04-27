@@ -285,6 +285,7 @@ export const IssueReportInputSchema = z.object({
   summary: NonEmptyString,
   details: z.string().trim().optional(),
   severity: z.enum(ISSUE_SEVERITY_VALUES),
+  tags: z.array(NonEmptyString).optional(),
   github_issue_url: z.string().trim().min(1).optional()
 });
 
@@ -297,6 +298,7 @@ export const IssueRecordSchema = z.object({
   details: z.string().optional(),
   status: z.enum(ISSUE_STATUS_VALUES),
   severity: z.enum(ISSUE_SEVERITY_VALUES),
+  tags: z.array(NonEmptyString),
   github_issue_url: z.string().nullable(),
   created_at: NonEmptyString,
   updated_at: NonEmptyString
@@ -347,6 +349,7 @@ export const IssueListInputSchema = z.object({
   feature: z.string().trim().min(1).optional(),
   source_tool: z.string().trim().min(1).optional(),
   status: z.enum([...ISSUE_STATUS_VALUES, "active", "all"]).optional(),
+  tags: z.array(NonEmptyString).optional(),
   query: z.string().trim().min(1).optional(),
   limit: z.number().int().positive().max(200).optional(),
   sort: z.enum(["recent", "severity"]).optional()

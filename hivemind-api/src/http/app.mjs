@@ -221,6 +221,7 @@ export function createApp({ service }) {
       feature: c.req.query("feature") || undefined,
       source_tool: c.req.query("source_tool") || undefined,
       status: c.req.query("status") || undefined,
+      tags: parseCsvQuery(c.req.query("tags")),
       query: c.req.query("query") || undefined,
       limit: c.req.query("limit") ? Number.parseInt(c.req.query("limit"), 10) : undefined,
       sort: c.req.query("sort") || undefined
@@ -342,6 +343,17 @@ async function readJsonBody(c) {
       message: error instanceof Error ? error.message : String(error)
     });
   }
+}
+
+function parseCsvQuery(value) {
+  if (!value) {
+    return undefined;
+  }
+  const values = value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  return values.length > 0 ? values : undefined;
 }
 
 function success(c, data, status = 200) {

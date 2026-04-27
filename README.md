@@ -35,6 +35,22 @@ npm run doctor
 For the full local onboarding flow, use [docs/team-quickstart.md](docs/team-quickstart.md).
 For runtime concepts and workflow, use [docs/user-guide.md](docs/user-guide.md).
 
+## Shared Docker Stack
+
+For a shared API backed by OpenSearch:
+
+```bash
+docker compose up --build
+```
+
+Open:
+
+```text
+http://127.0.0.1:4010/
+```
+
+The stack runs `hivemind-api` with `HIVEMIND_STORAGE_BACKEND=opensearch` and a single OpenSearch node. See [docs/plans/opensearch-storage-stack.md](docs/plans/opensearch-storage-stack.md).
+
 ## MCP
 
 Start the MCP server in another terminal:
@@ -47,6 +63,9 @@ Example client configs:
 
 - [docs/examples/codex-mcp.json](docs/examples/codex-mcp.json)
 - [docs/examples/claude-desktop-mcp.json](docs/examples/claude-desktop-mcp.json)
+- [docs/examples/vscode-user-mcp.json](docs/examples/vscode-user-mcp.json)
+
+For team installs where the API runs centrally and developers install only the MCP client, see [docs/mcp-client-distribution.md](docs/mcp-client-distribution.md).
 
 ## Demo State
 
