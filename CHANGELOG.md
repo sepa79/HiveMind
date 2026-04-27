@@ -2,6 +2,12 @@
 
 All notable HiveMind changes are recorded here.
 
+## 0.1.2 - 2026-04-28
+
+- Move OpenSearch security provisioning from inline Compose script to `scripts/opensearch-init.mjs`.
+- Run OpenSearch provisioning from the same HiveMind API image with a different command.
+- Keep OpenSearch admin bootstrap credentials out of the long-running API service.
+
 ## 0.1.1 - 2026-04-27
 
 - Publish API container images only for version tags.

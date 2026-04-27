@@ -152,7 +152,7 @@ For the Docker OpenSearch stack, create a local `.env` file next to `docker-comp
 OPENSEARCH_INITIAL_ADMIN_PASSWORD=<strong-bootstrap-admin-password>
 HIVEMIND_OPENSEARCH_USERNAME=hivemind_api
 HIVEMIND_OPENSEARCH_PASSWORD=<strong-service-user-password>
-HIVEMIND_API_IMAGE=ghcr.io/<owner>/<repo>/hivemind-api:0.1.0
+HIVEMIND_API_IMAGE=ghcr.io/<owner>/<repo>/hivemind-api:0.1.2
 ```
 
 OpenSearch `9200` is not published by the default stack. The API reaches it over the private Docker network.

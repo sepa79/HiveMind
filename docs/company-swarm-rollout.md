@@ -15,7 +15,7 @@ Choose these values before deployment:
 
 ```text
 HIVEMIND_PUBLIC_URL=https://hivemind.company.example
-REGISTRY_IMAGE=ghcr.io/<owner>/<repo>/hivemind-api:0.1.0
+REGISTRY_IMAGE=ghcr.io/<owner>/<repo>/hivemind-api:0.1.2
 STACK_NAME=hivemind
 INDEX_PREFIX=hivemind
 SERVICE_USER=hivemind_api
@@ -27,13 +27,13 @@ does not implement a secret backend.
 
 ## 2. Build And Publish The API Image
 
-CI publishes the API image to GHCR only from version tags such as `v0.1.0`.
+CI publishes the API image to GHCR only from version tags such as `v0.1.2`.
 For a private company registry, mirror or rebuild the tagged image from a
 trusted build machine:
 
 ```bash
-docker build -t registry.company.example/hivemind-api:0.1.0 .
-docker push registry.company.example/hivemind-api:0.1.0
+docker build -t registry.company.example/hivemind-api:0.1.2 .
+docker push registry.company.example/hivemind-api:0.1.2
 ```
 
 Swarm does not build images during `docker stack deploy`, so the image must
@@ -48,7 +48,7 @@ export OPENSEARCH_INITIAL_ADMIN_PASSWORD='<strong-bootstrap-admin-password>'
 export HIVEMIND_OPENSEARCH_USERNAME='hivemind_api'
 export HIVEMIND_OPENSEARCH_PASSWORD='<strong-service-user-password>'
 export HIVEMIND_OPENSEARCH_INDEX_PREFIX='hivemind'
-export HIVEMIND_API_IMAGE='ghcr.io/<owner>/<repo>/hivemind-api:0.1.0'
+export HIVEMIND_API_IMAGE='ghcr.io/<owner>/<repo>/hivemind-api:0.1.2'
 ```
 
 Deploy:
@@ -180,7 +180,7 @@ npm run pack:mcp
 This creates:
 
 ```text
-dist/hivemind-mcp-0.1.0.tgz
+dist/hivemind-mcp-0.1.2.tgz
 ```
 
 The MCP package is thin. It does not include the API or OpenSearch.
@@ -208,7 +208,7 @@ code --add-mcp '{"name":"hivemind","type":"stdio","command":"npx","args":["-y","
 Tarball:
 
 ```bash
-code --add-mcp '{"name":"hivemind","type":"stdio","command":"npx","args":["-y","/path/to/hivemind-mcp-0.1.0.tgz"],"env":{"HIVEMIND_API_BASE_URL":"https://hivemind.company.example"}}'
+code --add-mcp '{"name":"hivemind","type":"stdio","command":"npx","args":["-y","/path/to/hivemind-mcp-0.1.2.tgz"],"env":{"HIVEMIND_API_BASE_URL":"https://hivemind.company.example"}}'
 ```
 
 After changing MCP config, reload VS Code or restart the `hivemind` MCP server.

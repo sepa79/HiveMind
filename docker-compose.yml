@@ -15,74 +15,16 @@ services:
       start_period: 30s
 
   opensearch-init:
-    image: node:22-alpine
+    image: ${HIVEMIND_API_IMAGE:?HIVEMIND_API_IMAGE is required}
     restart: on-failure
     environment:
       NODE_TLS_REJECT_UNAUTHORIZED: "0"
       OPENSEARCH_INITIAL_ADMIN_PASSWORD: ${OPENSEARCH_INITIAL_ADMIN_PASSWORD:?OPENSEARCH_INITIAL_ADMIN_PASSWORD is required}
       HIVEMIND_OPENSEARCH_USERNAME: ${HIVEMIND_OPENSEARCH_USERNAME:?HIVEMIND_OPENSEARCH_USERNAME is required}
       HIVEMIND_OPENSEARCH_PASSWORD: ${HIVEMIND_OPENSEARCH_PASSWORD:?HIVEMIND_OPENSEARCH_PASSWORD is required}
+      HIVEMIND_OPENSEARCH_NODE: ${HIVEMIND_OPENSEARCH_NODE:-https://opensearch:9200}
       HIVEMIND_OPENSEARCH_INDEX_PREFIX: ${HIVEMIND_OPENSEARCH_INDEX_PREFIX:-hivemind}
-    command:
-      - node
-      - --input-type=module
-      - -e
-      - |
-        const endpoint = "https://opensearch:9200";
-        const required = (name) => {
-          const value = process.env[name];
-          if (!value) throw new Error(name + " is required.");
-          return value;
-        };
-        const adminPassword = required("OPENSEARCH_INITIAL_ADMIN_PASSWORD");
-        const username = required("HIVEMIND_OPENSEARCH_USERNAME");
-        const password = required("HIVEMIND_OPENSEARCH_PASSWORD");
-        const indexPrefix = process.env.HIVEMIND_OPENSEARCH_INDEX_PREFIX || "hivemind";
-        const auth = "Basic " + Buffer.from("admin:" + adminPassword).toString("base64");
-        const putJson = async (path, body) => {
-          const response = await fetch(endpoint + path, {
-            method: "PUT",
-            headers: {
-              authorization: auth,
-              "content-type": "application/json"
-            },
-            body: JSON.stringify(body)
-          });
-          if (!response.ok) {
-            throw new Error(path + " failed with HTTP " + response.status + ": " + (await response.text()));
-          }
-          console.log(await response.text());
-        };
-        for (let attempt = 1; attempt <= 60; attempt += 1) {
-          try {
-            const response = await fetch(endpoint + "/_cluster/health", { headers: { authorization: auth } });
-            if (response.ok) break;
-            if (attempt === 60) throw new Error("OpenSearch health failed with HTTP " + response.status + ": " + (await response.text()));
-          } catch (error) {
-            if (attempt === 60) throw error;
-          }
-          await new Promise((resolve) => setTimeout(resolve, 2000));
-        }
-        await putJson("/_plugins/_security/api/roles/hivemind_api", {
-          cluster_permissions: [],
-          index_permissions: [
-            {
-              index_patterns: [indexPrefix + "-*"],
-              allowed_actions: ["indices:admin/*", "indices:data/*"]
-            }
-          ],
-          tenant_permissions: []
-        });
-        await putJson("/_plugins/_security/api/internalusers/" + encodeURIComponent(username), {
-          password,
-          backend_roles: ["hivemind_api"],
-          attributes: {}
-        });
-        await putJson("/_plugins/_security/api/rolesmapping/hivemind_api", {
-          backend_roles: ["hivemind_api"],
-          users: [username],
-          hosts: []
-        });
+    command: ["node", "scripts/opensearch-init.mjs"]
     deploy:
       restart_policy:
         condition: on-failure
@@ -94,7 +36,7 @@ services:
     environment:
       HIVEMIND_API_PORT: "4010"
       HIVEMIND_STORAGE_BACKEND: opensearch
-      HIVEMIND_OPENSEARCH_NODE: https://opensearch:9200
+      HIVEMIND_OPENSEARCH_NODE: ${HIVEMIND_OPENSEARCH_NODE:-https://opensearch:9200}
       HIVEMIND_OPENSEARCH_INDEX_PREFIX: ${HIVEMIND_OPENSEARCH_INDEX_PREFIX:-hivemind}
       HIVEMIND_OPENSEARCH_USERNAME: ${HIVEMIND_OPENSEARCH_USERNAME:?HIVEMIND_OPENSEARCH_USERNAME is required}
       HIVEMIND_OPENSEARCH_PASSWORD: ${HIVEMIND_OPENSEARCH_PASSWORD:?HIVEMIND_OPENSEARCH_PASSWORD is required}

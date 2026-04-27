@@ -19,13 +19,13 @@ The MCP server remains thin and still talks to `hivemind-api` over REST. Storage
 Use the Docker stack from the repo root:
 
 ```bash
-HIVEMIND_API_IMAGE=ghcr.io/<owner>/<repo>/hivemind-api:0.1.0 docker compose up
+HIVEMIND_API_IMAGE=ghcr.io/<owner>/<repo>/hivemind-api:0.1.2 docker compose up
 ```
 
 For Docker Swarm, deploy the published API image:
 
 ```bash
-HIVEMIND_API_IMAGE=registry.example.com/hivemind-api:0.1.0 docker stack deploy -c docker-compose.yml hivemind
+HIVEMIND_API_IMAGE=registry.example.com/hivemind-api:0.1.2 docker stack deploy -c docker-compose.yml hivemind
 ```
 
 `docker-compose.yml` intentionally does not define a local `build:` section.
@@ -66,12 +66,12 @@ The Docker stack keeps the OpenSearch Security plugin enabled. It requires:
 OPENSEARCH_INITIAL_ADMIN_PASSWORD=<strong-bootstrap-admin-password>
 HIVEMIND_OPENSEARCH_USERNAME=hivemind_api
 HIVEMIND_OPENSEARCH_PASSWORD=<strong-service-user-password>
-HIVEMIND_API_IMAGE=ghcr.io/<owner>/<repo>/hivemind-api:0.1.0
+HIVEMIND_API_IMAGE=ghcr.io/<owner>/<repo>/hivemind-api:0.1.2
 ```
 
 `admin` is used only by the one-shot `opensearch-init` service to create the dedicated API role, service user, and role mapping. `hivemind-api` authenticates as the service user.
 
-`opensearch-init` is idempotent. It waits for OpenSearch health, then writes the role, internal user, and role mapping through the Security plugin API. It serializes request bodies with `JSON.stringify`, so passwords and usernames are not hand-embedded into JSON strings.
+`opensearch-init` is idempotent. It uses the same `HIVEMIND_API_IMAGE` as the API service, but runs `node scripts/opensearch-init.mjs` instead of the API server. It waits for OpenSearch health, then writes the role, internal user, and role mapping through the Security plugin API. It serializes request bodies with `JSON.stringify`, so passwords and usernames are not hand-embedded into JSON strings.
 
 The API service does not rely on Compose-only `depends_on` readiness semantics. In Swarm, `opensearch-init` and `hivemind-api` may start concurrently; if the API starts before the service user exists, it exits and Swarm restarts it through the explicit `on-failure` restart policy.
 
