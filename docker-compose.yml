@@ -1,38 +1,113 @@
-name: hivemind
-
 services:
   opensearch:
     image: opensearchproject/opensearch:2.17.1
     environment:
       discovery.type: single-node
-      plugins.security.disabled: "true"
       OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
-      DISABLE_INSTALL_DEMO_CONFIG: "true"
-    ports:
-      - "9200:9200"
+      OPENSEARCH_INITIAL_ADMIN_PASSWORD: ${OPENSEARCH_INITIAL_ADMIN_PASSWORD:?OPENSEARCH_INITIAL_ADMIN_PASSWORD is required}
     volumes:
       - opensearch-data:/usr/share/opensearch/data
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9200/_cluster/health >/dev/null"]
+      test: ["CMD-SHELL", "curl -k -fsS -u admin:$$OPENSEARCH_INITIAL_ADMIN_PASSWORD https://127.0.0.1:9200/_cluster/health >/dev/null"]
       interval: 10s
       timeout: 5s
       retries: 30
       start_period: 30s
 
+  opensearch-init:
+    image: node:22-alpine
+    restart: on-failure
+    environment:
+      NODE_TLS_REJECT_UNAUTHORIZED: "0"
+      OPENSEARCH_INITIAL_ADMIN_PASSWORD: ${OPENSEARCH_INITIAL_ADMIN_PASSWORD:?OPENSEARCH_INITIAL_ADMIN_PASSWORD is required}
+      HIVEMIND_OPENSEARCH_USERNAME: ${HIVEMIND_OPENSEARCH_USERNAME:?HIVEMIND_OPENSEARCH_USERNAME is required}
+      HIVEMIND_OPENSEARCH_PASSWORD: ${HIVEMIND_OPENSEARCH_PASSWORD:?HIVEMIND_OPENSEARCH_PASSWORD is required}
+      HIVEMIND_OPENSEARCH_INDEX_PREFIX: ${HIVEMIND_OPENSEARCH_INDEX_PREFIX:-hivemind}
+    command:
+      - node
+      - --input-type=module
+      - -e
+      - |
+        const endpoint = "https://opensearch:9200";
+        const required = (name) => {
+          const value = process.env[name];
+          if (!value) throw new Error(name + " is required.");
+          return value;
+        };
+        const adminPassword = required("OPENSEARCH_INITIAL_ADMIN_PASSWORD");
+        const username = required("HIVEMIND_OPENSEARCH_USERNAME");
+        const password = required("HIVEMIND_OPENSEARCH_PASSWORD");
+        const indexPrefix = process.env.HIVEMIND_OPENSEARCH_INDEX_PREFIX || "hivemind";
+        const auth = "Basic " + Buffer.from("admin:" + adminPassword).toString("base64");
+        const putJson = async (path, body) => {
+          const response = await fetch(endpoint + path, {
+            method: "PUT",
+            headers: {
+              authorization: auth,
+              "content-type": "application/json"
+            },
+            body: JSON.stringify(body)
+          });
+          if (!response.ok) {
+            throw new Error(path + " failed with HTTP " + response.status + ": " + (await response.text()));
+          }
+          console.log(await response.text());
+        };
+        for (let attempt = 1; attempt <= 60; attempt += 1) {
+          try {
+            const response = await fetch(endpoint + "/_cluster/health", { headers: { authorization: auth } });
+            if (response.ok) break;
+            if (attempt === 60) throw new Error("OpenSearch health failed with HTTP " + response.status + ": " + (await response.text()));
+          } catch (error) {
+            if (attempt === 60) throw error;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+        }
+        await putJson("/_plugins/_security/api/roles/hivemind_api", {
+          cluster_permissions: [],
+          index_permissions: [
+            {
+              index_patterns: [indexPrefix + "-*"],
+              allowed_actions: ["indices:admin/*", "indices:data/*"]
+            }
+          ],
+          tenant_permissions: []
+        });
+        await putJson("/_plugins/_security/api/internalusers/" + encodeURIComponent(username), {
+          password,
+          backend_roles: ["hivemind_api"],
+          attributes: {}
+        });
+        await putJson("/_plugins/_security/api/rolesmapping/hivemind_api", {
+          backend_roles: ["hivemind_api"],
+          users: [username],
+          hosts: []
+        });
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+
   hivemind-api:
+    image: ${HIVEMIND_API_IMAGE:-hivemind-api:latest}
     build:
       context: .
       dockerfile: Dockerfile
+    restart: on-failure
     environment:
       HIVEMIND_API_PORT: "4010"
       HIVEMIND_STORAGE_BACKEND: opensearch
-      HIVEMIND_OPENSEARCH_NODE: http://opensearch:9200
+      HIVEMIND_OPENSEARCH_NODE: https://opensearch:9200
       HIVEMIND_OPENSEARCH_INDEX_PREFIX: ${HIVEMIND_OPENSEARCH_INDEX_PREFIX:-hivemind}
+      HIVEMIND_OPENSEARCH_USERNAME: ${HIVEMIND_OPENSEARCH_USERNAME:?HIVEMIND_OPENSEARCH_USERNAME is required}
+      HIVEMIND_OPENSEARCH_PASSWORD: ${HIVEMIND_OPENSEARCH_PASSWORD:?HIVEMIND_OPENSEARCH_PASSWORD is required}
+      HIVEMIND_OPENSEARCH_TLS_REJECT_UNAUTHORIZED: ${HIVEMIND_OPENSEARCH_TLS_REJECT_UNAUTHORIZED:-false}
     ports:
       - "4010:4010"
-    depends_on:
-      opensearch:
-        condition: service_healthy
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
 
 volumes:
   opensearch-data:

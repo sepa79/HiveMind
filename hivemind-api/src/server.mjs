@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { readFileSync } from "node:fs";
 import { serve } from "@hono/node-server";
 import { HiveMindService } from "./app/service.mjs";
 import { createApp } from "./http/app.mjs";
@@ -37,9 +38,15 @@ function createStorage({ storageBackend, dataRoot }) {
   }
 
   if (storageBackend === "opensearch") {
+    const node = requiredEnv("HIVEMIND_OPENSEARCH_NODE");
     return new OpenSearchStorage({
-      node: requiredEnv("HIVEMIND_OPENSEARCH_NODE"),
-      indexPrefix: process.env.HIVEMIND_OPENSEARCH_INDEX_PREFIX || "hivemind"
+      node,
+      indexPrefix: process.env.HIVEMIND_OPENSEARCH_INDEX_PREFIX || "hivemind",
+      auth: {
+        username: requiredEnv("HIVEMIND_OPENSEARCH_USERNAME"),
+        password: requiredEnv("HIVEMIND_OPENSEARCH_PASSWORD")
+      },
+      ssl: openSearchSslConfig(node)
     });
   }
 
@@ -52,4 +59,35 @@ function requiredEnv(name) {
     throw new Error(`${name} is required.`);
   }
   return value;
+}
+
+function openSearchSslConfig(node) {
+  const caFile = process.env.HIVEMIND_OPENSEARCH_TLS_CA_FILE;
+  const rejectUnauthorizedEnv = process.env.HIVEMIND_OPENSEARCH_TLS_REJECT_UNAUTHORIZED;
+
+  if (!node.startsWith("https://")) {
+    if (caFile || rejectUnauthorizedEnv !== undefined) {
+      throw new Error("OpenSearch TLS settings require HIVEMIND_OPENSEARCH_NODE to use https://.");
+    }
+    return null;
+  }
+
+  return {
+    rejectUnauthorized: parseBooleanEnv("HIVEMIND_OPENSEARCH_TLS_REJECT_UNAUTHORIZED", true),
+    ...(caFile ? { ca: readFileSync(caFile) } : {})
+  };
+}
+
+function parseBooleanEnv(name, defaultValue) {
+  const value = process.env[name];
+  if (value === undefined) {
+    return defaultValue;
+  }
+  if (value === "true") {
+    return true;
+  }
+  if (value === "false") {
+    return false;
+  }
+  throw new Error(`${name} must be 'true' or 'false'.`);
 }

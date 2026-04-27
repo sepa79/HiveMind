@@ -230,12 +230,12 @@ const INDEX_DEFINITIONS = {
 };
 
 export class OpenSearchStorage extends StorageAdapter {
-  constructor({ node, indexPrefix = DEFAULT_INDEX_PREFIX, client = null, refresh = "wait_for" } = {}) {
+  constructor({ node, indexPrefix = DEFAULT_INDEX_PREFIX, client = null, refresh = "wait_for", auth = null, ssl = null } = {}) {
     super();
     if (!node && !client) {
       throw new Error("OpenSearchStorage requires an OpenSearch node URL.");
     }
-    this.client = client ?? new Client({ node });
+    this.client = client ?? new Client({ node, ...(auth ? { auth } : {}), ...(ssl ? { ssl } : {}) });
     this.indexPrefix = indexPrefix;
     this.refresh = refresh;
   }

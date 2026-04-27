@@ -116,7 +116,9 @@ Shared Docker deployments can use OpenSearch instead of the filesystem data root
 
 ```bash
 HIVEMIND_STORAGE_BACKEND=opensearch
-HIVEMIND_OPENSEARCH_NODE=http://opensearch:9200
+HIVEMIND_OPENSEARCH_NODE=https://opensearch:9200
+HIVEMIND_OPENSEARCH_USERNAME=hivemind_api
+HIVEMIND_OPENSEARCH_PASSWORD=<service-user-password>
 ```
 
 Important environment variables:
@@ -129,12 +131,33 @@ Important environment variables:
   OpenSearch URL when `HIVEMIND_STORAGE_BACKEND=opensearch`
 - `HIVEMIND_OPENSEARCH_INDEX_PREFIX`
   OpenSearch index prefix; default is `hivemind`
+- `HIVEMIND_OPENSEARCH_USERNAME`
+  OpenSearch service user for the API; required for the OpenSearch backend
+- `HIVEMIND_OPENSEARCH_PASSWORD`
+  OpenSearch service user password; required for the OpenSearch backend
+- `HIVEMIND_OPENSEARCH_TLS_CA_FILE`
+  optional CA file for HTTPS OpenSearch deployments
+- `HIVEMIND_OPENSEARCH_TLS_REJECT_UNAUTHORIZED`
+  `true` or `false`; defaults to `true` for HTTPS
 - `HIVEMIND_API_PORT`
   choose a different API port
 - `HIVEMIND_API_BASE_URL`
   point the MCP server or wrapper at a different API instance
 
 Committed seed/demo files live under `bootstrap/`. Runtime data under `.hivemind/` stays local and should not be committed directly.
+
+For the Docker OpenSearch stack, create a local `.env` file next to `docker-compose.yml` with:
+
+```bash
+OPENSEARCH_INITIAL_ADMIN_PASSWORD=<strong-bootstrap-admin-password>
+HIVEMIND_OPENSEARCH_USERNAME=hivemind_api
+HIVEMIND_OPENSEARCH_PASSWORD=<strong-service-user-password>
+HIVEMIND_API_IMAGE=hivemind-api:latest
+```
+
+OpenSearch `9200` is not published by the default stack. The API reaches it over the private Docker network.
+
+For production environments, provide these passwords through the platform secret mechanism instead of plain environment variables. The repository stack documents the required values but does not implement a secret backend.
 
 ## Other Projects
 
