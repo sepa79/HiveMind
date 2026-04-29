@@ -236,12 +236,12 @@ Agents using the company HiveMind must:
 
 - use the global VS Code MCP server named `hivemind`
 - start a HiveMind session at the beginning of each meaningful work unit
-- use `project.register` only when a project is missing or metadata changes
-- store concise structured memory with `entry.append`
+- use `project_register` only when a project is missing or metadata changes
+- store concise structured memory with `entry_append`
 - record durable decisions as `decision`
 - record meaningful milestones as `progress`
 - record risks or unresolved concerns as `risk` or `feedback`
-- call `session.end` when the work unit is done or abandoned
+- call `session_end` when the work unit is done or abandoned
 - avoid dumping raw transcripts into HiveMind
 - prefer repo-portable file references over machine-specific absolute paths
 

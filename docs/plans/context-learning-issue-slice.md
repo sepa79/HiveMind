@@ -40,10 +40,10 @@ This slice is intentionally staged.
 Planned phases:
 
 1. `context token`
-2. `learning.capture` and `learning.get_recent`
-3. `learning.search`
-4. `session.end`
-5. `context.get_project_brief`, `context.get_branch_brief`, `context.get_open_threads`
+2. `learning_capture` and `learning_get_recent`
+3. `learning_search`
+4. `session_end`
+5. `context_get_project_brief`, `context_get_branch_brief`, `context_get_open_threads`
 6. `issue` plus `issue_event`
 
 This plan documents the whole slice, but implementation should start with phases 1 and 2.
@@ -99,12 +99,12 @@ Add a context handle that binds request context once and returns a reusable toke
 
 New API surface:
 
-- `context.open`
-- `context.get`
-- `context.update`
-- `context.close`
+- `context_open`
+- `context_get`
+- `context_update`
+- `context_close`
 
-Suggested input for `context.open`:
+Suggested input for `context_open`:
 
 - `project_id`
 - `branch`
@@ -178,13 +178,13 @@ Add a first-class `learning` record.
 
 Suggested public write API:
 
-- `learning.capture`
-- later `learning.feedback`
+- `learning_capture`
+- later `learning_feedback`
 
 Suggested public read APIs:
 
-- `learning.get_recent`
-- `learning.search`
+- `learning_get_recent`
+- `learning_search`
 
 Suggested write input:
 
@@ -228,13 +228,13 @@ Suggested storage shape:
 
 ### Retrieval Behavior
 
-`learning.get_recent` should support:
+`learning_get_recent` should support:
 
 - `context_token`
 - optional overrides such as `feature`, `source_tool`, `status`
 - `limit`
 
-`learning.search` should support:
+`learning_search` should support:
 
 - project-scoped search,
 - branch filter,
@@ -249,7 +249,7 @@ Future ranking should eventually take follow-up confirmations and “did not wor
 
 ### Recall Integration
 
-Once learnings exist, `session.start` should eventually include:
+Once learnings exist, `session_start` should eventually include:
 
 - `recent_learnings`
 
@@ -272,7 +272,7 @@ The current lifecycle starts sessions well but does not close them explicitly.
 
 Add:
 
-- `session.end`
+- `session_end`
 
 Suggested output:
 
@@ -290,9 +290,9 @@ Suggested output:
 
 ### Proposed APIs
 
-- `context.get_project_brief`
-- `context.get_branch_brief`
-- `context.get_open_threads`
+- `context_get_project_brief`
+- `context_get_branch_brief`
+- `context_get_open_threads`
 
 These should aggregate:
 
@@ -332,10 +332,10 @@ Add:
 
 Suggested public APIs:
 
-- `issue.report`
-- `issue.get`
-- `issue.list`
-- `issue.add_event`
+- `issue_report`
+- `issue_get`
+- `issue_list`
+- `issue_add_event`
 
 Suggested `issue` fields:
 
@@ -394,12 +394,12 @@ This supports the desired lifecycle:
 
 Use explicit, semantic tools:
 
-- `context.open`
-- `context.get`
-- `context.update`
-- `learning.capture`
-- `learning.get_recent`
-- `learning.search`
+- `context_open`
+- `context_get`
+- `context_update`
+- `learning_capture`
+- `learning_get_recent`
+- `learning_search`
 - later `issue.*`
 
 ### REST Layer
@@ -448,16 +448,16 @@ Recommended implementation order:
 4. REST endpoints
 5. MCP tools
 6. tests
-7. wire recent learnings into `session.start`
+7. wire recent learnings into `session_start`
 8. only then move to issues
 
 Feature handling should evolve beyond a free-form string.
 Planned vocabulary management should later support:
 
-- `feature.list`
-- `feature.add`
-- `feature.remove`
-- `feature.rename`
+- `feature_list`
+- `feature_add`
+- `feature_remove`
+- `feature_rename`
 
 ## Testing Plan
 
@@ -489,9 +489,9 @@ Keep tests behavior-focused across:
 
 The first implementation pass for this plan is done when:
 
-- `context.open` exists and returns a reusable token,
-- `learning.capture` exists and binds to that token,
-- `learning.get_recent` can answer the “show me recent learnings” workflow,
-- `session.start` can surface bounded recent learnings,
+- `context_open` exists and returns a reusable token,
+- `learning_capture` exists and binds to that token,
+- `learning_get_recent` can answer the “show me recent learnings” workflow,
+- `session_start` can surface bounded recent learnings,
 - storage, API, and MCP tests cover the new flow,
 - the plan is executed using `HiveMind` itself through `plan_ref` and progress notes.

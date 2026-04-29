@@ -140,7 +140,7 @@ Represents one work-unit write context and provenance envelope.
 
 A session is operational metadata, not durable project truth. It should help answer who wrote durable memory, from which branch/workspace, under which goal and plan reference.
 
-Project recall must not depend on a session still being active or open. Entries, learnings, issues, and rule checks written through a session remain durable project memory after `session.end`.
+Project recall must not depend on a session still being active or open. Entries, learnings, issues, and rule checks written through a session remain durable project memory after `session_end`.
 
 Required fields:
 
@@ -173,7 +173,7 @@ Notes:
 - `session_id` should be globally unique within one `hivemind-api` instance.
 - `ruleset_version` should be a monotonically increasing integer per project.
 - `agent_id` identifies the executing agent implementation for agent-driven sessions; in v0.1, direct human-authored sessions are a secondary path and can be normalized through `author_type` and `source`.
-- `session.end` is a closeout checkpoint. It returns reminders and a summary of recorded work; it is not cleanup.
+- `session_end` is a closeout checkpoint. It returns reminders and a summary of recorded work; it is not cleanup.
 - old sessions should remain listable for audit and provenance.
 
 ### 5.3 Entry
@@ -424,35 +424,35 @@ The first version should stay small.
 
 ### 7.1 Project and Session
 
-- `project.register`
+- `project_register`
 - `project.get`
 - `project.list`
 - `project.set_features`
 - `project.set_categories`
-- `session.start`
-- `session.end`
+- `session_start`
+- `session_end`
 - `session.get`
 
 ### 7.2 Rules
 
-- `rules.define`
-- `rules.get`
-- `rule_check.submit`
-- `rule_check.list_for_session`
+- `rules_define`
+- `rules_get`
+- `rule_check_submit`
+- `rule_check_list_for_session`
 
 ### 7.3 Memory Capture
 
-- `entry.append`
+- `entry_append`
 - `entry.list_recent`
-- `entry.search`
+- `entry_search`
 - `entry.get`
 
 ### 7.4 Recall
 
-- `context.get_project_brief`
-- `context.get_branch_brief`
-- `context.get_session_brief`
-- `context.get_open_threads`
+- `context_get_project_brief`
+- `context_get_branch_brief`
+- `context_get_session_brief`
+- `context_get_open_threads`
 
 ## 7A. API Surface v0.1
 
@@ -523,7 +523,7 @@ The first UI should stay narrow:
 
 ## 8. Tool Semantics
 
-### 8.1 `project.register`
+### 8.1 `project_register`
 
 Creates or updates a project definition.
 
@@ -541,7 +541,7 @@ Output:
 - active ruleset summary
 - recent context summary
 
-### 8.2 `session.start`
+### 8.2 `session_start`
 
 Opens a new work-unit write context for a project and branch.
 
@@ -571,10 +571,10 @@ This is one of the most important tools because it gives the next agent a compac
 Additional v0.1 behavior:
 
 - each successful start creates or idempotently returns a write/provenance context for one task,
-- `session.start` should attach the current `ruleset_version` to the new session snapshot,
-- `session.start` should include recall context, but the output must stay bounded and summary-oriented.
+- `session_start` should attach the current `ruleset_version` to the new session snapshot,
+- `session_start` should include recall context, but the output must stay bounded and summary-oriented.
 
-### 8.2A `session.end`
+### 8.2A `session_end`
 
 Ends the work-unit write context and returns a closeout report.
 
@@ -589,7 +589,7 @@ The closeout report should include:
 
 This is not a cleanup operation. It is a reminder/reporting checkpoint.
 
-### 8.3 `entry.append`
+### 8.3 `entry_append`
 
 Appends one structured journal entry.
 
@@ -616,7 +616,7 @@ Output:
 - stored entry
 - optional dedupe or related-entry hints
 
-### 8.4 `entry.search`
+### 8.4 `entry_search`
 
 Searches prior memory.
 
@@ -639,7 +639,7 @@ Output:
 
 For v0.1, search scope should default to one project unless cross-project search is explicitly requested by an admin or future higher-scope caller.
 
-### 8.5 `rules.define`
+### 8.5 `rules_define`
 
 Defines or updates the project ruleset.
 
@@ -653,7 +653,7 @@ Output:
 - active ruleset
 - version
 
-### 8.6 `rule_check.submit`
+### 8.6 `rule_check_submit`
 
 Agent records whether a rule was followed.
 
@@ -675,7 +675,7 @@ Output:
 - stored rule check
 - optional missing-rule reminder
 
-### 8.7 `context.get_project_brief`
+### 8.7 `context_get_project_brief`
 
 Returns compact recall-oriented context.
 
@@ -1223,8 +1223,8 @@ To avoid muddy behavior, v0.1 should make these boundaries explicit:
 
 In other words:
 
-- use `entry.search` when the caller knows what they are looking for,
-- use `context.get_*` when the caller needs a warm start.
+- use `entry_search` when the caller knows what they are looking for,
+- use `context_get_*` when the caller needs a warm start.
 
 ## 12. Proven MVP Patterns
 
@@ -1317,7 +1317,7 @@ This split keeps the MCP integration thin and avoids coupling storage evolution 
 
 1. Agent reads project instructions from `AGENTS.md`.
 2. `AGENTS.md` says to use `HiveMind`.
-3. Agent calls `session.start`.
+3. Agent calls `session_start`.
 4. Agent receives project brief, rules, open threads, recent decisions.
 
 If the agent uses a planner such as `/plan`, this is the right moment to also submit or update `plan_ref`.
@@ -1337,12 +1337,12 @@ Agent appends only important entries:
 
 1. Agent submits relevant `rule_check` entries.
 2. Agent appends final `progress` and `feedback`.
-3. Agent calls `session.end`.
+3. Agent calls `session_end`.
 4. HiveMind returns a closeout report with completed and missing reminders.
 
 ### 13.4 Next session
 
-1. New agent calls `context.get_project_brief` or `session.start`.
+1. New agent calls `context_get_project_brief` or `session_start`.
 2. HiveMind returns compact prior memory.
 3. Agent resumes with less context loss.
 
@@ -1504,10 +1504,10 @@ Deliver:
 - `hivemind-mcp` skeleton,
 - API client layer,
 - MCP tools for:
-  - `project.register`
-  - `session.start`
-  - `entry.append`
-  - `entry.search`
+  - `project_register`
+  - `session_start`
+  - `entry_append`
+  - `entry_search`
 
 Success criteria:
 
@@ -1519,9 +1519,9 @@ Success criteria:
 
 Deliver:
 
-- `rules.define`,
-- `rules.get`,
-- `rule_check.submit`,
+- `rules_define`,
+- `rules_get`,
+- `rule_check_submit`,
 - missing-rule summaries in session closeout.
 
 Success criteria:
@@ -1534,9 +1534,9 @@ Success criteria:
 
 Deliver:
 
-- `context.get_project_brief`,
-- `context.get_branch_brief`,
-- `context.get_open_threads`.
+- `context_get_project_brief`,
+- `context_get_branch_brief`,
+- `context_get_open_threads`.
 
 Success criteria:
 
@@ -1587,7 +1587,7 @@ These are the decisions I would lock early:
 - `visibility` present in schema but fixed to `project` in v0.1,
 - `author_id`, `author_type`, and `source` required in v0.1 write contracts,
 - ruleset with structured `check_mode`,
-- `session.start` returns recall context,
+- `session_start` returns recall context,
 - `plan_ref` stores links, not full plans,
 - `/plan` integrates through `plan_ref` plus `progress`/`feedback`, not through a dedicated planner model,
 - no transcript dumping,
@@ -1602,7 +1602,7 @@ The best next implementation step is:
 3. implement `fs-jsonl` backend,
 4. expose `POST /v1/projects`, `POST /v1/sessions`, `POST /v1/entries`, `POST /v1/entries/search`,
 5. create `hivemind-mcp` skeleton with API client,
-6. wire MCP tools for `project.register`, `session.start`, `entry.append`, `entry.search`,
+6. wire MCP tools for `project_register`, `session_start`, `entry_append`, `entry_search`,
 7. only then add rules and recall briefs.
 
 This keeps the first slice small, team-compatible, and structurally correct.

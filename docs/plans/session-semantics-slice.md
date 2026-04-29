@@ -17,9 +17,9 @@ Session records help answer who wrote what, when, under which goal, branch, work
 
 ## Decisions
 
-- Keep `session.start` and `session.end`.
-- Treat `session.start` as the beginning of a work unit.
-- Treat `session.end` as a closeout checkpoint, not cleanup.
+- Keep `session_start` and `session_end`.
+- Treat `session_start` as the beginning of a work unit.
+- Treat `session_end` as a closeout checkpoint, not cleanup.
 - Keep old session records for audit/provenance.
 - Do not add session TTL or garbage collection until Auth gives token expiry a real security meaning.
 - Remove "close old sessions" behavior from the human UI and public API.
@@ -30,7 +30,7 @@ Session records help answer who wrote what, when, under which goal, branch, work
 
 ### Start
 
-`session.start` returns:
+`session_start` returns:
 
 - the session record
 - startup summary
@@ -43,16 +43,16 @@ The caller must provide a useful `goal`. If no plan exists, the goal should serv
 
 Writes through the session create durable project memory:
 
-- `entry.append`
-- `learning.capture`
-- `issue.report`
-- `rule_check.submit`
+- `entry_append`
+- `learning_capture`
+- `issue_report`
+- `rule_check_submit`
 
-Durable records must remain recallable after `session.end`.
+Durable records must remain recallable after `session_end`.
 
 ### End
 
-`session.end` returns a closeout report:
+`session_end` returns a closeout report:
 
 - session goal and plan reference
 - entries recorded in the work unit, grouped by type
@@ -74,7 +74,7 @@ The human UI should become an audit/activity view:
 
 ## Tests
 
-- `session.end` returns a useful closeout report.
-- project recall still returns durable entries after `session.end`.
+- `session_end` returns a useful closeout report.
+- project recall still returns durable entries after `session_end`.
 - session listing exposes `last_seen_at` and activity counts.
 - the UI no longer offers old-session cleanup.
