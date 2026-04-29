@@ -49,7 +49,7 @@ Create a local `.env` file first:
 OPENSEARCH_INITIAL_ADMIN_PASSWORD=<strong-bootstrap-admin-password>
 HIVEMIND_OPENSEARCH_USERNAME=hivemind_api
 HIVEMIND_OPENSEARCH_PASSWORD=<strong-service-user-password>
-HIVEMIND_API_IMAGE=ghcr.io/<owner>/<repo>/hivemind-api:0.1.3
+HIVEMIND_API_IMAGE=ghcr.io/<owner>/<repo>/hivemind-api:0.1.4
 ```
 
 Open:

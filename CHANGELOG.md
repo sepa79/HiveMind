@@ -2,6 +2,11 @@
 
 All notable HiveMind changes are recorded here.
 
+## 0.1.4 - 2026-04-29
+
+- Report the MCP server version from `hivemind-mcp/package.json` instead of a stale hard-coded value.
+- Update remaining documentation references to underscore-separated MCP tool names.
+
 ## 0.1.3 - 2026-04-29
 
 - Rename MCP tool registrations from dotted names to underscore-separated names for VS Code compatibility.
