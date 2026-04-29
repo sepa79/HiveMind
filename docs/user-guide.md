@@ -52,7 +52,7 @@ Durable project memory lives in:
 
 Sessions are work-unit write contexts and provenance envelopes. A session helps answer "who wrote this, on which branch, during what task?" The session itself is not project truth, and recall should not depend on a session remaining active.
 
-`session.end` is a closeout checkpoint. It records end metadata and returns a report with entries, rule checks, missing required checks, and active learnings/issues. It is not a cleanup operation.
+`session_end` is a closeout checkpoint. It records end metadata and returns a report with entries, rule checks, missing required checks, and active learnings/issues. It is not a cleanup operation.
 
 ## Entry Types
 
@@ -87,7 +87,7 @@ For meaningful work:
 6. Submit relevant rule checks.
 7. End the session and inspect the closeout report.
 
-For local shell work, `npm run hivemind:work -- ...` wraps the common `session.start`, progress logging, rule checks, and `session.end` flow. See `docs/team-quickstart.md` for exact commands.
+For local shell work, `npm run hivemind:work -- ...` wraps the common `session_start`, progress logging, rule checks, and `session_end` flow. See `docs/team-quickstart.md` for exact commands.
 
 ## Human UI
 
@@ -152,7 +152,7 @@ For the Docker OpenSearch stack, create a local `.env` file next to `docker-comp
 OPENSEARCH_INITIAL_ADMIN_PASSWORD=<strong-bootstrap-admin-password>
 HIVEMIND_OPENSEARCH_USERNAME=hivemind_api
 HIVEMIND_OPENSEARCH_PASSWORD=<strong-service-user-password>
-HIVEMIND_API_IMAGE=ghcr.io/<owner>/<repo>/hivemind-api:0.1.2
+HIVEMIND_API_IMAGE=ghcr.io/<owner>/<repo>/hivemind-api:0.1.3
 ```
 
 OpenSearch `9200` is not published by the default stack. The API reaches it over the private Docker network.

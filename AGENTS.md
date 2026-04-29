@@ -17,7 +17,7 @@ It keeps the core rules here and points to the authoritative project docs for de
   - Resume an existing HiveMind session only when continuing the same unfinished work unit.
   - Do not attach new work to an already ended session.
   - Record important decisions, progress milestones, and feedback as structured entries.
-  - Call `session.end` when the work unit is done or abandoned, so HiveMind can produce a closeout report.
+  - Call `session_end` when the work unit is done or abandoned, so HiveMind can produce a closeout report.
   - Do not treat chat history as the project memory layer when HiveMind is available.
 - **NFF (No Freaking Fallbacks).**
   - Do not add silent fallbacks, auto-recovery chains, or implicit compatibility shims.
@@ -89,7 +89,7 @@ Keep these boundaries intact:
 5. Implement within the architecture boundaries in §3.
 6. Test relevant slices before closing work.
 7. Review your own changes.
-8. Call `session.end` and inspect the closeout before presenting the work.
+8. Call `session_end` and inspect the closeout before presenting the work.
 
 Protected areas that should be changed carefully:
 
@@ -116,17 +116,17 @@ Protected areas that should be changed carefully:
 
 For meaningful tasks, use HiveMind as part of the workflow:
 
-- `project.register`
+- `project_register`
   - only when the project is not already registered or metadata needs updating
-- `session.start`
+- `session_start`
   - at the beginning of each meaningful task/work unit
   - provide a useful `goal`; if there is no plan file, the goal is the ad-hoc task summary
-- `session.end`
+- `session_end`
   - when the task is completed or abandoned
   - inspect the returned closeout report before final response
-- `entry.append`
+- `entry_append`
   - for decisions, progress, feedback, risks, and plan references
-- `entry.search`
+- `entry_search`
   - before redoing prior thinking or when you need project recall
 
 Do not spam HiveMind with micro-steps.

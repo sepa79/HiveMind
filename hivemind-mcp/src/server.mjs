@@ -18,7 +18,7 @@ const runtime = createHiveMindRuntime({
 });
 
 server.registerTool(
-  "project.register",
+  "project_register",
   {
     title: "Register or update a HiveMind project",
     description: "Create or update one project definition in HiveMind.",
@@ -34,7 +34,7 @@ server.registerTool(
 );
 
 server.registerTool(
-  "feature.list",
+  "feature_list",
   {
     title: "List project features",
     description: "Fetch the managed feature vocabulary for one project.",
@@ -46,7 +46,7 @@ server.registerTool(
 );
 
 server.registerTool(
-  "feature.add",
+  "feature_add",
   {
     title: "Add a project feature",
     description: "Add one feature or user-story name to the managed project vocabulary so agents can tag future entries consistently.",
@@ -59,7 +59,7 @@ server.registerTool(
 );
 
 server.registerTool(
-  "feature.remove",
+  "feature_remove",
   {
     title: "Remove a project feature",
     description: "Remove one feature name from the managed project vocabulary if it is not used in stored project memory.",
@@ -72,7 +72,7 @@ server.registerTool(
 );
 
 server.registerTool(
-  "feature.rename",
+  "feature_rename",
   {
     title: "Rename a project feature",
     description: "Rename one feature in the managed vocabulary and cascade the rename through stored feature references.",
@@ -86,7 +86,7 @@ server.registerTool(
 );
 
 server.registerTool(
-  "context.open",
+  "context_open",
   {
     title: "Open a reusable HiveMind context",
     description: "Bind repeated project and tool context once and receive a reusable context token.",
@@ -110,7 +110,7 @@ server.registerTool(
 );
 
 server.registerTool(
-  "context.get",
+  "context_get",
   {
     title: "Get a reusable HiveMind context",
     description: "Fetch the stored context behind a context token.",
@@ -122,7 +122,7 @@ server.registerTool(
 );
 
 server.registerTool(
-  "context.update",
+  "context_update",
   {
     title: "Update a reusable HiveMind context",
     description: "Patch the mutable fields of a stored context token.",
@@ -142,7 +142,7 @@ server.registerTool(
 );
 
 server.registerTool(
-  "context.close",
+  "context_close",
   {
     title: "Close a reusable HiveMind context",
     description: "Mark a stored context token as closed.",
@@ -154,7 +154,7 @@ server.registerTool(
 );
 
 server.registerTool(
-  "context.get_project_brief",
+  "context_get_project_brief",
   {
     title: "Get a project brief for a context",
     description: "Fetch a bounded project summary including rules, recent decisions, recent learnings, active issues, and open threads.",
@@ -166,7 +166,7 @@ server.registerTool(
 );
 
 server.registerTool(
-  "context.get_branch_brief",
+  "context_get_branch_brief",
   {
     title: "Get a branch brief for a context",
     description: "Fetch a bounded branch summary including rules, recent decisions, recent learnings, active issues, and open threads.",
@@ -179,7 +179,7 @@ server.registerTool(
 );
 
 server.registerTool(
-  "context.get_open_threads",
+  "context_get_open_threads",
   {
     title: "Get open threads for a context",
     description: "Fetch bounded open threads for the resolved project and branch context.",
@@ -193,7 +193,7 @@ server.registerTool(
 );
 
 server.registerTool(
-  "learning.capture",
+  "learning_capture",
   {
     title: "Capture a reusable learning",
     description: "Store a project learning using an existing context token instead of repeating full project metadata.",
@@ -232,7 +232,7 @@ server.registerTool(
 );
 
 server.registerTool(
-  "learning.get_recent",
+  "learning_get_recent",
   {
     title: "Get recent learnings for a context",
     description: "Fetch the most relevant recent learnings for a context, defaulting to active learnings for the same feature/tool when present.",
@@ -249,7 +249,7 @@ server.registerTool(
 );
 
 server.registerTool(
-  "learning.feedback",
+  "learning_feedback",
   {
     title: "Attach follow-up feedback to a learning",
     description: "Record confirmation, negative confirmation, or a comment for an existing learning without rewriting the original learning.",
@@ -265,7 +265,7 @@ server.registerTool(
 );
 
 server.registerTool(
-  "learning.search",
+  "learning_search",
   {
     title: "Search project learnings",
     description: "Search project learnings within the project resolved by a context token.",
@@ -286,7 +286,7 @@ server.registerTool(
 );
 
 server.registerTool(
-  "issue.report",
+  "issue_report",
   {
     title: "Report a tracked issue",
     description: "Create a first-class issue bound to an existing context token.",
@@ -305,7 +305,7 @@ server.registerTool(
 );
 
 server.registerTool(
-  "issue.get",
+  "issue_get",
   {
     title: "Get one tracked issue",
     description: "Fetch one issue together with its event history.",
@@ -318,7 +318,7 @@ server.registerTool(
 );
 
 server.registerTool(
-  "issue.add_event",
+  "issue_add_event",
   {
     title: "Append an issue lifecycle event",
     description: "Record a workaround, GitHub link, fix link, verification, or reopen event for a tracked issue.",
@@ -363,7 +363,7 @@ server.registerTool(
 );
 
 server.registerTool(
-  "issue.list",
+  "issue_list",
   {
     title: "List tracked issues",
     description: "List issues for the project resolved by a context token, with filters for branch, feature, tool, and status.",
@@ -383,7 +383,7 @@ server.registerTool(
 );
 
 server.registerTool(
-  "rules.define",
+  "rules_define",
   {
     title: "Define or update a project ruleset",
     description: "Store the active structured ruleset for one project.",
@@ -412,7 +412,7 @@ server.registerTool(
 );
 
 server.registerTool(
-  "rules.get",
+  "rules_get",
   {
     title: "Get the active project ruleset",
     description: "Fetch the current structured ruleset for one project.",
@@ -424,7 +424,7 @@ server.registerTool(
 );
 
 server.registerTool(
-  "session.start",
+  "session_start",
   {
     title: "Start a HiveMind session",
     description: "Open a HiveMind session and receive bounded warm-start context, including project features agents should use when tagging entries.",
@@ -453,7 +453,7 @@ server.registerTool(
 );
 
 server.registerTool(
-  "session.end",
+  "session_end",
   {
     title: "End a HiveMind session",
     description: "Mark a work-unit session ended and return a closeout report.",
@@ -466,10 +466,10 @@ server.registerTool(
 );
 
 server.registerTool(
-  "entry.append",
+  "entry_append",
   {
     title: "Append a HiveMind entry",
-    description: "Store one structured journal entry in HiveMind. Use a feature from session.start context when the entry belongs to a feature, user story, or work stream.",
+    description: "Store one structured journal entry in HiveMind. Use a feature from session_start context when the entry belongs to a feature, user story, or work stream.",
     inputSchema: {
       project_id: z.string(),
       session_id: z.string(),
@@ -510,7 +510,7 @@ server.registerTool(
 );
 
 server.registerTool(
-  "rule_check.submit",
+  "rule_check_submit",
   {
     title: "Submit one rule check",
     description: "Record whether one project rule was followed in a session.",
@@ -540,7 +540,7 @@ server.registerTool(
 );
 
 server.registerTool(
-  "rule_check.list_for_session",
+  "rule_check_list_for_session",
   {
     title: "List rule checks for one session",
     description: "Fetch stored rule checks for one project session.",
@@ -555,7 +555,7 @@ server.registerTool(
 );
 
 server.registerTool(
-  "entry.search",
+  "entry_search",
   {
     title: "Search HiveMind entries",
     description: "Search entries in one HiveMind project.",

@@ -2,6 +2,12 @@
 
 All notable HiveMind changes are recorded here.
 
+## 0.1.3 - 2026-04-29
+
+- Rename MCP tool registrations from dotted names to underscore-separated names for VS Code compatibility.
+- Add regression coverage that enforces MCP tool names matching `[a-z0-9_-]`.
+- Document the underscore-separated MCP tool names for client users and agents.
+
 ## 0.1.2 - 2026-04-28
 
 - Move OpenSearch security provisioning from inline Compose script to `scripts/opensearch-init.mjs`.

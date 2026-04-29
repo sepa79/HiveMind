@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -17,6 +17,17 @@ afterEach(() => {
 });
 
 describe("HiveMind MCP runtime", () => {
+  it("registers MCP tools with VS Code compatible names", () => {
+    const source = readFileSync(new URL("./server.mjs", import.meta.url), "utf8");
+    const toolNames = [...source.matchAll(/server\.registerTool\(\s*\n\s*"([^"]+)"/g)].map((match) => match[1]);
+
+    expect(toolNames.length).toBeGreaterThan(0);
+    expect(toolNames.every((name) => /^[a-z0-9_-]+$/.test(name))).toBe(true);
+    expect(toolNames).toContain("project_register");
+    expect(toolNames).toContain("session_start");
+    expect(toolNames).toContain("entry_append");
+  });
+
   it("project.register calls the API and returns structured content", async () => {
     const runtime = createRuntime();
 

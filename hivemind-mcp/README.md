@@ -28,3 +28,9 @@ Use this server configuration in user-level `mcp.json`:
 ```
 
 Replace the API URL with your shared HiveMind API endpoint.
+
+## Tool Names
+
+MCP tools use underscore-separated names such as `project_register`,
+`session_start`, `entry_append`, and `session_end`. This keeps the server
+compatible with clients that only accept tool names matching `[a-z0-9_-]`.
