@@ -8,6 +8,8 @@ import { FsJsonlStorage } from "../../hivemind-api/src/storage/fs-jsonl-storage.
 import { HiveMindApiClient } from "./api-client.mjs";
 import { createHiveMindRuntime } from "./runtime.mjs";
 
+const serverSource = () => readFileSync(new URL("./server.mjs", import.meta.url), "utf8");
+
 const roots = [];
 
 afterEach(() => {
@@ -18,7 +20,7 @@ afterEach(() => {
 
 describe("HiveMind MCP runtime", () => {
   it("registers MCP tools with VS Code compatible names", () => {
-    const source = readFileSync(new URL("./server.mjs", import.meta.url), "utf8");
+    const source = serverSource();
     const toolNames = [...source.matchAll(/server\.registerTool\(\s*\n\s*"([^"]+)"/g)].map((match) => match[1]);
 
     expect(toolNames.length).toBeGreaterThan(0);
@@ -26,6 +28,14 @@ describe("HiveMind MCP runtime", () => {
     expect(toolNames).toContain("project_register");
     expect(toolNames).toContain("session_start");
     expect(toolNames).toContain("entry_append");
+  });
+
+  it("reports the MCP server version from the package manifest", () => {
+    const source = serverSource();
+
+    expect(source).toContain('new URL("../package.json", import.meta.url)');
+    expect(source).toContain("version: packageJson.version");
+    expect(source).not.toContain('version: "0.1.0"');
   });
 
   it("project.register calls the API and returns structured content", async () => {

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { readFileSync } from "node:fs";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
@@ -7,10 +8,11 @@ import { HiveMindApiClient } from "./api-client.mjs";
 import { createHiveMindRuntime } from "./runtime.mjs";
 
 const apiBaseUrl = process.env.HIVEMIND_API_BASE_URL || "http://127.0.0.1:4010";
+const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
 
 const server = new McpServer({
   name: "hivemind",
-  version: "0.1.0"
+  version: packageJson.version
 });
 
 const runtime = createHiveMindRuntime({
