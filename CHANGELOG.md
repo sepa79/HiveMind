@@ -2,6 +2,11 @@
 
 All notable HiveMind changes are recorded here.
 
+## 0.1.5 - 2026-05-13
+
+- Add explicit OpenSearch `indices:data/read/scroll/clear` permission for the `hivemind_api` role.
+- Include structured `error.cause` details for MCP fetch transport failures.
+
 ## 0.1.4 - 2026-04-29
 
 - Report the MCP server version from `hivemind-mcp/package.json` instead of a stale hard-coded value.

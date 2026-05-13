@@ -23,7 +23,7 @@ export function buildProvisioningRequests({ username, password, indexPrefix = DE
     {
       path: `/_plugins/_security/api/roles/${ROLE_NAME}`,
       body: {
-        cluster_permissions: [],
+        cluster_permissions: ["indices:data/read/scroll/clear"],
         index_permissions: [
           {
             index_patterns: [`${indexPrefix}-*`],

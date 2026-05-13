@@ -1,6 +1,6 @@
 export class HiveMindApiClientError extends Error {
-  constructor({ status, code, message, details, meta }) {
-    super(message);
+  constructor({ status, code, message, details, meta, cause }) {
+    super(message, cause ? { cause } : undefined);
     this.name = "HiveMindApiClientError";
     this.status = status;
     this.code = code;
@@ -268,14 +268,30 @@ export class HiveMindApiClient {
       }
     }
 
-    const response = await this.fetchImpl(url, {
-      method,
-      headers: {
-        ...(body ? { "content-type": "application/json" } : {}),
-        ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {})
-      },
-      ...(body ? { body: JSON.stringify(body) } : {})
-    });
+    let response;
+    try {
+      response = await this.fetchImpl(url, {
+        method,
+        headers: {
+          ...(body ? { "content-type": "application/json" } : {}),
+          ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {})
+        },
+        ...(body ? { body: JSON.stringify(body) } : {})
+      });
+    } catch (error) {
+      throw new HiveMindApiClientError({
+        status: 0,
+        code: "API_TRANSPORT_FAILED",
+        message: error instanceof Error ? error.message : String(error),
+        details: {
+          method,
+          url: url.toString(),
+          cause: serializeErrorCause(error?.cause)
+        },
+        meta: {},
+        cause: error
+      });
+    }
 
     const payload = await response.json();
     if (!response.ok || !payload.ok) {
@@ -290,4 +306,23 @@ export class HiveMindApiClient {
 
     return payload.data;
   }
+}
+
+function serializeErrorCause(cause) {
+  if (!cause) {
+    return null;
+  }
+  if (!(cause instanceof Error)) {
+    return { value: String(cause) };
+  }
+
+  return {
+    name: cause.name,
+    message: cause.message,
+    ...(cause.code ? { code: cause.code } : {}),
+    ...(cause.errno ? { errno: cause.errno } : {}),
+    ...(cause.syscall ? { syscall: cause.syscall } : {}),
+    ...(cause.address ? { address: cause.address } : {}),
+    ...(cause.port ? { port: cause.port } : {})
+  };
 }

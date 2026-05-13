@@ -25,7 +25,7 @@ describe("opensearch-init", () => {
       {
         path: "/_plugins/_security/api/roles/hivemind_api",
         body: {
-          cluster_permissions: [],
+          cluster_permissions: ["indices:data/read/scroll/clear"],
           index_permissions: [
             {
               index_patterns: ["team-*"],
