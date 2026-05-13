@@ -85,6 +85,21 @@ VS Code user-level `mcp.json` should look like this:
 }
 ```
 
+## Shared Local HTTP MCP
+
+Clients that support Streamable HTTP can share one local MCP process instead of
+starting one stdio process per VS Code window:
+
+```bash
+HIVEMIND_MCP_TRANSPORT=http HIVEMIND_MCP_PORT=4011 HIVEMIND_API_BASE_URL=https://hivemind.example.com npx -y hivemind-mcp
+```
+
+Then configure the client to use:
+
+```text
+http://127.0.0.1:4011/mcp
+```
+
 ## Notes
 
 - Keep the API URL stable; MCP clients read it from `HIVEMIND_API_BASE_URL`.

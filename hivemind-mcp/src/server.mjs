@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 
+import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { z } from "zod";
 import { HiveMindApiClient } from "./api-client.mjs";
 import { createHiveMindRuntime } from "./runtime.mjs";
@@ -10,6 +12,7 @@ import { createHiveMindRuntime } from "./runtime.mjs";
 const apiBaseUrl = process.env.HIVEMIND_API_BASE_URL || "http://127.0.0.1:4010";
 const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
 
+function createHiveMindMcpServer() {
 const server = new McpServer({
   name: "hivemind",
   version: packageJson.version
@@ -580,5 +583,95 @@ server.registerTool(
   runtime.entrySearch
 );
 
-const transport = new StdioServerTransport();
-await server.connect(transport);
+return server;
+}
+
+const transportMode = process.env.HIVEMIND_MCP_TRANSPORT || (process.argv.includes("--http") ? "http" : "stdio");
+
+if (transportMode === "http" || transportMode === "streamable-http") {
+  await startHttpServer();
+} else if (transportMode === "stdio") {
+  await startStdioServer();
+} else {
+  throw new Error(`Unsupported HIVEMIND_MCP_TRANSPORT '${transportMode}'. Use 'stdio' or 'http'.`);
+}
+
+async function startStdioServer() {
+  const server = createHiveMindMcpServer();
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}
+
+async function startHttpServer() {
+  const host = process.env.HIVEMIND_MCP_HOST || "127.0.0.1";
+  const port = Number(process.env.HIVEMIND_MCP_PORT || "4011");
+  const path = process.env.HIVEMIND_MCP_PATH || "/mcp";
+
+  const httpServer = createServer(async (req, res) => {
+    try {
+      const url = new URL(req.url || "/", `http://${req.headers.host || `${host}:${port}`}`);
+
+      if (url.pathname === "/health") {
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(JSON.stringify({ ok: true, name: "hivemind", version: packageJson.version }));
+        return;
+      }
+
+      if (url.pathname !== path) {
+        res.writeHead(404, { "content-type": "application/json" });
+        res.end(JSON.stringify({ error: "not_found" }));
+        return;
+      }
+
+      if (req.method !== "POST") {
+        res.writeHead(405, { "content-type": "application/json" });
+        res.end(JSON.stringify({
+          jsonrpc: "2.0",
+          error: { code: -32000, message: "Method not allowed." },
+          id: null
+        }));
+        return;
+      }
+
+      const body = await readJsonBody(req);
+      const mcpServer = createHiveMindMcpServer();
+      const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+      await mcpServer.connect(transport);
+      await transport.handleRequest(req, res, body);
+      res.on("close", () => {
+        transport.close().catch((error) => console.error("HiveMind MCP transport close failed:", error));
+        mcpServer.close().catch((error) => console.error("HiveMind MCP server close failed:", error));
+      });
+    } catch (error) {
+      console.error("HiveMind MCP HTTP request failed:", error);
+      if (!res.headersSent) {
+        res.writeHead(500, { "content-type": "application/json" });
+        res.end(JSON.stringify({
+          jsonrpc: "2.0",
+          error: { code: -32603, message: "Internal server error" },
+          id: null
+        }));
+      }
+    }
+  });
+
+  await new Promise((resolve, reject) => {
+    httpServer.once("error", reject);
+    httpServer.listen(port, host, () => {
+      httpServer.off("error", reject);
+      console.error(`HiveMind MCP listening on http://${host}:${port}${path}`);
+      resolve();
+    });
+  });
+}
+
+async function readJsonBody(req) {
+  const chunks = [];
+  for await (const chunk of req) {
+    chunks.push(chunk);
+  }
+  if (chunks.length === 0) {
+    return undefined;
+  }
+  return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+}
