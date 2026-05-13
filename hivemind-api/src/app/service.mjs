@@ -53,9 +53,10 @@ import {
 import { ApiError } from "./errors.mjs";
 
 export class HiveMindService {
-  constructor({ storage, dataRoot = null } = {}) {
+  constructor({ storage, dataRoot = null, version = "0.0.0" } = {}) {
     this.storage = storage;
     this.dataRoot = dataRoot;
+    this.version = version;
   }
 
   async getHealth() {
@@ -63,7 +64,7 @@ export class HiveMindService {
     return {
       status: "ok",
       service: "hivemind-api",
-      version: "0.1.0",
+      version: this.version,
       data_root: this.dataRoot,
       project_count: projects.length,
       projects: projects.map((project) => ({

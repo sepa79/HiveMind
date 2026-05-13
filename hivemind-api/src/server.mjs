@@ -10,6 +10,7 @@ import { OpenSearchStorage } from "./storage/opensearch-storage.mjs";
 const port = Number(process.env.HIVEMIND_API_PORT || "4010");
 const dataRoot = process.env.HIVEMIND_DATA_ROOT || `${process.cwd()}/.hivemind`;
 const storageBackend = process.env.HIVEMIND_STORAGE_BACKEND || "fs-jsonl";
+const packageJson = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8"));
 
 const storage = createStorage({ storageBackend, dataRoot });
 if (typeof storage.initialize === "function") {
@@ -18,7 +19,8 @@ if (typeof storage.initialize === "function") {
 
 const service = new HiveMindService({
   storage,
-  dataRoot: storageBackend === "fs-jsonl" ? dataRoot : null
+  dataRoot: storageBackend === "fs-jsonl" ? dataRoot : null,
+  version: packageJson.version
 });
 const app = createApp({ service });
 

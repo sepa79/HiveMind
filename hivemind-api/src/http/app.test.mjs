@@ -56,6 +56,7 @@ describe("HiveMind API", () => {
     const payload = await response.json();
     expect(payload.data.status).toBe("ok");
     expect(payload.data.service).toBe("hivemind-api");
+    expect(payload.data.version).toBe("test-version");
     expect(payload.data.project_count).toBe(1);
     expect(payload.data.projects[0].project_id).toBe("buzz");
   });
@@ -1209,7 +1210,7 @@ function createTestApp() {
   const dataRoot = mkdtempSync(join(tmpdir(), "hivemind-api-"));
   roots.push(dataRoot);
   const storage = new FsJsonlStorage({ dataRoot });
-  const service = new HiveMindService({ storage });
+  const service = new HiveMindService({ storage, version: "test-version" });
   return createApp({ service });
 }
 
