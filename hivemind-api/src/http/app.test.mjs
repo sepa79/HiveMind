@@ -1009,9 +1009,13 @@ describe("HiveMind API", () => {
     expect(response.headers.get("content-type")).toContain("text/html");
     const html = await response.text();
     expect(html).toContain("HiveMind");
-    expect(html).toContain("/assets/hivemind-v2-mark.svg");
+    expect(html).toContain("/assets/hivemind-radial-grid-mark.svg");
     expect(html).toContain('class="appShell"');
     expect(html).toContain('class="sideNav"');
+    expect(html).toContain('id="homeTab"');
+    expect(html).toContain('id="homePanel"');
+    expect(html).toContain('class="home-brand-logo" src="/assets/hivemind-radial-grid-logo.svg"');
+    expect(html).not.toContain("home-brand-mark");
     expect(html).toContain('select id="projectId"');
     expect(html).toContain('select id="branch"');
     expect(html).toContain('id="themeToggle"');
@@ -1040,10 +1044,6 @@ describe("HiveMind API", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toContain("image/svg+xml");
     expect(await response.text()).toContain("<svg");
-
-    const v2Response = await app.request("/assets/hivemind-v2-mark.svg");
-    expect(v2Response.status).toBe(200);
-    expect(v2Response.headers.get("content-type")).toContain("image/svg+xml");
 
     const missingResponse = await app.request("/assets/not-allowed.svg");
     expect(missingResponse.status).toBe(404);

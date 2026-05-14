@@ -2,6 +2,14 @@
 
 All notable HiveMind changes are recorded here.
 
+## 0.2.1 - 2026-05-14
+
+- Upgrade the built-in web console to the HiveWatch/PocketHive v2 shell with top bar, left navigation, dark glass panels, and responsive layout.
+- Add a Home page with the existing HiveMind logo, product positioning, rollout cost notes, and concise value cards.
+- Add a Standards console for catalog profiles, guidance checks, required files, drift, and project standard profile assignment.
+- Add clickable full entry detail dialogs for Work Unit closeouts and Project Memory results.
+- Keep the original HiveMind logo assets and remove the unused experimental v2 mark.
+
 ## 0.2.0 - 2026-05-14
 
 - Add a bundled `ai-rulesets/` catalog with `base@v1` and `aws-microservice@v2` starter profiles.

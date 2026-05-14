@@ -5,7 +5,7 @@ export function renderHumanUi() {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>HiveMind Work Units</title>
-  <link rel="icon" href="/assets/hivemind-v2-mark.svg" type="image/svg+xml">
+  <link rel="icon" href="/assets/hivemind-radial-grid-mark.svg" type="image/svg+xml">
   <style>
     :root {
       color-scheme: dark;
@@ -65,6 +65,10 @@ export function renderHumanUi() {
     input,
     select {
       font: inherit;
+    }
+
+    [hidden] {
+      display: none !important;
     }
 
     .appShell {
@@ -365,6 +369,104 @@ export function renderHumanUi() {
 
     .tab-panel[hidden] {
       display: none;
+    }
+
+    .home-hero {
+      margin-bottom: 14px;
+    }
+
+    .home-hero-main {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--panel);
+      box-shadow: 0 16px 40px var(--shadow);
+      padding: 28px;
+    }
+
+    .home-brand-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 22px;
+    }
+
+    .home-brand-logo {
+      width: min(780px, 100%);
+      max-height: 240px;
+      object-fit: contain;
+      object-position: center;
+      display: block;
+      transform: translateX(5%);
+    }
+
+    .home-kicker {
+      color: var(--accent-strong);
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      text-align: center;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .home-copy {
+      max-width: 980px;
+      margin: 10px auto 0;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.6;
+      text-align: center;
+    }
+
+    .home-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .home-card {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--panel);
+      padding: 14px;
+    }
+
+    .home-card h2 {
+      margin: 0 0 8px;
+      font-size: 14px;
+    }
+
+    .home-card p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    .price-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border2);
+    }
+
+    .price-row:last-child {
+      border-bottom: 0;
+    }
+
+    .price-row strong {
+      color: var(--text);
     }
 
     .standards-grid {
@@ -774,6 +876,10 @@ export function renderHumanUi() {
       .standards-actions {
         grid-template-columns: 1fr;
       }
+
+      .home-grid {
+        grid-template-columns: 1fr;
+      }
     }
 
     @media (max-width: 560px) {
@@ -805,7 +911,7 @@ export function renderHumanUi() {
       <div class="topBarInner">
         <div class="topBarLeft">
           <a class="logoLink" href="/" aria-label="HiveMind home" title="Home">
-            <img class="brand-mark" src="/assets/hivemind-v2-mark.svg" alt="" aria-hidden="true">
+            <img class="brand-mark" src="/assets/hivemind-radial-grid-mark.svg" alt="" aria-hidden="true">
             <span class="brandWordmark" aria-hidden="true"><span class="brandWordHive">Hive</span><span class="brandWordMind">Mind</span></span>
           </a>
         </div>
@@ -823,7 +929,10 @@ export function renderHumanUi() {
         <div class="navHeader">
           <div class="navHeaderTitle">Navigation</div>
         </div>
-        <button id="workUnitsTab" class="navItem active" type="button" data-tab="workUnits" title="Work Units">
+        <button id="homeTab" class="navItem active" type="button" data-tab="home" title="Home">
+          <span class="navGlyph" aria-hidden="true">H</span><span class="navLabel">Home</span>
+        </button>
+        <button id="workUnitsTab" class="navItem" type="button" data-tab="workUnits" title="Work Units">
           <span class="navGlyph" aria-hidden="true">W</span><span class="navLabel">Work Units</span>
         </button>
         <button id="memoryTab" class="navItem" type="button" data-tab="memory" title="Project Memory">
@@ -836,7 +945,43 @@ export function renderHumanUi() {
     </aside>
     <main class="appContent">
       <div class="pageContent">
-        <section class="toolbar" aria-label="Work unit filters">
+        <section id="homePanel" class="tab-panel" aria-label="HiveMind home">
+          <section class="home-hero">
+            <div class="home-hero-main">
+              <div class="home-brand-row">
+                <img class="home-brand-logo" src="/assets/hivemind-radial-grid-logo.svg" alt="HiveMind">
+              </div>
+              <div class="home-kicker">Shared engineering memory for AI-assisted teams</div>
+              <h1 class="sr-only">HiveMind</h1>
+              <p class="home-copy">
+                HiveMind gives teams one place for work-unit history, project memory, engineering rules, onboarding guidance,
+                and AI client configuration. It is built for companies that want Copilot, Codex, MCP clients, and internal
+                agents to start with the same context instead of rediscovering tribal knowledge in every repository.
+              </p>
+            </div>
+          </section>
+          <section class="home-grid" aria-label="HiveMind value areas">
+            <article class="home-card">
+              <h2>What it is</h2>
+              <p>A lightweight governance and memory layer for engineering teams, exposed through REST, MCP, CLI helpers, and this web console.</p>
+            </article>
+            <article class="home-card">
+              <h2>Why it exists</h2>
+              <p>To make onboarding repeatable, keep AI agents aligned with company standards, and preserve decisions without dumping raw transcripts.</p>
+            </article>
+            <article class="home-card">
+              <h2>How teams use it</h2>
+              <p>Register projects, assign standard profiles, review work units, search memory, and apply rulesets such as AGENTS.md templates.</p>
+            </article>
+            <article class="home-card">
+              <h2>What it costs</h2>
+              <div class="price-row"><strong>Software</strong><span>0 for the internal/self-hosted build</span></div>
+              <div class="price-row"><strong>Infra</strong><span>one API service plus fs-jsonl or OpenSearch</span></div>
+              <div class="price-row"><strong>Rollout</strong><span>catalog, MCP config, and repo standards per team</span></div>
+            </article>
+          </section>
+        </section>
+        <section id="workToolbar" class="toolbar" aria-label="Work unit filters" hidden>
           <label>
             Project
             <select id="projectId"></select>
@@ -849,7 +994,7 @@ export function renderHumanUi() {
           </label>
           <button id="clearBranch" type="button" title="Show all branches">All Branches</button>
         </section>
-        <section id="workUnitsPanel" class="tab-panel" aria-label="Work units view">
+        <section id="workUnitsPanel" class="tab-panel" aria-label="Work units view" hidden>
       <section class="table-shell" aria-label="Work units">
         <table>
           <thead>
@@ -975,9 +1120,12 @@ export function renderHumanUi() {
       refresh: document.querySelector("#refresh"),
       clearBranch: document.querySelector("#clearBranch"),
       themeToggle: document.querySelector("#themeToggle"),
+      homeTab: document.querySelector("#homeTab"),
       workUnitsTab: document.querySelector("#workUnitsTab"),
       memoryTab: document.querySelector("#memoryTab"),
       standardsTab: document.querySelector("#standardsTab"),
+      homePanel: document.querySelector("#homePanel"),
+      workToolbar: document.querySelector("#workToolbar"),
       workUnitsPanel: document.querySelector("#workUnitsPanel"),
       memoryPanel: document.querySelector("#memoryPanel"),
       standardsPanel: document.querySelector("#standardsPanel"),
@@ -1040,12 +1188,16 @@ export function renderHumanUi() {
     }
 
     function setTab(tab) {
+      const homeActive = tab === "home";
       const memoryActive = tab === "memory";
       const standardsActive = tab === "standards";
-      el.workUnitsTab.classList.toggle("active", !memoryActive && !standardsActive);
+      el.homeTab.classList.toggle("active", homeActive);
+      el.workUnitsTab.classList.toggle("active", !homeActive && !memoryActive && !standardsActive);
       el.memoryTab.classList.toggle("active", memoryActive);
       el.standardsTab.classList.toggle("active", standardsActive);
-      el.workUnitsPanel.hidden = memoryActive || standardsActive;
+      el.homePanel.hidden = !homeActive;
+      el.workToolbar.hidden = homeActive;
+      el.workUnitsPanel.hidden = homeActive || memoryActive || standardsActive;
       el.memoryPanel.hidden = !memoryActive;
       el.standardsPanel.hidden = !standardsActive;
       if (standardsActive) {
@@ -1782,6 +1934,7 @@ export function renderHumanUi() {
       const current = document.documentElement.dataset.theme === "light" ? "light" : "dark";
       setTheme(current === "dark" ? "light" : "dark");
     });
+    el.homeTab.addEventListener("click", () => setTab("home"));
     el.workUnitsTab.addEventListener("click", () => setTab("workUnits"));
     el.memoryTab.addEventListener("click", () => setTab("memory"));
     el.standardsTab.addEventListener("click", () => setTab("standards"));
@@ -1831,7 +1984,7 @@ export function renderHumanUi() {
     });
 
     setTheme(storedValue(THEME_KEY) === "light" ? "light" : "dark");
-    setTab("workUnits");
+    setTab("home");
     loadProjects().catch((error) => {
       renderSessions([]);
       setStatus(error.message, "error");

@@ -10,8 +10,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const assetsDir = resolve(__dirname, "..", "..", "..", "assets");
 const allowedSvgAssets = new Set([
   "hivemind-radial-grid-logo.svg",
-  "hivemind-radial-grid-mark.svg",
-  "hivemind-v2-mark.svg"
+  "hivemind-radial-grid-mark.svg"
 ]);
 
 export function createApp({ service, accessLogger = null }) {
