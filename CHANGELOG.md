@@ -2,6 +2,15 @@
 
 All notable HiveMind changes are recorded here.
 
+## 0.2.0 - 2026-05-14
+
+- Add a bundled `ai-rulesets/` catalog with `base@v1` and `aws-microservice@v2` starter profiles.
+- Add ruleset catalog REST endpoints, MCP tools, and project standard profile assignment.
+- Add `guidance_check` to report standardization status from `.hivemind-standard.json` markers.
+- Add `scripts/hivemind-standard.mjs` for safe dry-run/apply of standard starter files.
+- Allow deployments to override the catalog path with `HIVEMIND_RULESET_CATALOG_PATH`.
+- Emit structured API access logs with request id, method, path, status, duration, client IP, user agent, and error code.
+
 ## 0.1.5 - 2026-05-13
 
 - Add explicit OpenSearch `indices:data/read/scroll/clear` permission for the `hivemind_api` role.

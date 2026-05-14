@@ -211,6 +211,44 @@ export function createHiveMindRuntime({ apiClient }) {
       }
     },
 
+    async projectStandardProfileDefine(input) {
+      try {
+        const payload = await apiClient.defineProjectStandardProfile(input);
+        return jsonResult(payload);
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+
+    async rulesetCatalogList() {
+      try {
+        const payload = await apiClient.listRulesetCatalogProfiles();
+        return jsonResult(payload);
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+
+    async rulesetCatalogGet(input) {
+      try {
+        const payload = input.include_files
+          ? await apiClient.getRulesetCatalogBundle(input)
+          : await apiClient.getRulesetCatalogProfile(input);
+        return jsonResult(payload);
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+
+    async guidanceCheck(input) {
+      try {
+        const payload = await apiClient.guidanceCheck(input);
+        return jsonResult(payload);
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+
     async sessionStart(input) {
       try {
         const payload = await apiClient.startSession(input, {

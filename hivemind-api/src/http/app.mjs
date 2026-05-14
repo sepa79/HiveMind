@@ -10,13 +10,37 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const assetsDir = resolve(__dirname, "..", "..", "..", "assets");
 const allowedSvgAssets = new Set(["hivemind-radial-grid-logo.svg", "hivemind-radial-grid-mark.svg"]);
 
-export function createApp({ service }) {
+export function createApp({ service, accessLogger = null }) {
   const app = new Hono();
 
   app.use("*", async (c, next) => {
     const requestId = c.req.header("x-request-id") || randomUUID();
+    const startedAt = Date.now();
     c.set("requestId", requestId);
-    await next();
+    let thrownError = null;
+    try {
+      await next();
+    } catch (error) {
+      thrownError = error;
+      throw error;
+    } finally {
+      const errorCode = thrownError instanceof ApiError ? thrownError.code : c.get("errorCode");
+      writeAccessLog(accessLogger, {
+        event: "http_request",
+        request_id: requestId,
+        method: c.req.method,
+        path: c.req.path,
+        status: thrownError ? errorStatus(thrownError) : c.res.status,
+        duration_ms: Date.now() - startedAt,
+        client_ip: clientIp(c),
+        user_agent: c.req.header("user-agent") || null,
+        ...(errorCode
+          ? {
+              error_code: errorCode
+            }
+          : {})
+      });
+    }
   });
 
   app.get("/", (c) => c.html(renderHumanUi()));
@@ -40,6 +64,7 @@ export function createApp({ service }) {
       error instanceof ApiError
         ? error
         : new ApiError(500, "INTERNAL_SERVER_ERROR", error.message || "Internal server error.");
+    c.set("errorCode", err.code);
 
     return c.json(
       {
@@ -58,8 +83,9 @@ export function createApp({ service }) {
     );
   });
 
-  app.notFound((c) =>
-    c.json(
+  app.notFound((c) => {
+    c.set("errorCode", "NOT_FOUND");
+    return c.json(
       {
         ok: false,
         error: {
@@ -73,8 +99,8 @@ export function createApp({ service }) {
         }
       },
       404
-    )
-  );
+    );
+  });
 
   app.get("/health", async (c) => {
     const data = await service.getHealth();
@@ -265,6 +291,42 @@ export function createApp({ service }) {
     return success(c, data);
   });
 
+  app.put("/v1/projects/:projectId/standard-profile", async (c) => {
+    const payload = await readJsonBody(c);
+    const data = await service.defineProjectStandardProfile({
+      project_id: c.req.param("projectId"),
+      ...payload
+    });
+    return success(c, data);
+  });
+
+  app.get("/v1/ruleset-catalog/profiles", async (c) => {
+    const data = await service.listRulesetCatalogProfiles();
+    return success(c, data);
+  });
+
+  app.get("/v1/ruleset-catalog/profiles/:profileId/versions/:version", async (c) => {
+    const data = await service.getRulesetCatalogProfile({
+      profile_id: c.req.param("profileId"),
+      version: c.req.param("version")
+    });
+    return success(c, data);
+  });
+
+  app.get("/v1/ruleset-catalog/profiles/:profileId/versions/:version/bundle", async (c) => {
+    const data = await service.getRulesetCatalogBundle({
+      profile_id: c.req.param("profileId"),
+      version: c.req.param("version")
+    });
+    return success(c, data);
+  });
+
+  app.post("/v1/guidance/check", async (c) => {
+    const payload = await readJsonBody(c);
+    const data = await service.guidanceCheck(payload);
+    return success(c, data);
+  });
+
   app.post("/v1/sessions", async (c) => {
     const payload = await readJsonBody(c);
     const data = await service.startSession(payload, {
@@ -368,4 +430,31 @@ function success(c, data, status = 200) {
     },
     status
   );
+}
+
+function writeAccessLog(accessLogger, entry) {
+  if (!accessLogger) {
+    return;
+  }
+  const line = JSON.stringify({
+    ...entry,
+    timestamp: new Date().toISOString()
+  });
+  if (typeof accessLogger === "function") {
+    accessLogger(line);
+    return;
+  }
+  accessLogger.log(line);
+}
+
+function errorStatus(error) {
+  return error instanceof ApiError ? error.status : 500;
+}
+
+function clientIp(c) {
+  const forwardedFor = c.req.header("x-forwarded-for");
+  if (forwardedFor) {
+    return forwardedFor.split(",")[0].trim();
+  }
+  return c.req.header("x-real-ip") || null;
 }

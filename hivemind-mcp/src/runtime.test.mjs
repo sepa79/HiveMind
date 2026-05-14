@@ -28,6 +28,10 @@ describe("HiveMind MCP runtime", () => {
     expect(toolNames).toContain("project_register");
     expect(toolNames).toContain("session_start");
     expect(toolNames).toContain("entry_append");
+    expect(toolNames).toContain("ruleset_catalog_list");
+    expect(toolNames).toContain("ruleset_catalog_get");
+    expect(toolNames).toContain("guidance_check");
+    expect(toolNames).toContain("project_standard_profile_define");
   });
 
   it("reports the MCP server version from the package manifest", () => {
@@ -51,6 +55,33 @@ describe("HiveMind MCP runtime", () => {
 
     expect(result.isError).toBeUndefined();
     expect(result.structuredContent.project.project_id).toBe("buzz");
+  });
+
+  it("lists catalog profiles and checks standardization guidance", async () => {
+    const runtime = createRuntime();
+    await runtime.projectRegister({
+      project_id: "buzz",
+      name: "Buzz",
+      root_path: "/repo/buzz",
+      default_branch: "main",
+      description: "Buzz project",
+      standard_profile_ref: "aws-microservice@v2"
+    });
+
+    const catalog = await runtime.rulesetCatalogList({});
+    const profile = await runtime.rulesetCatalogGet({
+      profile_id: "aws-microservice",
+      version: "v2",
+      include_files: true
+    });
+    const guidance = await runtime.guidanceCheck({
+      project_id: "buzz"
+    });
+
+    expect(catalog.isError).toBeUndefined();
+    expect(catalog.structuredContent.profiles.map((item) => item.profile_ref)).toContain("aws-microservice@v2");
+    expect(profile.structuredContent.files.some((file) => file.target === "AGENTS.md")).toBe(true);
+    expect(guidance.structuredContent.recommended_action).toBe("apply");
   });
 
   it("feature.list/add/remove/rename manages the project feature vocabulary", async () => {

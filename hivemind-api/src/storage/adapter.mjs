@@ -27,6 +27,10 @@ export class StorageAdapter {
     throw new Error("Not implemented");
   }
 
+  async updateProjectStandardProfile(_projectId, _standardProfileRef) {
+    throw new Error("Not implemented");
+  }
+
   async openContext(_contextInput, _options) {
     throw new Error("Not implemented");
   }

@@ -11,6 +11,7 @@ It is meant for:
 - important decisions and progress
 - feedback and friction
 - project rules and rule checks
+- AI ruleset catalog profiles and standardization guidance
 - reusable learnings and tracked issues
 - bounded recall for the next session
 
@@ -32,6 +33,9 @@ Default local pieces:
   Optional shared backend for Docker/team use.
 - `bootstrap/`
   Committed seed/demo assets for local onboarding.
+- `ai-rulesets/`
+  Example repository-standardization profiles such as `base@v1` and
+  `aws-microservice@v2`.
 
 Default endpoints:
 
@@ -39,11 +43,17 @@ Default endpoints:
 - UI: `http://127.0.0.1:4010/`
 - health diagnostics: `http://127.0.0.1:4010/health`
 
+The API writes one structured JSON access log line per request when started
+through `hivemind-api/src/server.mjs`. Each line includes request id, method,
+path, status, duration, client IP from forwarding headers when present, user
+agent, and error code for failed requests.
+
 ## Memory Model
 
 Durable project memory lives in:
 
 - project metadata
+- project standard profile metadata
 - rulesets
 - entries
 - learnings
@@ -88,6 +98,37 @@ For meaningful work:
 7. End the session and inspect the closeout report.
 
 For local shell work, `npm run hivemind:work -- ...` wraps the common `session_start`, progress logging, rule checks, and `session_end` flow. See `docs/team-quickstart.md` for exact commands.
+
+## AI Ruleset Catalog
+
+HiveMind 0.2.0 can expose a read-only catalog of standard starter profiles.
+The default catalog lives in `ai-rulesets/`, and shared deployments can point at
+a company-maintained checkout:
+
+```bash
+HIVEMIND_RULESET_CATALOG_PATH=/opt/hivemind/ai-rulesets
+HIVEMIND_RULESET_CATALOG_SOURCE_URL=https://git.company.example/eng/ai-rulesets
+```
+
+Assign a project to a profile during registration or later through the standard
+profile endpoint/MCP tool. Example profile ref:
+
+```text
+aws-microservice@v2
+```
+
+Clients can call `guidance_check` with the local `.hivemind-standard.json`
+marker to learn whether the repo is current, missing files, or assigned to a
+newer profile. The marker is produced by the standardization CLI:
+
+```bash
+npm run hivemind:standard -- apply --project my-service --profile aws-microservice@v2 --target /repo
+npm run hivemind:standard -- apply --project my-service --profile aws-microservice@v2 --target /repo --write
+```
+
+The first command is a dry-run and writes nothing. `--write` creates missing
+files and `.hivemind-standard.json`; changed files are skipped unless
+`--conflict overwrite` is passed.
 
 ## Human UI
 
@@ -143,6 +184,10 @@ Important environment variables:
   choose a different API port
 - `HIVEMIND_API_BASE_URL`
   point the MCP server or wrapper at a different API instance
+- `HIVEMIND_RULESET_CATALOG_PATH`
+  choose the local filesystem catalog path for AI ruleset profiles
+- `HIVEMIND_RULESET_CATALOG_SOURCE_URL`
+  optional display/audit URL for the source repository behind the catalog
 
 Committed seed/demo files live under `bootstrap/`. Runtime data under `.hivemind/` stays local and should not be committed directly.
 
@@ -152,7 +197,8 @@ For the Docker OpenSearch stack, create a local `.env` file next to `docker-comp
 OPENSEARCH_INITIAL_ADMIN_PASSWORD=<strong-bootstrap-admin-password>
 HIVEMIND_OPENSEARCH_USERNAME=hivemind_api
 HIVEMIND_OPENSEARCH_PASSWORD=<strong-service-user-password>
-HIVEMIND_API_IMAGE=ghcr.io/<owner>/<repo>/hivemind-api:0.1.5
+HIVEMIND_API_IMAGE=ghcr.io/<owner>/<repo>/hivemind-api:0.2.0
+HIVEMIND_RULESET_CATALOG_PATH=/opt/hivemind/ai-rulesets
 ```
 
 OpenSearch `9200` is not published by the default stack. The API reaches it over the private Docker network.

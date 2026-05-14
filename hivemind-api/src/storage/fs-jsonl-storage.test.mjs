@@ -65,6 +65,23 @@ describe("FsJsonlStorage", () => {
     expect(betaSearch.entries).toHaveLength(0);
   });
 
+  it("preserves project standard profile metadata", async () => {
+    const storage = createStorage();
+
+    await storage.createProject({
+      project_id: "alpha",
+      name: "Alpha",
+      root_path: "/repo/alpha",
+      default_branch: "main",
+      description: "Alpha project",
+      standard_profile_ref: "base@v1"
+    });
+    const updated = await storage.updateProjectStandardProfile("alpha", "aws-microservice@v2");
+
+    expect(updated.standard_profile_ref).toBe("aws-microservice@v2");
+    expect((await storage.getProject("alpha")).standard_profile_ref).toBe("aws-microservice@v2");
+  });
+
   it("returns the same session when the same idempotency key is retried", async () => {
     const storage = createStorage();
     await storage.createProject({

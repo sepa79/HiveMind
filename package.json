@@ -1,6 +1,6 @@
 {
   "name": "hivemind",
-  "version": "0.1.5",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "description": "Standalone MCP memory service for agent and team development context",
@@ -9,6 +9,7 @@
     "bootstrap:demo": "./bootstrap.sh",
     "doctor": "node scripts/hivemind-work-unit.mjs doctor",
     "hivemind:init": "node scripts/hivemind-work-unit.mjs init",
+    "hivemind:standard": "node scripts/hivemind-standard.mjs",
     "hivemind:save-demo": "./scripts/save-demo-state.sh",
     "hivemind:work": "node scripts/hivemind-work-unit.mjs",
     "pack:mcp": "mkdir -p dist && npm pack ./hivemind-mcp --pack-destination dist",
@@ -16,7 +17,7 @@
     "start:api:opensearch": "HIVEMIND_STORAGE_BACKEND=opensearch node hivemind-api/src/server.mjs",
     "start:mcp": "node hivemind-mcp/src/server.mjs",
     "test": "vitest run",
-    "test:hivemind": "vitest run hivemind-api/src hivemind-mcp/src scripts/bootstrap-hivemind.test.mjs scripts/hivemind-work-unit.test.mjs scripts/opensearch-init.test.mjs"
+    "test:hivemind": "vitest run hivemind-api/src hivemind-mcp/src scripts/bootstrap-hivemind.test.mjs scripts/hivemind-work-unit.test.mjs scripts/hivemind-standard.test.mjs scripts/opensearch-init.test.mjs"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.14",

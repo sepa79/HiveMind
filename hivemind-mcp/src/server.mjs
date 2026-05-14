@@ -32,7 +32,8 @@ server.registerTool(
       name: z.string(),
       root_path: z.string(),
       default_branch: z.string(),
-      description: z.string().optional()
+      description: z.string().optional(),
+      standard_profile_ref: z.string().optional()
     }
   },
   runtime.projectRegister
@@ -426,6 +427,71 @@ server.registerTool(
     }
   },
   runtime.rulesGet
+);
+
+server.registerTool(
+  "project_standard_profile_define",
+  {
+    title: "Assign a project standard profile",
+    description: "Assign one ruleset catalog profile ref such as aws-microservice@v2 to a HiveMind project.",
+    inputSchema: {
+      project_id: z.string(),
+      standard_profile_ref: z.string()
+    }
+  },
+  runtime.projectStandardProfileDefine
+);
+
+server.registerTool(
+  "ruleset_catalog_list",
+  {
+    title: "List ruleset catalog profiles",
+    description: "List available standardization profiles from the configured HiveMind ruleset catalog.",
+    inputSchema: {}
+  },
+  runtime.rulesetCatalogList
+);
+
+server.registerTool(
+  "ruleset_catalog_get",
+  {
+    title: "Get a ruleset catalog profile",
+    description: "Fetch a ruleset catalog profile manifest, optionally including rendered file contents.",
+    inputSchema: {
+      profile_id: z.string(),
+      version: z.string(),
+      include_files: z.boolean().optional()
+    }
+  },
+  runtime.rulesetCatalogGet
+);
+
+server.registerTool(
+  "guidance_check",
+  {
+    title: "Check project standardization guidance",
+    description: "Compare a project's assigned standard profile against an optional local .hivemind-standard.json marker.",
+    inputSchema: {
+      project_id: z.string(),
+      standard_marker: z
+        .object({
+          project_id: z.string(),
+          profile_ref: z.string(),
+          catalog_source_url: z.string().nullable().optional(),
+          applied_at: z.string().optional(),
+          files: z
+            .array(
+              z.object({
+                target: z.string(),
+                sha256: z.string()
+              })
+            )
+            .optional()
+        })
+        .optional()
+    }
+  },
+  runtime.guidanceCheck
 );
 
 server.registerTool(

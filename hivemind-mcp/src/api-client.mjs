@@ -204,6 +204,45 @@ export class HiveMindApiClient {
     });
   }
 
+  async defineProjectStandardProfile(input) {
+    return this.#request({
+      method: "PUT",
+      path: `/v1/projects/${encodeURIComponent(input.project_id)}/standard-profile`,
+      body: {
+        standard_profile_ref: input.standard_profile_ref
+      }
+    });
+  }
+
+  async listRulesetCatalogProfiles() {
+    return this.#request({
+      method: "GET",
+      path: "/v1/ruleset-catalog/profiles"
+    });
+  }
+
+  async getRulesetCatalogProfile(input) {
+    return this.#request({
+      method: "GET",
+      path: `/v1/ruleset-catalog/profiles/${encodeURIComponent(input.profile_id)}/versions/${encodeURIComponent(input.version)}`
+    });
+  }
+
+  async getRulesetCatalogBundle(input) {
+    return this.#request({
+      method: "GET",
+      path: `/v1/ruleset-catalog/profiles/${encodeURIComponent(input.profile_id)}/versions/${encodeURIComponent(input.version)}/bundle`
+    });
+  }
+
+  async guidanceCheck(input) {
+    return this.#request({
+      method: "POST",
+      path: "/v1/guidance/check",
+      body: input
+    });
+  }
+
   async startSession(input, { idempotencyKey }) {
     return this.#request({
       method: "POST",

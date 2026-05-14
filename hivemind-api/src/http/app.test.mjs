@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { HiveMindService } from "../app/service.mjs";
 import { createApp } from "./app.mjs";
 import { FsJsonlStorage } from "../storage/fs-jsonl-storage.mjs";
@@ -12,6 +12,7 @@ afterEach(() => {
   for (const root of roots.splice(0)) {
     rmSync(root, { recursive: true, force: true });
   }
+  vi.restoreAllMocks();
 });
 
 describe("HiveMind API", () => {
@@ -61,6 +62,61 @@ describe("HiveMind API", () => {
     expect(payload.data.projects[0].project_id).toBe("buzz");
   });
 
+  it("writes structured access logs for successful requests", async () => {
+    const accessLogger = { log: vi.fn() };
+    const app = createTestApp({ accessLogger });
+
+    const response = await app.request("/health", {
+      headers: {
+        "x-request-id": "req-test",
+        "x-forwarded-for": "203.0.113.5, 10.0.0.1",
+        "user-agent": "vitest"
+      }
+    });
+
+    expect(response.status).toBe(200);
+    expect(accessLogger.log).toHaveBeenCalledTimes(1);
+    const entry = JSON.parse(accessLogger.log.mock.calls[0][0]);
+    expect(entry).toMatchObject({
+      event: "http_request",
+      request_id: "req-test",
+      method: "GET",
+      path: "/health",
+      status: 200,
+      client_ip: "203.0.113.5",
+      user_agent: "vitest"
+    });
+    expect(entry.duration_ms).toBeGreaterThanOrEqual(0);
+    expect(entry.timestamp).toBeTruthy();
+  });
+
+  it("writes structured access logs for failed requests", async () => {
+    const accessLogger = { log: vi.fn() };
+    const app = createTestApp({ accessLogger });
+
+    const response = await app.request("/v1/entries", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "Idempotency-Key": "entry-key"
+      },
+      body: JSON.stringify({
+        project_id: "buzz"
+      })
+    });
+
+    expect(response.status).toBe(400);
+    expect(accessLogger.log).toHaveBeenCalledTimes(1);
+    const entry = JSON.parse(accessLogger.log.mock.calls[0][0]);
+    expect(entry).toMatchObject({
+      event: "http_request",
+      method: "POST",
+      path: "/v1/entries",
+      status: 400,
+      error_code: "VALIDATION_ERROR"
+    });
+  });
+
   it("stores and returns the active ruleset", async () => {
     const app = createTestApp();
     await createProject(app);
@@ -89,6 +145,76 @@ describe("HiveMind API", () => {
     expect(getResponse.status).toBe(200);
     const getPayload = await getResponse.json();
     expect(getPayload.data.ruleset.rules[0].rule_id).toBe("always_test");
+  });
+
+  it("serves ruleset catalog profiles and bundles", async () => {
+    const app = createTestApp();
+
+    const listResponse = await app.request("/v1/ruleset-catalog/profiles");
+    expect(listResponse.status).toBe(200);
+    const listPayload = await listResponse.json();
+    expect(listPayload.data.profiles.map((profile) => profile.profile_ref)).toContain("aws-microservice@v2");
+
+    const bundleResponse = await app.request("/v1/ruleset-catalog/profiles/aws-microservice/versions/v2/bundle");
+    expect(bundleResponse.status).toBe(200);
+    const bundlePayload = await bundleResponse.json();
+    expect(bundlePayload.data.manifest.profile_ref).toBe("aws-microservice@v2");
+    expect(bundlePayload.data.files.some((file) => file.target === "AGENTS.md")).toBe(true);
+  });
+
+  it("assigns a project standard profile and reports guidance drift", async () => {
+    const app = createTestApp();
+    await createProject(app);
+
+    const assignResponse = await app.request("/v1/projects/buzz/standard-profile", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ standard_profile_ref: "aws-microservice@v2" })
+    });
+    expect(assignResponse.status).toBe(200);
+    const assignPayload = await assignResponse.json();
+    expect(assignPayload.data.project.standard_profile_ref).toBe("aws-microservice@v2");
+
+    const firstGuidanceResponse = await app.request("/v1/guidance/check", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ project_id: "buzz" })
+    });
+    expect(firstGuidanceResponse.status).toBe(200);
+    const firstGuidancePayload = await firstGuidanceResponse.json();
+    expect(firstGuidancePayload.data.recommended_action).toBe("apply");
+    expect(firstGuidancePayload.data.drift.every((file) => file.status === "missing")).toBe(true);
+
+    const marker = {
+      project_id: "buzz",
+      profile_ref: "aws-microservice@v2",
+      files: firstGuidancePayload.data.drift.map((file) => ({
+        target: file.target,
+        sha256: file.expected_sha256
+      }))
+    };
+    const currentGuidanceResponse = await app.request("/v1/guidance/check", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ project_id: "buzz", standard_marker: marker })
+    });
+    expect(currentGuidanceResponse.status).toBe(200);
+    const currentGuidancePayload = await currentGuidanceResponse.json();
+    expect(currentGuidancePayload.data.recommended_action).toBe("current");
+  });
+
+  it("returns unregistered guidance for unknown projects", async () => {
+    const app = createTestApp();
+
+    const response = await app.request("/v1/guidance/check", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ project_id: "missing" })
+    });
+
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload.data.recommended_action).toBe("unregistered");
   });
 
   it("manages project features and rejects removing a feature still referenced in project memory", async () => {
@@ -1206,12 +1332,12 @@ describe("HiveMind API", () => {
   });
 });
 
-function createTestApp() {
+function createTestApp({ accessLogger = null } = {}) {
   const dataRoot = mkdtempSync(join(tmpdir(), "hivemind-api-"));
   roots.push(dataRoot);
   const storage = new FsJsonlStorage({ dataRoot });
   const service = new HiveMindService({ storage, version: "test-version" });
-  return createApp({ service });
+  return createApp({ service, accessLogger });
 }
 
 async function createProject(app) {

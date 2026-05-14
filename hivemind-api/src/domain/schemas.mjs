@@ -50,7 +50,8 @@ export const ProjectRegisterInputSchema = z.object({
   name: NonEmptyString,
   root_path: NonEmptyString,
   default_branch: NonEmptyString,
-  description: z.string().trim().optional()
+  description: z.string().trim().optional(),
+  standard_profile_ref: z.string().trim().min(1).optional()
 });
 
 export const ProjectRecordSchema = z.object({
@@ -62,6 +63,7 @@ export const ProjectRecordSchema = z.object({
   features: z.array(NonEmptyString),
   categories: z.array(NonEmptyString),
   ruleset_id: NonEmptyString,
+  standard_profile_ref: z.string().nullable().optional(),
   created_at: NonEmptyString,
   updated_at: NonEmptyString
 });
@@ -572,6 +574,112 @@ export const RulesetRecordSchema = z.object({
   rules: z.array(RuleSchema),
   created_at: NonEmptyString,
   updated_at: NonEmptyString
+});
+
+export const RulesetCatalogFileSchema = z.object({
+  source: NonEmptyString,
+  target: NonEmptyString,
+  required: z.boolean().default(true)
+});
+
+export const RulesetCatalogManifestSchema = z.object({
+  profile_id: NonEmptyString,
+  version: NonEmptyString,
+  profile_ref: NonEmptyString,
+  label: NonEmptyString,
+  description: NonEmptyString,
+  extends: z.string().trim().min(1).optional(),
+  template_variables: z.array(NonEmptyString),
+  files: z.array(RulesetCatalogFileSchema),
+  rules: z.array(RuleSchema)
+});
+
+export const RulesetCatalogProfileSummarySchema = z.object({
+  profile_id: NonEmptyString,
+  version: NonEmptyString,
+  profile_ref: NonEmptyString,
+  label: NonEmptyString,
+  description: NonEmptyString,
+  extends: z.string().optional(),
+  file_count: z.number().int().nonnegative(),
+  rule_count: z.number().int().nonnegative()
+});
+
+export const RulesetCatalogListResultSchema = z.object({
+  catalog_path: NonEmptyString,
+  catalog_source_url: z.string().nullable(),
+  profiles: z.array(RulesetCatalogProfileSummarySchema)
+});
+
+export const RulesetCatalogProfileResultSchema = z.object({
+  catalog_path: NonEmptyString,
+  catalog_source_url: z.string().nullable(),
+  manifest: RulesetCatalogManifestSchema
+});
+
+export const RulesetCatalogBundleFileSchema = z.object({
+  source: NonEmptyString,
+  target: NonEmptyString,
+  required: z.boolean(),
+  content: z.string(),
+  sha256: NonEmptyString
+});
+
+export const RulesetCatalogBundleResultSchema = z.object({
+  catalog_path: NonEmptyString,
+  catalog_source_url: z.string().nullable(),
+  manifest: RulesetCatalogManifestSchema,
+  files: z.array(RulesetCatalogBundleFileSchema)
+});
+
+export const ProjectStandardProfileDefineInputSchema = z.object({
+  project_id: NonEmptyString,
+  standard_profile_ref: NonEmptyString
+});
+
+export const ProjectStandardProfileDefineResultSchema = z.object({
+  project: ProjectRecordSchema
+});
+
+export const StandardFileMarkerSchema = z.object({
+  target: NonEmptyString,
+  sha256: NonEmptyString
+});
+
+export const StandardMarkerSchema = z.object({
+  project_id: NonEmptyString,
+  profile_ref: NonEmptyString,
+  catalog_source_url: z.string().nullable().optional(),
+  applied_at: NonEmptyString.optional(),
+  files: z.array(StandardFileMarkerSchema).optional()
+});
+
+export const GuidanceCheckInputSchema = z.object({
+  project_id: NonEmptyString,
+  standard_marker: StandardMarkerSchema.optional()
+});
+
+export const GuidanceFileStatusSchema = z.object({
+  target: NonEmptyString,
+  required: z.boolean(),
+  expected_sha256: NonEmptyString,
+  actual_sha256: z.string().nullable(),
+  status: z.enum(["missing", "current", "changed"])
+});
+
+export const GuidanceCheckResultSchema = z.object({
+  project: ProjectRecordSchema.nullable(),
+  selected_profile_ref: z.string().nullable(),
+  recommended_action: z.enum(["apply", "update", "current", "unregistered"]),
+  guidance_version: z.object({
+    profile_ref: z.string().nullable(),
+    catalog_source_url: z.string().nullable()
+  }),
+  profile: RulesetCatalogProfileSummarySchema.nullable(),
+  required_files: z.array(RulesetCatalogFileSchema),
+  recommended_files: z.array(RulesetCatalogFileSchema),
+  drift: z.array(GuidanceFileStatusSchema),
+  summary: NonEmptyString
 });
 
 export const RecallEntrySummarySchema = z.object({

@@ -24,6 +24,8 @@ import {
   IssueListResultSchema,
   IssueRecordSchema,
   IssueReportInputSchema,
+  GuidanceCheckInputSchema,
+  GuidanceCheckResultSchema,
   LearningCaptureInputSchema,
   LearningFeedbackCreateInputSchema,
   LearningFeedbackRecordSchema,
@@ -33,10 +35,15 @@ import {
   LearningSearchInputSchema,
   ProjectListResultSchema,
   ProjectRegisterInputSchema,
+  ProjectStandardProfileDefineInputSchema,
+  ProjectStandardProfileDefineResultSchema,
   RuleCheckCreateInputSchema,
   RuleCheckListInputSchema,
   RuleCheckListResultSchema,
   RuleCheckSubmitResultSchema,
+  RulesetCatalogBundleResultSchema,
+  RulesetCatalogListResultSchema,
+  RulesetCatalogProfileResultSchema,
   RulesetDefineInputSchema,
   RulesetRecordSchema,
   SearchResultSchema,
@@ -51,12 +58,14 @@ import {
   SessionStartResultSchema
 } from "../domain/schemas.mjs";
 import { ApiError } from "./errors.mjs";
+import { RulesetCatalog, parseProfileRef } from "./ruleset-catalog.mjs";
 
 export class HiveMindService {
-  constructor({ storage, dataRoot = null, version = "0.0.0" } = {}) {
+  constructor({ storage, dataRoot = null, version = "0.0.0", rulesetCatalog = new RulesetCatalog() } = {}) {
     this.storage = storage;
     this.dataRoot = dataRoot;
     this.version = version;
+    this.rulesetCatalog = rulesetCatalog;
   }
 
   async getHealth() {
@@ -77,6 +86,9 @@ export class HiveMindService {
 
   async registerProject(input) {
     const payload = parseWithSchema(ProjectRegisterInputSchema, input);
+    if (payload.standard_profile_ref) {
+      this.rulesetCatalog.getByRef(payload.standard_profile_ref);
+    }
     return {
       project: await this.storage.createProject(payload)
     };
@@ -88,6 +100,113 @@ export class HiveMindService {
 
   async listFeatures(projectId) {
     return parseWithSchema(FeatureListResultSchema, await this.storage.listFeatures(projectId));
+  }
+
+  async defineProjectStandardProfile(input) {
+    const payload = parseWithSchema(ProjectStandardProfileDefineInputSchema, input);
+    this.rulesetCatalog.getByRef(payload.standard_profile_ref);
+    return parseWithSchema(ProjectStandardProfileDefineResultSchema, {
+      project: await this.storage.updateProjectStandardProfile(payload.project_id, payload.standard_profile_ref)
+    });
+  }
+
+  async listRulesetCatalogProfiles() {
+    return parseWithSchema(RulesetCatalogListResultSchema, this.rulesetCatalog.listProfiles());
+  }
+
+  async getRulesetCatalogProfile({ profile_id, version }) {
+    return parseWithSchema(RulesetCatalogProfileResultSchema, this.rulesetCatalog.getProfile(profile_id, version));
+  }
+
+  async getRulesetCatalogBundle({ profile_id, version }) {
+    return parseWithSchema(RulesetCatalogBundleResultSchema, this.rulesetCatalog.getBundle(profile_id, version));
+  }
+
+  async guidanceCheck(input) {
+    const payload = parseWithSchema(GuidanceCheckInputSchema, input);
+    const project = await this.storage.getProject(payload.project_id);
+    if (!project) {
+      return parseWithSchema(GuidanceCheckResultSchema, {
+        project: null,
+        selected_profile_ref: null,
+        recommended_action: "unregistered",
+        guidance_version: {
+          profile_ref: null,
+          catalog_source_url: this.rulesetCatalog.catalogSourceUrl
+        },
+        profile: null,
+        required_files: [],
+        recommended_files: [],
+        drift: [],
+        summary: `Project '${payload.project_id}' is not registered.`
+      });
+    }
+
+    const selectedProfileRef = project.standard_profile_ref ?? null;
+    if (!selectedProfileRef) {
+      return parseWithSchema(GuidanceCheckResultSchema, {
+        project,
+        selected_profile_ref: null,
+        recommended_action: "apply",
+        guidance_version: {
+          profile_ref: null,
+          catalog_source_url: this.rulesetCatalog.catalogSourceUrl
+        },
+        profile: null,
+        required_files: [],
+        recommended_files: [],
+        drift: [],
+        summary: `Project '${payload.project_id}' has no standard profile assigned.`
+      });
+    }
+
+    const { profileId, version } = parseProfileRef(selectedProfileRef);
+    const bundle = this.rulesetCatalog.getBundle(profileId, version, {
+      project_id: project.project_id,
+      project_name: project.name
+    });
+    const markerFiles = new Map((payload.standard_marker?.files ?? []).map((file) => [file.target, file.sha256]));
+    const drift = bundle.files.map((file) => {
+      const actualSha = markerFiles.get(file.target) ?? null;
+      return {
+        target: file.target,
+        required: file.required,
+        expected_sha256: file.sha256,
+        actual_sha256: actualSha,
+        status: actualSha === null ? "missing" : actualSha === file.sha256 ? "current" : "changed"
+      };
+    });
+    const markerProfileMatches = payload.standard_marker?.profile_ref === selectedProfileRef;
+    const allCurrent = markerProfileMatches && drift.every((file) => file.status === "current");
+    const recommendedAction = allCurrent ? "current" : payload.standard_marker?.profile_ref && !markerProfileMatches ? "update" : "apply";
+    const profile = {
+      profile_id: bundle.manifest.profile_id,
+      version: bundle.manifest.version,
+      profile_ref: bundle.manifest.profile_ref,
+      label: bundle.manifest.label,
+      description: bundle.manifest.description,
+      extends: bundle.manifest.extends,
+      file_count: bundle.manifest.files.length,
+      rule_count: bundle.manifest.rules.length
+    };
+
+    return parseWithSchema(GuidanceCheckResultSchema, {
+      project,
+      selected_profile_ref: selectedProfileRef,
+      recommended_action: recommendedAction,
+      guidance_version: {
+        profile_ref: selectedProfileRef,
+        catalog_source_url: this.rulesetCatalog.catalogSourceUrl
+      },
+      profile,
+      required_files: bundle.manifest.files.filter((file) => file.required),
+      recommended_files: bundle.manifest.files.filter((file) => !file.required),
+      drift,
+      summary:
+        recommendedAction === "current"
+          ? `Project '${payload.project_id}' is current on '${selectedProfileRef}'.`
+          : `Project '${payload.project_id}' should ${recommendedAction} standard profile '${selectedProfileRef}'.`
+    });
   }
 
   async addFeature(input) {

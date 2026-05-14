@@ -57,6 +57,7 @@ export class FsJsonlStorage extends StorageAdapter {
       features: existing?.features ?? [],
       categories: existing?.categories ?? [],
       ruleset_id: existing?.ruleset_id ?? `${projectInput.project_id}:0`,
+      standard_profile_ref: projectInput.standard_profile_ref ?? existing?.standard_profile_ref ?? null,
       created_at: existing?.created_at ?? now,
       updated_at: now
     };
@@ -265,6 +266,20 @@ export class FsJsonlStorage extends StorageAdapter {
       project_id: projectId,
       features: updatedProject.features
     };
+  }
+
+  async updateProjectStandardProfile(projectId, standardProfileRef) {
+    const project = await this.getProject(projectId);
+    ensure(project, 404, "PROJECT_NOT_FOUND", `No project exists with id '${projectId}'.`, {
+      project_id: projectId
+    });
+    const updated = {
+      ...project,
+      standard_profile_ref: standardProfileRef,
+      updated_at: isoNow()
+    };
+    this.#writeJsonFile(this.#projectFile(projectId), updated);
+    return updated;
   }
 
   async openContext(contextInput, { idempotencyKey }) {

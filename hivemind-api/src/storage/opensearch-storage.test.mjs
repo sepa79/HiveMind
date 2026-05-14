@@ -91,6 +91,24 @@ describe("OpenSearchStorage", () => {
     expect(result.projects).toHaveLength(1001);
     expect(client.scrollCalls).toBeGreaterThan(0);
   });
+
+  it("preserves project standard profile metadata", async () => {
+    const client = new FakeOpenSearchClient();
+    const storage = new OpenSearchStorage({ client, indexPrefix: "test" });
+
+    await storage.createProject({
+      project_id: "alpha",
+      name: "Alpha",
+      root_path: "/repo/alpha",
+      default_branch: "main",
+      description: "Alpha project",
+      standard_profile_ref: "base@v1"
+    });
+    const updated = await storage.updateProjectStandardProfile("alpha", "aws-microservice@v2");
+
+    expect(updated.standard_profile_ref).toBe("aws-microservice@v2");
+    expect((await storage.getProject("alpha")).standard_profile_ref).toBe("aws-microservice@v2");
+  });
 });
 
 class FakeOpenSearchClient {

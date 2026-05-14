@@ -8,6 +8,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=deps /app/node_modules ./node_modules
 COPY assets ./assets
+COPY ai-rulesets ./ai-rulesets
 COPY hivemind-api ./hivemind-api
 COPY scripts/opensearch-init.mjs ./scripts/opensearch-init.mjs
 COPY package.json ./

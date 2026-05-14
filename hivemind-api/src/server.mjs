@@ -2,6 +2,7 @@
 
 import { readFileSync } from "node:fs";
 import { serve } from "@hono/node-server";
+import { RulesetCatalog, DEFAULT_RULESET_CATALOG_PATH } from "./app/ruleset-catalog.mjs";
 import { HiveMindService } from "./app/service.mjs";
 import { createApp } from "./http/app.mjs";
 import { FsJsonlStorage } from "./storage/fs-jsonl-storage.mjs";
@@ -10,6 +11,7 @@ import { OpenSearchStorage } from "./storage/opensearch-storage.mjs";
 const port = Number(process.env.HIVEMIND_API_PORT || "4010");
 const dataRoot = process.env.HIVEMIND_DATA_ROOT || `${process.cwd()}/.hivemind`;
 const storageBackend = process.env.HIVEMIND_STORAGE_BACKEND || "fs-jsonl";
+const rulesetCatalogPath = process.env.HIVEMIND_RULESET_CATALOG_PATH || DEFAULT_RULESET_CATALOG_PATH;
 const packageJson = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8"));
 
 const storage = createStorage({ storageBackend, dataRoot });
@@ -20,9 +22,14 @@ if (typeof storage.initialize === "function") {
 const service = new HiveMindService({
   storage,
   dataRoot: storageBackend === "fs-jsonl" ? dataRoot : null,
-  version: packageJson.version
+  version: packageJson.version,
+  rulesetCatalog: new RulesetCatalog({
+    catalogPath: rulesetCatalogPath,
+    catalogSourceUrl: process.env.HIVEMIND_RULESET_CATALOG_SOURCE_URL || null,
+    hivemindApiUrl: process.env.HIVEMIND_API_BASE_URL || `http://127.0.0.1:${port}`
+  })
 });
-const app = createApp({ service });
+const app = createApp({ service, accessLogger: console });
 
 serve(
   {

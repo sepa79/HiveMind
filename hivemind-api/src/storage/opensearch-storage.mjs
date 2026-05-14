@@ -43,6 +43,7 @@ const INDEX_DEFINITIONS = {
       features: { type: "keyword" },
       categories: { type: "keyword" },
       ruleset_id: { type: "keyword" },
+      standard_profile_ref: { type: "keyword" },
       created_at: { type: "date" },
       updated_at: { type: "date" }
     }
@@ -274,6 +275,7 @@ export class OpenSearchStorage extends StorageAdapter {
       features: existing?.features ?? [],
       categories: existing?.categories ?? [],
       ruleset_id: existing?.ruleset_id ?? `${projectInput.project_id}:0`,
+      standard_profile_ref: projectInput.standard_profile_ref ?? existing?.standard_profile_ref ?? null,
       created_at: existing?.created_at ?? now,
       updated_at: now
     };
@@ -389,6 +391,18 @@ export class OpenSearchStorage extends StorageAdapter {
     );
 
     return { project_id: projectId, features: updatedProject.features };
+  }
+
+  async updateProjectStandardProfile(projectId, standardProfileRef) {
+    const project = await this.getProject(projectId);
+    ensure(project, 404, "PROJECT_NOT_FOUND", `No project exists with id '${projectId}'.`, { project_id: projectId });
+    const updated = {
+      ...project,
+      standard_profile_ref: standardProfileRef,
+      updated_at: isoNow()
+    };
+    await this.#put("projects", projectId, updated);
+    return updated;
   }
 
   async openContext(contextInput, { idempotencyKey }) {
