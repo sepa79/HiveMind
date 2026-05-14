@@ -5,7 +5,7 @@ export function renderHumanUi() {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>HiveMind Work Units</title>
-  <link rel="icon" href="/assets/hivemind-radial-grid-mark.svg" type="image/svg+xml">
+  <link rel="icon" href="/assets/hivemind-v2-mark.svg" type="image/svg+xml">
   <style>
     :root {
       color-scheme: dark;
@@ -23,6 +23,7 @@ export function renderHumanUi() {
       --ok: #56d391;
       --danger: #ff7575;
       --shadow: rgba(0, 0, 0, 0.32);
+      --nav-header-height: 40px;
     }
 
     :root[data-theme="light"] {
@@ -52,10 +53,7 @@ export function renderHumanUi() {
     body {
       margin: 0;
       min-height: 100vh;
-      background:
-        radial-gradient(circle at top left, rgba(51, 225, 255, 0.12), transparent 34rem),
-        linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 18rem),
-        var(--bg);
+      background: var(--bg);
       color: var(--text);
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       font-size: 14px;
@@ -69,65 +67,207 @@ export function renderHumanUi() {
       font: inherit;
     }
 
-    header {
-      position: sticky;
-      top: 0;
-      z-index: 10;
-      border-bottom: 1px solid var(--border2);
-      background: rgba(8, 10, 14, 0.78);
-      backdrop-filter: blur(8px);
+    .appShell {
+      height: 100vh;
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      grid-template-rows: 52px 1fr;
     }
 
-    :root[data-theme="light"] header {
+    .topBar {
+      grid-row: 1;
+      grid-column: 1 / span 2;
+      border-bottom: 1px solid var(--border2);
+      background: rgba(8, 10, 14, 0.78);
+      backdrop-filter: blur(6px);
+      position: relative;
+      z-index: 300;
+    }
+
+    :root[data-theme="light"] .topBar {
       background: rgba(255, 255, 255, 0.9);
     }
 
-    .wrap {
-      width: min(1240px, calc(100vw - 32px));
-      margin: 0 auto;
-    }
-
-    .topbar {
-      min-height: 56px;
+    .topBarInner {
+      height: 52px;
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 16px;
+      gap: 10px;
+      padding: 0 10px;
     }
 
-    .brand-lockup {
+    .topBarLeft {
       display: flex;
       align-items: center;
       min-width: 0;
       gap: 10px;
     }
 
-    .brand-mark {
-      width: 36px;
-      height: 36px;
-      flex: 0 0 auto;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      background: #080b10;
-      padding: 4px;
-      box-shadow: 0 8px 24px var(--shadow);
+    .topBarCenter {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      align-items: center;
     }
 
-    h1 {
-      margin: 0;
-      font-size: 16px;
-      font-weight: 750;
-      letter-spacing: 0;
-      white-space: nowrap;
-    }
-
-    .topbar-actions {
+    .topBarRight {
       display: flex;
       align-items: center;
       gap: 8px;
+      margin-left: auto;
     }
 
-    main {
+    .logoLink {
+      display: inline-flex;
+      align-items: center;
+      height: 44px;
+      gap: 10px;
+      padding: 0 8px;
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .brand-mark {
+      width: 28px;
+      height: 28px;
+      flex: 0 0 auto;
+    }
+
+    .brandWordmark {
+      font-size: 22px;
+      font-weight: 900;
+      line-height: 1;
+      letter-spacing: 0.2px;
+      white-space: nowrap;
+      position: relative;
+      top: -1px;
+    }
+
+    .brandWordHive {
+      color: rgba(255, 255, 255, 0.95);
+    }
+
+    .brandWordMind {
+      color: #ffc107;
+    }
+
+    :root[data-theme="light"] .brandWordHive {
+      color: rgba(10, 20, 30, 0.92);
+    }
+
+    .sideNav {
+      grid-row: 2;
+      grid-column: 1;
+      border-right: 1px solid var(--border2);
+      background: rgba(8, 10, 14, 0.88);
+      backdrop-filter: blur(6px);
+      display: flex;
+      align-items: start;
+      padding: 8px 0;
+    }
+
+    :root[data-theme="light"] .sideNav {
+      background: rgba(255, 255, 255, 0.92);
+    }
+
+    .navIconStack {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      gap: 6px;
+      padding: 4px 0;
+    }
+
+    .navHeader {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 10px 6px;
+      min-height: var(--nav-header-height);
+    }
+
+    .navHeaderTitle {
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+
+    :root[data-theme="light"] .navHeaderTitle {
+      color: rgba(10, 20, 30, 0.6);
+    }
+
+    .navItem {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      height: 40px;
+      margin: 0 8px;
+      padding: 0 12px;
+      border-radius: 12px;
+      color: #0ff;
+      border: 1px solid rgba(51, 225, 255, 0.35);
+      background: radial-gradient(120% 120% at 10% 10%, rgba(51, 225, 255, 0.25), rgba(51, 225, 255, 0.06) 40%, rgba(255, 255, 255, 0.05) 70%, rgba(0, 0, 0, 0) 100%);
+      box-shadow: 0 0 20px rgba(51, 225, 255, 0.15) inset, 0 0 16px rgba(51, 225, 255, 0.18);
+      text-decoration: none;
+    }
+
+    .navItem:hover {
+      box-shadow: 0 0 26px rgba(51, 225, 255, 0.22) inset, 0 0 20px rgba(51, 225, 255, 0.28);
+      background: radial-gradient(120% 120% at 10% 10%, rgba(51, 225, 255, 0.35), rgba(51, 225, 255, 0.1) 50%, rgba(255, 255, 255, 0.07) 75%, rgba(0, 0, 0, 0) 100%);
+    }
+
+    .navItem.active {
+      background: #33e1ff !important;
+      color: #111 !important;
+      font-weight: 800;
+      border-color: transparent !important;
+      box-shadow: none;
+    }
+
+    .navGlyph {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      font-weight: 900;
+    }
+
+    .navLabel {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.1px;
+    }
+
+    :root[data-theme="light"] .navItem {
+      color: rgba(10, 20, 30, 0.82);
+      border-color: rgba(10, 20, 30, 0.12);
+      background: rgba(10, 20, 30, 0.03);
+      box-shadow: none;
+    }
+
+    :root[data-theme="light"] .navItem:hover {
+      background: rgba(10, 20, 30, 0.05);
+      border-color: rgba(10, 20, 30, 0.16);
+    }
+
+    :root[data-theme="light"] .navItem.active {
+      background: rgba(20, 120, 210, 0.18) !important;
+      color: rgba(10, 20, 30, 0.92) !important;
+      border-color: rgba(20, 120, 210, 0.22) !important;
+    }
+
+    .appContent {
+      grid-row: 2;
+      grid-column: 2;
+      min-width: 0;
+      min-height: 0;
+      overflow: auto;
+    }
+
+    .pageContent {
+      width: min(1240px, calc(100vw - 276px));
+      margin: 0 auto;
       padding: 18px 0 32px;
     }
 
@@ -195,50 +335,50 @@ export function renderHumanUi() {
       color: var(--accent-strong);
     }
 
-    .summary-strip {
-      min-height: 36px;
+    .topBarStatus {
+      min-height: 30px;
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      margin-bottom: 12px;
-      padding: 8px 10px;
-      border: 1px solid var(--border2);
-      border-radius: 10px;
-      background: var(--panel2);
+      min-width: 0;
+      max-width: 640px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      padding: 0 10px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.06);
       color: var(--muted);
+      font-size: 12px;
     }
 
-    .summary-strip.error {
+    .topBarStatus.error {
       border-color: color-mix(in srgb, var(--danger) 62%, var(--border));
       color: var(--danger);
       background: color-mix(in srgb, var(--danger) 10%, var(--panel));
     }
 
-    .summary-strip.ok {
+    .topBarStatus.ok {
       border-color: color-mix(in srgb, var(--ok) 45%, var(--border));
       color: var(--text);
     }
 
-    .tabs {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-bottom: 12px;
-    }
-
-    .tab-button {
-      min-height: 34px;
-    }
-
-    .tab-button.active {
-      border-color: color-mix(in srgb, var(--accent) 72%, var(--border));
-      color: var(--accent-strong);
-      background: var(--panel3);
-    }
-
     .tab-panel[hidden] {
       display: none;
+    }
+
+    .standards-grid {
+      display: grid;
+      grid-template-columns: minmax(280px, .85fr) minmax(0, 1.15fr);
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .standards-actions {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      gap: 8px;
+      align-items: end;
     }
 
     .table-shell {
@@ -467,10 +607,17 @@ export function renderHumanUi() {
     .entry-card {
       padding: 9px 10px;
       border-bottom: 1px solid var(--border2);
+      cursor: pointer;
     }
 
     .entry-card:last-child {
       border-bottom: 0;
+    }
+
+    .entry-card:hover,
+    .detail-item.clickable:hover {
+      border-color: color-mix(in srgb, var(--accent) 48%, var(--border2));
+      background: color-mix(in srgb, var(--accent) 8%, var(--panel3));
     }
 
     .entry-card-title {
@@ -511,6 +658,10 @@ export function renderHumanUi() {
       overflow-wrap: anywhere;
     }
 
+    .detail-item.clickable {
+      cursor: pointer;
+    }
+
     .detail-item-title {
       font-weight: 720;
     }
@@ -526,7 +677,91 @@ export function renderHumanUi() {
       color: var(--muted);
     }
 
+    .entry-detail-overlay[hidden] {
+      display: none;
+    }
+
+    .entry-detail-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 500;
+      display: grid;
+      place-items: center;
+      padding: 18px;
+      background: rgba(0, 0, 0, 0.58);
+      backdrop-filter: blur(4px);
+    }
+
+    .entry-detail-dialog {
+      display: flex;
+      flex-direction: column;
+      width: min(860px, calc(100vw - 36px));
+      max-height: min(820px, calc(100vh - 36px));
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: color-mix(in srgb, var(--bg) 82%, #111827);
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+    }
+
+    .entry-detail-dialog .panel-header {
+      flex: 0 0 auto;
+      align-items: flex-start;
+    }
+
+    .entry-detail-dialog .panel-header > div {
+      min-width: 0;
+    }
+
+    .entry-detail-body {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: grid;
+      align-content: start;
+      gap: 12px;
+      overflow: auto;
+      padding: 14px;
+    }
+
+    .entry-detail-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .entry-detail-text {
+      margin: 0;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
     @media (max-width: 820px) {
+      .appShell {
+        grid-template-columns: 56px 1fr;
+      }
+
+      .pageContent {
+        width: min(100vw - 88px, 1240px);
+      }
+
+      .navHeaderTitle,
+      .navLabel {
+        display: none;
+      }
+
+      .navItem {
+        justify-content: center;
+        padding: 0;
+      }
+
+      .topBarCenter {
+        display: none;
+      }
+
       .toolbar {
         grid-template-columns: 1fr;
       }
@@ -535,29 +770,19 @@ export function renderHumanUi() {
         grid-template-columns: 1fr;
       }
 
-      .topbar {
-        align-items: flex-start;
-        flex-direction: column;
-        padding: 12px 0;
-      }
-
-      .topbar-actions {
-        width: 100%;
-      }
-
-      .topbar-actions button {
-        flex: 1;
+      .standards-grid,
+      .standards-actions {
+        grid-template-columns: 1fr;
       }
     }
 
     @media (max-width: 560px) {
-      .wrap {
-        width: min(100vw - 20px, 1240px);
+      .pageContent {
+        width: min(100vw - 76px, 1240px);
       }
 
-      .summary-strip {
-        align-items: flex-start;
-        flex-direction: column;
+      .brandWordmark {
+        display: none;
       }
 
       .details-body {
@@ -567,42 +792,64 @@ export function renderHumanUi() {
       .metric-grid {
         grid-template-columns: 1fr 1fr;
       }
+
+      .entry-detail-grid {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
 <body>
-  <header>
-    <div class="wrap topbar">
-      <div class="brand-lockup">
-        <img class="brand-mark" src="/assets/hivemind-radial-grid-mark.svg" alt="" aria-hidden="true">
-        <h1>HiveMind Work Units</h1>
+  <div class="appShell">
+    <header class="topBar">
+      <div class="topBarInner">
+        <div class="topBarLeft">
+          <a class="logoLink" href="/" aria-label="HiveMind home" title="Home">
+            <img class="brand-mark" src="/assets/hivemind-v2-mark.svg" alt="" aria-hidden="true">
+            <span class="brandWordmark" aria-hidden="true"><span class="brandWordHive">Hive</span><span class="brandWordMind">Mind</span></span>
+          </a>
+        </div>
+        <div class="topBarCenter">
+          <div id="statusLine" class="topBarStatus">Loading projects...</div>
+        </div>
+        <div class="topBarRight">
+          <button id="themeToggle" type="button" title="Toggle theme">Light</button>
+          <button id="refresh" class="primary" type="button" title="Refresh work units">Refresh</button>
+        </div>
       </div>
-      <div class="topbar-actions">
-        <button id="themeToggle" type="button" title="Toggle theme">Light</button>
-        <button id="refresh" class="primary" type="button" title="Refresh work units">Refresh</button>
+    </header>
+    <aside class="sideNav">
+      <div class="navIconStack">
+        <div class="navHeader">
+          <div class="navHeaderTitle">Navigation</div>
+        </div>
+        <button id="workUnitsTab" class="navItem active" type="button" data-tab="workUnits" title="Work Units">
+          <span class="navGlyph" aria-hidden="true">W</span><span class="navLabel">Work Units</span>
+        </button>
+        <button id="memoryTab" class="navItem" type="button" data-tab="memory" title="Project Memory">
+          <span class="navGlyph" aria-hidden="true">M</span><span class="navLabel">Memory</span>
+        </button>
+        <button id="standardsTab" class="navItem" type="button" data-tab="standards" title="Standards">
+          <span class="navGlyph" aria-hidden="true">S</span><span class="navLabel">Standards</span>
+        </button>
       </div>
-    </div>
-  </header>
-  <main class="wrap">
-    <section class="toolbar" aria-label="Work unit filters">
-      <label>
-        Project
-        <select id="projectId"></select>
-      </label>
-      <label>
-        Branch
-        <select id="branch">
-          <option value="">All branches</option>
-        </select>
-      </label>
-      <button id="clearBranch" type="button" title="Show all branches">All Branches</button>
-    </section>
-    <div id="statusLine" class="summary-strip">Loading projects...</div>
-    <nav class="tabs" aria-label="Views">
-      <button id="workUnitsTab" class="tab-button active" type="button" data-tab="workUnits">Work Units</button>
-      <button id="memoryTab" class="tab-button" type="button" data-tab="memory">Project Memory</button>
-    </nav>
-    <section id="workUnitsPanel" class="tab-panel" aria-label="Work units view">
+    </aside>
+    <main class="appContent">
+      <div class="pageContent">
+        <section class="toolbar" aria-label="Work unit filters">
+          <label>
+            Project
+            <select id="projectId"></select>
+          </label>
+          <label>
+            Branch
+            <select id="branch">
+              <option value="">All branches</option>
+            </select>
+          </label>
+          <button id="clearBranch" type="button" title="Show all branches">All Branches</button>
+        </section>
+        <section id="workUnitsPanel" class="tab-panel" aria-label="Work units view">
       <section class="table-shell" aria-label="Work units">
         <table>
           <thead>
@@ -623,8 +870,8 @@ export function renderHumanUi() {
       <section id="detailsPanel" class="details-panel" aria-label="Work unit details">
         <div class="details-placeholder">Select a work unit to inspect its closeout, entries, rule checks, and branch reminders.</div>
       </section>
-    </section>
-    <section id="memoryPanel" class="tab-panel memory-panel" aria-label="Project memory search" hidden>
+        </section>
+        <section id="memoryPanel" class="tab-panel memory-panel" aria-label="Project memory search" hidden>
       <div class="panel-header">
         <h2 class="panel-title">Project Memory</h2>
         <span id="entryStatus" class="mono">Loading entries...</span>
@@ -663,8 +910,56 @@ export function renderHumanUi() {
         </section>
         <div id="entryResults" class="entry-results"></div>
       </div>
-    </section>
-  </main>
+        </section>
+        <section id="standardsPanel" class="tab-panel memory-panel" aria-label="Project standards" hidden>
+          <div class="panel-header">
+            <h2 class="panel-title">Standards</h2>
+            <span id="standardStatus" class="mono">Loading catalog...</span>
+          </div>
+          <div class="panel-body">
+            <section class="standards-actions" aria-label="Standard profile assignment">
+              <label>
+                Standard Profile
+                <select id="standardProfile"></select>
+              </label>
+              <button id="standardApply" class="primary" type="button" title="Assign selected profile">Assign</button>
+              <button id="standardRefresh" type="button" title="Refresh guidance">Check</button>
+            </section>
+            <div class="standards-grid">
+              <section class="detail-section">
+                <h2>Guidance</h2>
+                <div id="standardSummary" class="detail-list"></div>
+              </section>
+              <section class="detail-section">
+                <h2>Catalog</h2>
+                <div id="catalogList" class="detail-list"></div>
+              </section>
+              <section class="detail-section">
+                <h2>Required Files</h2>
+                <div id="requiredFiles" class="detail-list"></div>
+              </section>
+              <section class="detail-section">
+                <h2>Drift</h2>
+                <div id="driftFiles" class="detail-list"></div>
+              </section>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+  <section id="entryDetailOverlay" class="entry-detail-overlay" aria-label="Entry details" hidden>
+    <article class="entry-detail-dialog" role="dialog" aria-modal="true" aria-labelledby="entryDetailTitle">
+      <div class="panel-header">
+        <div>
+          <h2 id="entryDetailTitle" class="panel-title">Entry Details</h2>
+          <div id="entryDetailSubtitle" class="details-subtitle"></div>
+        </div>
+        <button id="entryDetailClose" type="button" title="Close entry details">Close</button>
+      </div>
+      <div id="entryDetailBody" class="entry-detail-body"></div>
+    </article>
+  </section>
   <script>
     const THEME_KEY = "HIVEMIND_UI_THEME";
     const PROJECT_KEY = "HIVEMIND_UI_PROJECT";
@@ -682,8 +977,10 @@ export function renderHumanUi() {
       themeToggle: document.querySelector("#themeToggle"),
       workUnitsTab: document.querySelector("#workUnitsTab"),
       memoryTab: document.querySelector("#memoryTab"),
+      standardsTab: document.querySelector("#standardsTab"),
       workUnitsPanel: document.querySelector("#workUnitsPanel"),
       memoryPanel: document.querySelector("#memoryPanel"),
+      standardsPanel: document.querySelector("#standardsPanel"),
       statusLine: document.querySelector("#statusLine"),
       sessionsBody: document.querySelector("#sessionsBody"),
       detailsPanel: document.querySelector("#detailsPanel"),
@@ -694,10 +991,25 @@ export function renderHumanUi() {
       entryTags: document.querySelector("#entryTags"),
       entryQuery: document.querySelector("#entryQuery"),
       entrySearch: document.querySelector("#entrySearch"),
-      entryResults: document.querySelector("#entryResults")
+      entryResults: document.querySelector("#entryResults"),
+      standardStatus: document.querySelector("#standardStatus"),
+      standardProfile: document.querySelector("#standardProfile"),
+      standardApply: document.querySelector("#standardApply"),
+      standardRefresh: document.querySelector("#standardRefresh"),
+      standardSummary: document.querySelector("#standardSummary"),
+      catalogList: document.querySelector("#catalogList"),
+      requiredFiles: document.querySelector("#requiredFiles"),
+      driftFiles: document.querySelector("#driftFiles"),
+      entryDetailOverlay: document.querySelector("#entryDetailOverlay"),
+      entryDetailTitle: document.querySelector("#entryDetailTitle"),
+      entryDetailSubtitle: document.querySelector("#entryDetailSubtitle"),
+      entryDetailBody: document.querySelector("#entryDetailBody"),
+      entryDetailClose: document.querySelector("#entryDetailClose")
     };
 
     let allSessions = [];
+    let allProjects = [];
+    let catalogProfiles = [];
     let selectedSessionId = "";
 
     function storedValue(key) {
@@ -724,15 +1036,21 @@ export function renderHumanUi() {
 
     function setStatus(message, mode = "") {
       el.statusLine.textContent = message;
-      el.statusLine.className = "summary-strip" + (mode ? " " + mode : "");
+      el.statusLine.className = "topBarStatus" + (mode ? " " + mode : "");
     }
 
     function setTab(tab) {
       const memoryActive = tab === "memory";
-      el.workUnitsTab.classList.toggle("active", !memoryActive);
+      const standardsActive = tab === "standards";
+      el.workUnitsTab.classList.toggle("active", !memoryActive && !standardsActive);
       el.memoryTab.classList.toggle("active", memoryActive);
-      el.workUnitsPanel.hidden = memoryActive;
+      el.standardsTab.classList.toggle("active", standardsActive);
+      el.workUnitsPanel.hidden = memoryActive || standardsActive;
       el.memoryPanel.hidden = !memoryActive;
+      el.standardsPanel.hidden = !standardsActive;
+      if (standardsActive) {
+        loadGuidance();
+      }
     }
 
     function selectedProjectId() {
@@ -789,6 +1107,7 @@ export function renderHumanUi() {
     }
 
     function renderProjects(projects) {
+      allProjects = projects;
       el.projectId.replaceChildren();
       for (const project of projects) {
         const option = document.createElement("option");
@@ -803,6 +1122,135 @@ export function renderHumanUi() {
         el.projectId.value = preferred;
       } else if (projects.length > 0) {
         el.projectId.value = projects[0].project_id;
+      }
+    }
+
+    function selectedProject() {
+      const projectId = el.projectId.value.trim();
+      return allProjects.find((project) => project.project_id === projectId) || null;
+    }
+
+    function replaceList(target, items, emptyText, renderItem) {
+      target.replaceChildren();
+      if (items.length === 0) {
+        target.append(detailItem(emptyText, ""));
+        return;
+      }
+      for (const item of items) {
+        target.append(renderItem(item));
+      }
+    }
+
+    function renderCatalogProfiles() {
+      el.standardProfile.replaceChildren();
+      replaceList(
+        el.catalogList,
+        catalogProfiles,
+        "No catalog profiles are available.",
+        (profile) =>
+          detailItem(
+            profile.profile_ref,
+            profile.label + " / " + profile.description + " / " + profile.file_count + " files / " + profile.rule_count + " rules"
+          )
+      );
+      for (const profile of catalogProfiles) {
+        const option = document.createElement("option");
+        option.value = profile.profile_ref;
+        option.textContent = profile.label + " (" + profile.profile_ref + ")";
+        el.standardProfile.append(option);
+      }
+      refreshStandardProfileSelection();
+    }
+
+    function refreshStandardProfileSelection() {
+      const project = selectedProject();
+      const profileRef = project?.standard_profile_ref || "";
+      if (profileRef && catalogProfiles.some((profile) => profile.profile_ref === profileRef)) {
+        el.standardProfile.value = profileRef;
+      } else if (catalogProfiles.length > 0) {
+        el.standardProfile.value = catalogProfiles[0].profile_ref;
+      }
+    }
+
+    async function loadCatalog() {
+      try {
+        el.standardStatus.textContent = "Loading catalog...";
+        const data = await api("/v1/ruleset-catalog/profiles");
+        catalogProfiles = data.profiles;
+        renderCatalogProfiles();
+        el.standardStatus.textContent = catalogProfiles.length + " profiles available";
+      } catch (error) {
+        catalogProfiles = [];
+        renderCatalogProfiles();
+        el.standardStatus.textContent = error.message;
+      }
+    }
+
+    function renderGuidance(guidance) {
+      replaceList(
+        el.standardSummary,
+        [
+          {
+            title: guidance.summary,
+            meta:
+              "action:" + guidance.recommended_action
+              + " / profile:" + (guidance.selected_profile_ref || "none")
+              + " / source:" + (guidance.guidance_version.catalog_source_url || "local catalog")
+          }
+        ],
+        "No guidance available.",
+        (item) => detailItem(item.title, item.meta)
+      );
+      replaceList(
+        el.requiredFiles,
+        [...guidance.required_files, ...guidance.recommended_files],
+        "No files are defined for this profile yet.",
+        (file) => detailItem(file.target, (file.required ? "required" : "recommended") + " / source:" + file.source)
+      );
+      replaceList(
+        el.driftFiles,
+        guidance.drift,
+        "No drift data. Assign a standard profile or run the client check.",
+        (file) => detailItem(file.target + ": " + file.status, "expected:" + file.expected_sha256 + " / actual:" + (file.actual_sha256 || "none"))
+      );
+      el.standardStatus.textContent = guidance.recommended_action + " / " + (guidance.selected_profile_ref || "no profile");
+      refreshStandardProfileSelection();
+    }
+
+    async function loadGuidance() {
+      if (!el.projectId.value) {
+        return;
+      }
+      try {
+        el.standardStatus.textContent = "Checking guidance...";
+        const guidance = await api("/v1/guidance/check", {
+          method: "POST",
+          body: { project_id: selectedProjectId() }
+        });
+        renderGuidance(guidance);
+      } catch (error) {
+        el.standardStatus.textContent = error.message;
+      }
+    }
+
+    async function assignStandardProfile() {
+      const profileRef = el.standardProfile.value;
+      if (!profileRef) {
+        el.standardStatus.textContent = "Select a profile first.";
+        return;
+      }
+      try {
+        el.standardStatus.textContent = "Assigning " + profileRef + "...";
+        const data = await api("/v1/projects/" + encodeURIComponent(selectedProjectId()) + "/standard-profile", {
+          method: "PUT",
+          body: { standard_profile_ref: profileRef }
+        });
+        allProjects = allProjects.map((project) =>
+          project.project_id === data.project.project_id ? data.project : project
+        );
+        await loadGuidance();
+      } catch (error) {
+        el.standardStatus.textContent = error.message;
       }
     }
 
@@ -913,6 +1361,8 @@ export function renderHumanUi() {
         for (const entry of groupedEntries) {
           const card = document.createElement("article");
           card.className = "entry-card";
+          card.tabIndex = 0;
+          card.title = "Open full entry details";
           appendText(card, "entry-card-title", entry.summary);
           appendText(
             card,
@@ -936,6 +1386,13 @@ export function renderHumanUi() {
             }
             card.append(tags);
           }
+          card.addEventListener("click", () => showEntryDetail(entry, "memory search"));
+          card.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              showEntryDetail(entry, "memory search");
+            }
+          });
           group.append(card);
         }
         el.entryResults.append(group);
@@ -1047,6 +1504,108 @@ export function renderHumanUi() {
       return node;
     }
 
+    function appendLinkList(parent, title, links) {
+      const section = document.createElement("section");
+      section.className = "detail-section";
+      const heading = document.createElement("h2");
+      heading.textContent = title;
+      section.append(heading);
+      const list = document.createElement("div");
+      list.className = "detail-list";
+      if (!links || links.length === 0) {
+        list.append(detailItem("None", ""));
+      } else {
+        for (const link of links) {
+          const isUrl = /^https?:\\/\\//.test(link.target);
+          const item = document.createElement(isUrl ? "a" : "div");
+          item.className = "detail-item";
+          if (isUrl) {
+            item.href = link.target;
+            item.target = "_blank";
+            item.rel = "noreferrer";
+          }
+          item.textContent = link.label || link.target;
+          if (link.kind) {
+            appendText(item, "detail-item-meta", link.kind + " / " + link.target);
+          }
+          list.append(item);
+        }
+      }
+      section.append(list);
+      parent.append(section);
+    }
+
+    function hideEntryDetail() {
+      el.entryDetailOverlay.hidden = true;
+      el.entryDetailBody.replaceChildren();
+    }
+
+    function showEntryDetail(entry, sourceLabel) {
+      el.entryDetailTitle.textContent = entry.summary;
+      el.entryDetailSubtitle.textContent =
+        entry.entry_type + " / " + entry.project_id + " / " + entry.branch + " / " + formatDate(entry.timestamp)
+        + (sourceLabel ? " / " + sourceLabel : "");
+      el.entryDetailBody.replaceChildren();
+
+      const meta = document.createElement("section");
+      meta.className = "detail-section";
+      const metaHeading = document.createElement("h2");
+      metaHeading.textContent = "Metadata";
+      meta.append(metaHeading);
+      const grid = document.createElement("div");
+      grid.className = "entry-detail-grid";
+      grid.append(detailItem("Entry ID", entry.entry_id));
+      grid.append(detailItem("Session ID", entry.session_id));
+      grid.append(detailItem("Author", entry.author_id + " / " + entry.author_type + " / " + entry.source));
+      grid.append(detailItem("Importance", entry.importance + " / " + entry.visibility));
+      grid.append(detailItem("Feature", entry.feature || "None"));
+      grid.append(detailItem("Category", entry.category || "None"));
+      grid.append(detailItem("Lifecycle", entry.lifecycle_state || "None"));
+      grid.append(detailItem("Updated", formatDate(entry.updated_at)));
+      meta.append(grid);
+      el.entryDetailBody.append(meta);
+
+      const details = document.createElement("section");
+      details.className = "detail-section";
+      const detailsHeading = document.createElement("h2");
+      detailsHeading.textContent = "Details";
+      details.append(detailsHeading);
+      const text = document.createElement("pre");
+      text.className = "entry-detail-text";
+      text.textContent = entry.details || entry.summary;
+      details.append(text);
+      el.entryDetailBody.append(details);
+
+      const tags = document.createElement("section");
+      tags.className = "detail-section";
+      const tagsHeading = document.createElement("h2");
+      tagsHeading.textContent = "Tags And Relations";
+      tags.append(tagsHeading);
+      const tagRow = document.createElement("div");
+      tagRow.className = "tag-row";
+      const values = [
+        ...(entry.tags || []),
+        ...(entry.related_rule_ids || []).map((ruleId) => "rule:" + ruleId),
+        ...(entry.related_entry_ids || []).map((entryId) => "entry:" + entryId)
+      ];
+      if (values.length === 0) {
+        tagRow.append(detailItem("None", ""));
+      } else {
+        for (const value of values) {
+          const pill = document.createElement("span");
+          pill.className = "tag-pill";
+          pill.textContent = value;
+          tagRow.append(pill);
+        }
+      }
+      tags.append(tagRow);
+      el.entryDetailBody.append(tags);
+
+      appendLinkList(el.entryDetailBody, "Links", entry.links);
+      appendLinkList(el.entryDetailBody, "Artifacts", entry.artifacts);
+      el.entryDetailOverlay.hidden = false;
+    }
+
     function metric(label, value) {
       const item = document.createElement("div");
       item.className = "metric";
@@ -1062,6 +1621,21 @@ export function renderHumanUi() {
       if (meta) {
         appendText(item, "detail-item-meta", meta);
       }
+      return item;
+    }
+
+    function entryDetailItem(entry, sourceLabel) {
+      const item = detailItem(entry.summary, entry.entry_type + " / " + formatDate(entry.timestamp));
+      item.classList.add("clickable");
+      item.tabIndex = 0;
+      item.title = "Open full entry details";
+      item.addEventListener("click", () => showEntryDetail(entry, sourceLabel));
+      item.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          showEntryDetail(entry, sourceLabel);
+        }
+      });
       return item;
     }
 
@@ -1127,13 +1701,13 @@ export function renderHumanUi() {
 
       const entryItems = closeout.entry_groups.flatMap((group) =>
         group.entries.map((entry) => ({
-          title: entry.summary,
-          meta: group.entry_type + " / " + formatDate(entry.timestamp)
+          entry,
+          sourceLabel: "work unit closeout / " + group.entry_type
         }))
       );
       left.append(
         detailSection("Entries", entryItems, "No entries recorded for this work unit.", (entry) =>
-          detailItem(entry.title, entry.meta)
+          entryDetailItem(entry.entry, entry.sourceLabel)
         )
       );
 
@@ -1172,11 +1746,13 @@ export function renderHumanUi() {
         return;
       }
       renderProjects(data.projects);
+      await loadCatalog();
       el.entryType.value = storedValue(ENTRY_TYPE_KEY);
       el.entryTag.value = storedValue(ENTRY_TAG_KEY);
       el.entryQuery.value = storedValue(ENTRY_QUERY_KEY);
       await loadFeatures();
       await loadSessions();
+      await loadGuidance();
     }
 
     async function loadSessions() {
@@ -1208,6 +1784,7 @@ export function renderHumanUi() {
     });
     el.workUnitsTab.addEventListener("click", () => setTab("workUnits"));
     el.memoryTab.addEventListener("click", () => setTab("memory"));
+    el.standardsTab.addEventListener("click", () => setTab("standards"));
     el.refresh.addEventListener("click", loadSessions);
     el.clearBranch.addEventListener("click", () => {
       el.branch.value = "";
@@ -1217,8 +1794,10 @@ export function renderHumanUi() {
       searchEntries();
     });
     el.projectId.addEventListener("change", async () => {
+      refreshStandardProfileSelection();
       await loadFeatures();
       await loadSessions();
+      await loadGuidance();
     });
     el.branch.addEventListener("change", () => {
       storeValue(BRANCH_KEY, el.branch.value);
@@ -1229,6 +1808,19 @@ export function renderHumanUi() {
       searchEntries();
     });
     el.entrySearch.addEventListener("click", searchEntries);
+    el.standardApply.addEventListener("click", assignStandardProfile);
+    el.standardRefresh.addEventListener("click", loadGuidance);
+    el.entryDetailClose.addEventListener("click", hideEntryDetail);
+    el.entryDetailOverlay.addEventListener("click", (event) => {
+      if (event.target === el.entryDetailOverlay) {
+        hideEntryDetail();
+      }
+    });
+    window.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !el.entryDetailOverlay.hidden) {
+        hideEntryDetail();
+      }
+    });
     el.entryType.addEventListener("change", searchEntries);
     el.entryFeature.addEventListener("change", searchEntries);
     el.entryTag.addEventListener("change", searchEntries);

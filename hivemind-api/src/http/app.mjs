@@ -8,7 +8,11 @@ import { renderHumanUi } from "./ui.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const assetsDir = resolve(__dirname, "..", "..", "..", "assets");
-const allowedSvgAssets = new Set(["hivemind-radial-grid-logo.svg", "hivemind-radial-grid-mark.svg"]);
+const allowedSvgAssets = new Set([
+  "hivemind-radial-grid-logo.svg",
+  "hivemind-radial-grid-mark.svg",
+  "hivemind-v2-mark.svg"
+]);
 
 export function createApp({ service, accessLogger = null }) {
   const app = new Hono();

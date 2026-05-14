@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" fill="none">
+  <defs>
+    <radialGradient id="hmCore" cx="50%" cy="50%" r="52%">
+      <stop offset="0%" stop-color="#33E1FF"/>
+      <stop offset="54%" stop-color="#1478D2"/>
+      <stop offset="100%" stop-color="#06111B"/>
+    </radialGradient>
+  </defs>
+  <path d="M128 15.36 225.55 71.68v112.64L128 240.64 30.45 184.32V71.68L128 15.36Z" stroke="#FFC107" stroke-width="15.36" stroke-linejoin="round"/>
+  <path d="M128 128V66.05M128 128l53.65-30.98M128 128l53.65 30.98M128 128v61.95M128 128l-53.65 30.98M128 128 74.35 97.02" stroke="#FFFFFF" stroke-width="6.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="128" cy="128" r="28" fill="url(#hmCore)" stroke="#FFC107" stroke-width="5"/>
+  <circle cx="128" cy="66.05" r="10.24" fill="#0F1116" stroke="#FFC107" stroke-width="4.61"/>
+  <circle cx="181.65" cy="97.02" r="10.24" fill="#0F1116" stroke="#FFC107" stroke-width="4.61"/>
+  <circle cx="181.65" cy="158.98" r="10.24" fill="#0F1116" stroke="#FFC107" stroke-width="4.61"/>
+  <circle cx="128" cy="189.95" r="10.24" fill="#0F1116" stroke="#FFC107" stroke-width="4.61"/>
+  <circle cx="74.35" cy="158.98" r="10.24" fill="#0F1116" stroke="#FFC107" stroke-width="4.61"/>
+  <circle cx="74.35" cy="97.02" r="10.24" fill="#0F1116" stroke="#FFC107" stroke-width="4.61"/>
+</svg>
