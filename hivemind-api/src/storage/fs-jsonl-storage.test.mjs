@@ -19,6 +19,8 @@ describe("FsJsonlStorage", () => {
     await storage.createProject({
       project_id: "alpha",
       name: "Alpha",
+      repository_url: "https://github.com/example/alpha.git",
+      repository_slug: "example/alpha",
       root_path: "/repo/alpha",
       default_branch: "main",
       description: "Alpha project"
@@ -26,6 +28,8 @@ describe("FsJsonlStorage", () => {
     await storage.createProject({
       project_id: "beta",
       name: "Beta",
+      repository_url: "https://github.com/example/beta.git",
+      repository_slug: "example/beta",
       root_path: "/repo/beta",
       default_branch: "main",
       description: "Beta project"
@@ -71,6 +75,8 @@ describe("FsJsonlStorage", () => {
     await storage.createProject({
       project_id: "alpha",
       name: "Alpha",
+      repository_url: "https://github.com/example/alpha.git",
+      repository_slug: "example/alpha",
       root_path: "/repo/alpha",
       default_branch: "main",
       description: "Alpha project",
@@ -87,6 +93,8 @@ describe("FsJsonlStorage", () => {
     await storage.createProject({
       project_id: "alpha",
       name: "Alpha",
+      repository_url: "https://github.com/example/alpha.git",
+      repository_slug: "example/alpha",
       root_path: "/repo/alpha",
       default_branch: "main",
       description: "Alpha project"
@@ -128,6 +136,8 @@ describe("FsJsonlStorage", () => {
     await storage.createProject({
       project_id: "alpha",
       name: "Alpha",
+      repository_url: "https://github.com/example/alpha.git",
+      repository_slug: "example/alpha",
       root_path: "/repo/alpha",
       default_branch: "main",
       description: "Alpha project"
@@ -225,6 +235,8 @@ describe("FsJsonlStorage", () => {
     await storage.createProject({
       project_id: "alpha",
       name: "Alpha",
+      repository_url: "https://github.com/example/alpha.git",
+      repository_slug: "example/alpha",
       root_path: "/repo/alpha",
       default_branch: "main",
       description: "Alpha project"
@@ -267,6 +279,8 @@ describe("FsJsonlStorage", () => {
     await storage.createProject({
       project_id: "alpha",
       name: "Alpha",
+      repository_url: "https://github.com/example/alpha.git",
+      repository_slug: "example/alpha",
       root_path: "/repo/alpha",
       default_branch: "main",
       description: "Alpha project"
@@ -397,6 +411,8 @@ describe("FsJsonlStorage", () => {
     await storage.createProject({
       project_id: "alpha",
       name: "Alpha",
+      repository_url: "https://github.com/example/alpha.git",
+      repository_slug: "example/alpha",
       root_path: "/repo/alpha",
       default_branch: "main",
       description: "Alpha project"
@@ -496,6 +512,8 @@ describe("FsJsonlStorage", () => {
     await storage.createProject({
       project_id: "alpha",
       name: "Alpha",
+      repository_url: "https://github.com/example/alpha.git",
+      repository_slug: "example/alpha",
       root_path: "/repo/alpha",
       default_branch: "main",
       description: "Alpha project"
@@ -634,6 +652,8 @@ describe("FsJsonlStorage", () => {
     await storage.createProject({
       project_id: "alpha",
       name: "Alpha",
+      repository_url: "https://github.com/example/alpha.git",
+      repository_slug: "example/alpha",
       root_path: "/repo/alpha",
       default_branch: "main",
       description: "Alpha project"
@@ -736,6 +756,8 @@ describe("FsJsonlStorage", () => {
     await storage.createProject({
       project_id: "alpha",
       name: "Alpha",
+      repository_url: "https://github.com/example/alpha.git",
+      repository_slug: "example/alpha",
       root_path: "/repo/alpha",
       default_branch: "main",
       description: "Alpha project"
@@ -796,6 +818,8 @@ describe("FsJsonlStorage", () => {
     await storage.createProject({
       project_id: "alpha",
       name: "Alpha",
+      repository_url: "https://github.com/example/alpha.git",
+      repository_slug: "example/alpha",
       root_path: "/repo/alpha",
       default_branch: "main",
       description: "Alpha project"
@@ -837,6 +861,8 @@ describe("FsJsonlStorage", () => {
     await storage.createProject({
       project_id: "alpha",
       name: "Alpha",
+      repository_url: "https://github.com/example/alpha.git",
+      repository_slug: "example/alpha",
       root_path: "/repo/alpha",
       default_branch: "main",
       description: "Alpha project"
@@ -874,6 +900,8 @@ describe("FsJsonlStorage", () => {
     await storage.createProject({
       project_id: "alpha",
       name: "Alpha",
+      repository_url: "https://github.com/example/alpha.git",
+      repository_slug: "example/alpha",
       root_path: "/repo/alpha",
       default_branch: "main",
       description: "Alpha project"
@@ -968,6 +996,8 @@ describe("FsJsonlStorage", () => {
     await storage.createProject({
       project_id: "alpha",
       name: "Alpha",
+      repository_url: "https://github.com/example/alpha.git",
+      repository_slug: "example/alpha",
       root_path: "/repo/alpha",
       default_branch: "main",
       description: "Alpha project"
@@ -1057,6 +1087,8 @@ describe("FsJsonlStorage", () => {
     await storage.createProject({
       project_id: "alpha",
       name: "Alpha",
+      repository_url: "https://github.com/example/alpha.git",
+      repository_slug: "example/alpha",
       root_path: "/repo/alpha",
       default_branch: "main",
       description: "Alpha project"
@@ -1120,6 +1152,8 @@ describe("FsJsonlStorage", () => {
     await storage.createProject({
       project_id: "alpha",
       name: "Alpha",
+      repository_url: "https://github.com/example/alpha.git",
+      repository_slug: "example/alpha",
       root_path: "/repo/alpha",
       default_branch: "main",
       description: "Alpha project"

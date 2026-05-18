@@ -38,6 +38,8 @@ const INDEX_DEFINITIONS = {
     properties: {
       project_id: { type: "keyword" },
       name: { type: "text", fields: { keyword: { type: "keyword" } } },
+      repository_url: { type: "keyword" },
+      repository_slug: { type: "keyword" },
       root_path: { type: "keyword" },
       default_branch: { type: "keyword" },
       features: { type: "keyword" },
@@ -269,6 +271,8 @@ export class OpenSearchStorage extends StorageAdapter {
     const project = {
       project_id: projectInput.project_id,
       name: projectInput.name,
+      repository_url: projectInput.repository_url,
+      repository_slug: projectInput.repository_slug,
       root_path: projectInput.root_path,
       default_branch: projectInput.default_branch,
       description: projectInput.description ?? existing?.description ?? "",

@@ -2,6 +2,15 @@
 
 All notable HiveMind changes are recorded here.
 
+## 0.3.0 - 2026-05-18
+
+- Require `repository_url` and `repository_slug` in project metadata so clients can resolve projects by repository identity instead of guessing from local directory names.
+- Add project discovery through REST `POST /v1/projects/resolve` and MCP tools `project_list` and `project_resolve`, including ambiguous results when multiple project records intentionally point at the same repository.
+- Add one bounded MCP API retry for transient transport failures and HTTP `502`, `503`, and `504` responses.
+- Treat ruleset catalog files as customizable starter templates: guidance now reports `missing`, `template_unmodified`, or `customized` instead of failing personalized files as drift.
+- Remove `use_hivemind` from checkable required rules; session entries are the evidence that HiveMind was used.
+- Update bootstrap, CLI init, rollout docs, and tests for repository metadata and the new guidance semantics.
+
 ## 0.2.1 - 2026-05-14
 
 - Upgrade the built-in web console to the HiveWatch/PocketHive v2 shell with top bar, left navigation, dark glass panels, and responsive layout.

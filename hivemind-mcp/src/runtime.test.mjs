@@ -26,6 +26,8 @@ describe("HiveMind MCP runtime", () => {
     expect(toolNames.length).toBeGreaterThan(0);
     expect(toolNames.every((name) => /^[a-z0-9_-]+$/.test(name))).toBe(true);
     expect(toolNames).toContain("project_register");
+    expect(toolNames).toContain("project_list");
+    expect(toolNames).toContain("project_resolve");
     expect(toolNames).toContain("session_start");
     expect(toolNames).toContain("entry_append");
     expect(toolNames).toContain("ruleset_catalog_list");
@@ -48,6 +50,8 @@ describe("HiveMind MCP runtime", () => {
     const result = await runtime.projectRegister({
       project_id: "buzz",
       name: "Buzz",
+      repository_url: "https://github.com/example/buzz.git",
+      repository_slug: "example/buzz",
       root_path: "/repo/buzz",
       default_branch: "main",
       description: "Buzz project"
@@ -57,11 +61,38 @@ describe("HiveMind MCP runtime", () => {
     expect(result.structuredContent.project.project_id).toBe("buzz");
   });
 
+  it("project.list and project.resolve expose registered project discovery", async () => {
+    const runtime = createRuntime();
+    await runtime.projectRegister({
+      project_id: "buzz",
+      name: "Buzz",
+      repository_url: "https://github.com/example/buzz.git",
+      repository_slug: "example/buzz",
+      root_path: "/repo/buzz",
+      default_branch: "main",
+      description: "Buzz project"
+    });
+
+    const listed = await runtime.projectList({});
+    const resolved = await runtime.projectResolve({
+      repository_url: "https://github.com/example/buzz",
+      workspace_path: "/local/not-buzz"
+    });
+
+    expect(listed.isError).toBeUndefined();
+    expect(listed.structuredContent.projects.map((project) => project.project_id)).toEqual(["buzz"]);
+    expect(resolved.isError).toBeUndefined();
+    expect(resolved.structuredContent.status).toBe("matched");
+    expect(resolved.structuredContent.project.project_id).toBe("buzz");
+  });
+
   it("lists catalog profiles and checks standardization guidance", async () => {
     const runtime = createRuntime();
     await runtime.projectRegister({
       project_id: "buzz",
       name: "Buzz",
+      repository_url: "https://github.com/example/buzz.git",
+      repository_slug: "example/buzz",
       root_path: "/repo/buzz",
       default_branch: "main",
       description: "Buzz project",
@@ -89,6 +120,8 @@ describe("HiveMind MCP runtime", () => {
     await runtime.projectRegister({
       project_id: "buzz",
       name: "Buzz",
+      repository_url: "https://github.com/example/buzz.git",
+      repository_slug: "example/buzz",
       root_path: "/repo/buzz",
       default_branch: "main",
       description: "Buzz project"
@@ -127,6 +160,8 @@ describe("HiveMind MCP runtime", () => {
     await runtime.projectRegister({
       project_id: "buzz",
       name: "Buzz",
+      repository_url: "https://github.com/example/buzz.git",
+      repository_slug: "example/buzz",
       root_path: "/repo/buzz",
       default_branch: "main",
       description: "Buzz project"
@@ -158,6 +193,8 @@ describe("HiveMind MCP runtime", () => {
     await runtime.projectRegister({
       project_id: "buzz",
       name: "Buzz",
+      repository_url: "https://github.com/example/buzz.git",
+      repository_slug: "example/buzz",
       root_path: "/repo/buzz",
       default_branch: "main",
       description: "Buzz project"
@@ -204,6 +241,8 @@ describe("HiveMind MCP runtime", () => {
     await runtime.projectRegister({
       project_id: "buzz",
       name: "Buzz",
+      repository_url: "https://github.com/example/buzz.git",
+      repository_slug: "example/buzz",
       root_path: "/repo/buzz",
       default_branch: "main",
       description: "Buzz project"
@@ -293,6 +332,8 @@ describe("HiveMind MCP runtime", () => {
     await runtime.projectRegister({
       project_id: "buzz",
       name: "Buzz",
+      repository_url: "https://github.com/example/buzz.git",
+      repository_slug: "example/buzz",
       root_path: "/repo/buzz",
       default_branch: "main",
       description: "Buzz project"
@@ -364,6 +405,8 @@ describe("HiveMind MCP runtime", () => {
     await runtime.projectRegister({
       project_id: "buzz",
       name: "Buzz",
+      repository_url: "https://github.com/example/buzz.git",
+      repository_slug: "example/buzz",
       root_path: "/repo/buzz",
       default_branch: "main",
       description: "Buzz project"
@@ -486,6 +529,8 @@ describe("HiveMind MCP runtime", () => {
     await runtime.projectRegister({
       project_id: "buzz",
       name: "Buzz",
+      repository_url: "https://github.com/example/buzz.git",
+      repository_slug: "example/buzz",
       root_path: "/repo/buzz",
       default_branch: "main",
       description: "Buzz project"
@@ -603,6 +648,8 @@ describe("HiveMind MCP runtime", () => {
     await runtime.projectRegister({
       project_id: "buzz",
       name: "Buzz",
+      repository_url: "https://github.com/example/buzz.git",
+      repository_slug: "example/buzz",
       root_path: "/repo/buzz",
       default_branch: "main",
       description: "Buzz project"
@@ -705,6 +752,8 @@ describe("HiveMind MCP runtime", () => {
     await runtime.projectRegister({
       project_id: "buzz",
       name: "Buzz",
+      repository_url: "https://github.com/example/buzz.git",
+      repository_slug: "example/buzz",
       root_path: "/repo/buzz",
       default_branch: "main",
       description: "Buzz project"
@@ -747,6 +796,8 @@ describe("HiveMind MCP runtime", () => {
     await runtime.projectRegister({
       project_id: "buzz",
       name: "Buzz",
+      repository_url: "https://github.com/example/buzz.git",
+      repository_slug: "example/buzz",
       root_path: "/repo/buzz",
       default_branch: "main",
       description: "Buzz project"

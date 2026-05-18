@@ -167,13 +167,8 @@ async function runWorkUnit(config, options, commandArgs) {
   const exitCode = await runCommand(commandArgs, config.workspacePath);
   await appendProgress(config, state, commandArgs, exitCode);
   await submitRuleCheck(config, state, {
-    rule_id: "use_hivemind",
-    status: "applied",
-    evidence: `Wrapped command in HiveMind work unit '${state.session_id}'.`
-  });
-  await submitRuleCheck(config, state, {
     rule_id: "test_relevant_slices",
-    status: exitCode === 0 ? "applied" : "failed",
+    status: exitCode === 0 ? "applied" : "blocked",
     evidence: `${commandArgs.join(" ")} exited with code ${exitCode}.`
   });
   await endWorkUnit(config, exitCode === 0 ? "completed" : "abandoned");
@@ -209,6 +204,14 @@ async function initProject(config, options) {
   const name = options.name || projectId;
   const defaultBranch = options["default-branch"] || config.branch;
   const rootPath = resolve(options.root || config.workspacePath);
+  const repositoryUrl = options["repository-url"];
+  if (!repositoryUrl) {
+    throw new Error("Missing --repository-url.");
+  }
+  const repositorySlug = options["repository-slug"] || repositorySlugFromUrl(repositoryUrl);
+  if (!repositorySlug) {
+    throw new Error("Missing --repository-slug or a parseable --repository-url.");
+  }
   const description = options.description || `HiveMind project for ${name}.`;
   const features = normalizeList(options.feature);
 
@@ -217,6 +220,8 @@ async function initProject(config, options) {
     body: {
       project_id: projectId,
       name,
+      repository_url: repositoryUrl,
+      repository_slug: repositorySlug,
       root_path: rootPath,
       default_branch: defaultBranch,
       description
@@ -342,6 +347,20 @@ function trimTrailingSlash(value) {
   return value.replace(/\/$/, "");
 }
 
+function repositorySlugFromUrl(value) {
+  const trimmed = value.trim().replace(/\.git$/i, "").replace(/\/$/i, "");
+  const scpStyle = trimmed.match(/^[^@]+@[^:]+:(?<slug>.+)$/);
+  if (scpStyle?.groups?.slug) {
+    return scpStyle.groups.slug;
+  }
+  try {
+    const parsed = new URL(trimmed);
+    return parsed.pathname.replace(/^\/+/, "");
+  } catch {
+    return null;
+  }
+}
+
 function usage() {
   console.log(`Usage:
   node scripts/hivemind-work-unit.mjs start --goal "Short task summary"
@@ -349,7 +368,7 @@ function usage() {
   node scripts/hivemind-work-unit.mjs end [--status completed|abandoned]
   node scripts/hivemind-work-unit.mjs run --goal "Run tests" -- npm test
   node scripts/hivemind-work-unit.mjs doctor
-  node scripts/hivemind-work-unit.mjs init --project my-project --name "My Project" --root /repo/path --feature UI --feature Backend`);
+  node scripts/hivemind-work-unit.mjs init --project my-project --name "My Project" --repository-url https://github.com/org/repo.git --root /repo/path --feature UI --feature Backend`);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

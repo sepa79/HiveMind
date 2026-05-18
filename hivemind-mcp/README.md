@@ -43,6 +43,7 @@ http://127.0.0.1:4011/mcp
 
 ## Tool Names
 
-MCP tools use underscore-separated names such as `project_register`,
-`session_start`, `entry_append`, and `session_end`. This keeps the server
+MCP tools use underscore-separated names such as `project_list`,
+`project_resolve`, `project_register`, `session_start`, `entry_append`, and
+`session_end`. This keeps the server
 compatible with clients that only accept tool names matching `[a-z0-9_-]`.

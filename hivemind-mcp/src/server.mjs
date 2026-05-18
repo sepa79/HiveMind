@@ -30,6 +30,8 @@ server.registerTool(
     inputSchema: {
       project_id: z.string(),
       name: z.string(),
+      repository_url: z.string(),
+      repository_slug: z.string(),
       root_path: z.string(),
       default_branch: z.string(),
       description: z.string().optional(),
@@ -37,6 +39,32 @@ server.registerTool(
     }
   },
   runtime.projectRegister
+);
+
+server.registerTool(
+  "project_list",
+  {
+    title: "List HiveMind projects",
+    description: "List all registered HiveMind projects so agents can avoid guessing project ids.",
+    inputSchema: {}
+  },
+  runtime.projectList
+);
+
+server.registerTool(
+  "project_resolve",
+  {
+    title: "Resolve a HiveMind project",
+    description: "Resolve a project from repository metadata or workspace hints without assuming the local directory name is the repository name.",
+    inputSchema: {
+      project_id_hint: z.string().optional(),
+      name_hint: z.string().optional(),
+      repository_url: z.string().optional(),
+      repository_slug: z.string().optional(),
+      workspace_path: z.string().optional()
+    }
+  },
+  runtime.projectResolve
 );
 
 server.registerTool(

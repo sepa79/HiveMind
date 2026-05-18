@@ -27,6 +27,8 @@ describe("OpenSearchStorage", () => {
     client.putSource("test-projects", "alpha", {
       project_id: "alpha",
       name: "Alpha",
+      repository_url: "https://github.com/example/alpha.git",
+      repository_slug: "example/alpha",
       root_path: "/repo/alpha",
       default_branch: "main",
       features: [],
@@ -99,6 +101,8 @@ describe("OpenSearchStorage", () => {
     await storage.createProject({
       project_id: "alpha",
       name: "Alpha",
+      repository_url: "https://github.com/example/alpha.git",
+      repository_slug: "example/alpha",
       root_path: "/repo/alpha",
       default_branch: "main",
       description: "Alpha project",

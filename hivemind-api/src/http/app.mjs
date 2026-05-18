@@ -121,6 +121,12 @@ export function createApp({ service, accessLogger = null }) {
     return success(c, data);
   });
 
+  app.post("/v1/projects/resolve", async (c) => {
+    const payload = await readJsonBody(c);
+    const data = await service.resolveProject(payload);
+    return success(c, data);
+  });
+
   app.get("/v1/projects/:projectId/features", async (c) => {
     const data = await service.listFeatures(c.req.param("projectId"));
     return success(c, data);

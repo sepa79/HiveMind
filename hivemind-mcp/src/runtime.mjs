@@ -12,6 +12,24 @@ export function createHiveMindRuntime({ apiClient }) {
       }
     },
 
+    async projectList() {
+      try {
+        const payload = await apiClient.listProjects();
+        return jsonResult(payload);
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+
+    async projectResolve(input) {
+      try {
+        const payload = await apiClient.resolveProject(input);
+        return jsonResult(payload);
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+
     async featureList(input) {
       try {
         const payload = await apiClient.listFeatures(input.project_id);

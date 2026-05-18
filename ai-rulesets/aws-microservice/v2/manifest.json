@@ -31,15 +31,6 @@
   ],
   "rules": [
     {
-      "rule_id": "use_hivemind",
-      "label": "Use HiveMind for meaningful work",
-      "description": "Start a HiveMind session for meaningful work, record concise decisions/progress/risks, and end the session when complete.",
-      "severity": "required",
-      "check_mode": "manual_confirm",
-      "evidence_hint": "HiveMind session id or closeout summary.",
-      "tags": ["hivemind", "memory"]
-    },
-    {
       "rule_id": "no_silent_fallbacks",
       "label": "No silent fallbacks",
       "description": "Do not add hidden fallback chains, heuristic recovery, or implicit compatibility behavior.",

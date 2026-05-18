@@ -48,6 +48,8 @@ export const PlanRefSchema = z.object({
 export const ProjectRegisterInputSchema = z.object({
   project_id: NonEmptyString,
   name: NonEmptyString,
+  repository_url: NonEmptyString,
+  repository_slug: NonEmptyString,
   root_path: NonEmptyString,
   default_branch: NonEmptyString,
   description: z.string().trim().optional(),
@@ -57,6 +59,8 @@ export const ProjectRegisterInputSchema = z.object({
 export const ProjectRecordSchema = z.object({
   project_id: NonEmptyString,
   name: NonEmptyString,
+  repository_url: NonEmptyString,
+  repository_slug: NonEmptyString,
   root_path: NonEmptyString,
   default_branch: NonEmptyString,
   description: z.string(),
@@ -70,6 +74,27 @@ export const ProjectRecordSchema = z.object({
 
 export const ProjectListResultSchema = z.object({
   projects: z.array(ProjectRecordSchema)
+});
+
+export const ProjectResolveInputSchema = z.object({
+  project_id_hint: z.string().trim().min(1).optional(),
+  name_hint: z.string().trim().min(1).optional(),
+  repository_url: z.string().trim().min(1).optional(),
+  repository_slug: z.string().trim().min(1).optional(),
+  workspace_path: z.string().trim().min(1).optional()
+});
+
+export const ProjectResolveCandidateSchema = z.object({
+  project: ProjectRecordSchema,
+  score: z.number().int().nonnegative(),
+  reasons: z.array(NonEmptyString)
+});
+
+export const ProjectResolveResultSchema = z.object({
+  status: z.enum(["matched", "ambiguous", "not_found"]),
+  project: ProjectRecordSchema.nullable(),
+  candidates: z.array(ProjectResolveCandidateSchema),
+  resolution_reason: NonEmptyString
 });
 
 export const FeatureListResultSchema = z.object({
@@ -664,7 +689,7 @@ export const GuidanceFileStatusSchema = z.object({
   required: z.boolean(),
   expected_sha256: NonEmptyString,
   actual_sha256: z.string().nullable(),
-  status: z.enum(["missing", "current", "changed"])
+  status: z.enum(["missing", "template_unmodified", "customized"])
 });
 
 export const GuidanceCheckResultSchema = z.object({

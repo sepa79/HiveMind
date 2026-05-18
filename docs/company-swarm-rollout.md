@@ -124,6 +124,8 @@ curl -fsS -X POST https://hivemind.company.example/v1/projects \
   --data-binary '{
     "project_id": "hivemind",
     "name": "HiveMind",
+    "repository_url": "https://github.com/org/HiveMind.git",
+    "repository_slug": "org/HiveMind",
     "root_path": "/workspace/hivemind",
     "default_branch": "main",
     "description": "Shared company HiveMind memory."

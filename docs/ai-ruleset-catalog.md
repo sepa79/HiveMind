@@ -60,7 +60,9 @@ Write missing files and the marker:
 npm run hivemind:standard -- apply --project my-service --profile aws-microservice@v2 --target /repo --write
 ```
 
-Existing changed files are skipped unless explicitly overwritten:
+Starter files are templates for project-specific customization. Existing
+customized files are considered present and are skipped unless explicitly
+overwritten:
 
 ```bash
 npm run hivemind:standard -- apply --project my-service --profile aws-microservice@v2 --target /repo --write --conflict overwrite

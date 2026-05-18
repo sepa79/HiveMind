@@ -102,7 +102,7 @@ export function applyStandard(config, { projectId, profileRef, target, projectNa
       actions.push({ ...file, action: "created" });
       continue;
     }
-    if (file.status === "current") {
+    if (file.status === "template_unmodified") {
       actions.push({ ...file, action: "unchanged" });
       continue;
     }
@@ -171,7 +171,7 @@ function compareFile(targetRoot, file) {
     required: file.required,
     expected_sha256: file.sha256,
     actual_sha256: actualSha,
-    status: actualSha === file.sha256 ? "current" : "changed",
+    status: actualSha === file.sha256 ? "template_unmodified" : "customized",
     expected_content: file.content
   };
 }
@@ -179,9 +179,9 @@ function compareFile(targetRoot, file) {
 function summarize(actions) {
   return {
     missing: actions.filter((file) => file.status === "missing").length,
-    current: actions.filter((file) => file.status === "current").length,
-    changed: actions.filter((file) => file.status === "changed").length,
-    conflicting: actions.filter((file) => file.status === "changed" && file.action !== "overwritten").length,
+    template_unmodified: actions.filter((file) => file.status === "template_unmodified").length,
+    customized: actions.filter((file) => file.status === "customized").length,
+    conflicting: actions.filter((file) => file.status === "customized" && file.action !== "overwritten").length,
     written: actions.filter((file) => ["created", "overwritten"].includes(file.action)).length
   };
 }

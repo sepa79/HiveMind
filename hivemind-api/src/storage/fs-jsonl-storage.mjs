@@ -51,6 +51,8 @@ export class FsJsonlStorage extends StorageAdapter {
     const project = {
       project_id: projectInput.project_id,
       name: projectInput.name,
+      repository_url: projectInput.repository_url,
+      repository_slug: projectInput.repository_slug,
       root_path: projectInput.root_path,
       default_branch: projectInput.default_branch,
       description: projectInput.description ?? existing?.description ?? "",

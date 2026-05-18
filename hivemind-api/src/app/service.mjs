@@ -35,6 +35,8 @@ import {
   LearningSearchInputSchema,
   ProjectListResultSchema,
   ProjectRegisterInputSchema,
+  ProjectResolveInputSchema,
+  ProjectResolveResultSchema,
   ProjectStandardProfileDefineInputSchema,
   ProjectStandardProfileDefineResultSchema,
   RuleCheckCreateInputSchema,
@@ -79,6 +81,7 @@ export class HiveMindService {
       projects: projects.map((project) => ({
         project_id: project.project_id,
         name: project.name,
+        repository_slug: project.repository_slug,
         features: project.features
       }))
     };
@@ -96,6 +99,47 @@ export class HiveMindService {
 
   async listProjects() {
     return parseWithSchema(ProjectListResultSchema, await this.storage.listProjects());
+  }
+
+  async resolveProject(input) {
+    const payload = parseWithSchema(ProjectResolveInputSchema, input);
+    const { projects } = await this.storage.listProjects();
+    const candidates = projects
+      .map((project) => scoreProjectResolution(project, payload))
+      .filter((candidate) => candidate.score > 0)
+      .sort((left, right) => {
+        if (right.score !== left.score) {
+          return right.score - left.score;
+        }
+        return left.project.project_id.localeCompare(right.project.project_id);
+      });
+
+    if (candidates.length === 0) {
+      return parseWithSchema(ProjectResolveResultSchema, {
+        status: "not_found",
+        project: null,
+        candidates: [],
+        resolution_reason: "No registered project matched the provided repository or workspace hints."
+      });
+    }
+
+    const topScore = candidates[0].score;
+    const topCandidates = candidates.filter((candidate) => candidate.score === topScore);
+    if (topCandidates.length === 1) {
+      return parseWithSchema(ProjectResolveResultSchema, {
+        status: "matched",
+        project: topCandidates[0].project,
+        candidates: topCandidates,
+        resolution_reason: topCandidates[0].reasons.join("; ")
+      });
+    }
+
+    return parseWithSchema(ProjectResolveResultSchema, {
+      status: "ambiguous",
+      project: null,
+      candidates: topCandidates,
+      resolution_reason: `${topCandidates.length} registered projects matched with the same confidence.`
+    });
   }
 
   async listFeatures(projectId) {
@@ -173,12 +217,17 @@ export class HiveMindService {
         required: file.required,
         expected_sha256: file.sha256,
         actual_sha256: actualSha,
-        status: actualSha === null ? "missing" : actualSha === file.sha256 ? "current" : "changed"
+        status: actualSha === null ? "missing" : actualSha === file.sha256 ? "template_unmodified" : "customized"
       };
     });
     const markerProfileMatches = payload.standard_marker?.profile_ref === selectedProfileRef;
-    const allCurrent = markerProfileMatches && drift.every((file) => file.status === "current");
-    const recommendedAction = allCurrent ? "current" : payload.standard_marker?.profile_ref && !markerProfileMatches ? "update" : "apply";
+    const missingRequiredFiles = drift.filter((file) => file.required && file.status === "missing");
+    const allRequiredPresent = markerProfileMatches && missingRequiredFiles.length === 0;
+    const recommendedAction = allRequiredPresent
+      ? "current"
+      : payload.standard_marker?.profile_ref && !markerProfileMatches
+        ? "update"
+        : "apply";
     const profile = {
       profile_id: bundle.manifest.profile_id,
       version: bundle.manifest.version,
@@ -485,4 +534,74 @@ function parseWithSchema(schema, input) {
     });
   }
   return result.data;
+}
+
+function scoreProjectResolution(project, input) {
+  const reasons = [];
+  let score = 0;
+  if (input.project_id_hint && project.project_id === input.project_id_hint) {
+    score += 100;
+    reasons.push("project_id_hint matched project_id exactly");
+  }
+  if (input.repository_url && normalizeRepositoryUrl(project.repository_url) === normalizeRepositoryUrl(input.repository_url)) {
+    score += 80;
+    reasons.push("repository_url matched exactly after normalization");
+  }
+  if (input.repository_slug && normalizeRepositorySlug(project.repository_slug) === normalizeRepositorySlug(input.repository_slug)) {
+    score += 60;
+    reasons.push("repository_slug matched exactly after normalization");
+  }
+  const inputSlugFromUrl = input.repository_url ? repositorySlugFromUrl(input.repository_url) : null;
+  if (inputSlugFromUrl && normalizeRepositorySlug(project.repository_slug) === normalizeRepositorySlug(inputSlugFromUrl)) {
+    score += 50;
+    reasons.push("repository_url resolved to the registered repository_slug");
+  }
+  if (input.workspace_path && normalizePath(project.root_path) === normalizePath(input.workspace_path)) {
+    score += 40;
+    reasons.push("workspace_path matched registered root_path exactly");
+  }
+  if (input.name_hint && normalizeText(project.name) === normalizeText(input.name_hint)) {
+    score += 20;
+    reasons.push("name_hint matched project name");
+  }
+  if (input.workspace_path && normalizeText(project.project_id) === normalizeText(pathBasename(input.workspace_path))) {
+    score += 5;
+    reasons.push("workspace_path basename weakly matched project_id");
+  }
+
+  return { project, score, reasons };
+}
+
+function normalizeRepositoryUrl(value) {
+  return value.trim().replace(/\.git$/i, "").replace(/\/$/i, "").toLowerCase();
+}
+
+function normalizeRepositorySlug(value) {
+  return value.trim().replace(/\.git$/i, "").replace(/^\/+|\/+$/g, "").toLowerCase();
+}
+
+function repositorySlugFromUrl(value) {
+  const trimmed = value.trim().replace(/\.git$/i, "").replace(/\/$/i, "");
+  const scpStyle = trimmed.match(/^[^@]+@[^:]+:(?<slug>.+)$/);
+  if (scpStyle?.groups?.slug) {
+    return scpStyle.groups.slug;
+  }
+  try {
+    const parsed = new URL(trimmed);
+    return parsed.pathname.replace(/^\/+/, "");
+  } catch {
+    return null;
+  }
+}
+
+function normalizePath(value) {
+  return value.trim().replace(/\/+$/g, "");
+}
+
+function pathBasename(value) {
+  return normalizePath(value).split("/").filter(Boolean).pop() ?? "";
+}
+
+function normalizeText(value) {
+  return value.trim().toLowerCase();
 }

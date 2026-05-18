@@ -25,6 +25,8 @@ describe("HiveMind API", () => {
       body: JSON.stringify({
         project_id: "buzz",
         name: "Buzz",
+      repository_url: "https://github.com/example/buzz.git",
+      repository_slug: "example/buzz",
         root_path: "/repo/buzz",
         default_branch: "main",
         description: "Buzz project"
@@ -46,6 +48,58 @@ describe("HiveMind API", () => {
     expect(response.status).toBe(200);
     const payload = await response.json();
     expect(payload.data.projects.map((project) => project.project_id)).toEqual(["buzz"]);
+  });
+
+  it("resolves a registered project from repository metadata", async () => {
+    const app = createTestApp();
+    await createProject(app);
+
+    const response = await app.request("/v1/projects/resolve", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        repository_url: "https://github.com/example/buzz",
+        workspace_path: "/different/local/path"
+      })
+    });
+
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload.data.status).toBe("matched");
+    expect(payload.data.project.project_id).toBe("buzz");
+    expect(payload.data.resolution_reason).toContain("repository_url");
+  });
+
+  it("returns ambiguous project resolution when multiple projects match the same repository", async () => {
+    const app = createTestApp();
+    await createProject(app);
+    await app.request("/v1/projects", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        project_id: "buzz-feature",
+        name: "Buzz Feature",
+        repository_url: "https://github.com/example/buzz.git",
+        repository_slug: "example/buzz",
+        root_path: "/worktrees/buzz-feature",
+        default_branch: "main",
+        description: "Separate work stream for Buzz"
+      })
+    });
+
+    const response = await app.request("/v1/projects/resolve", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        repository_slug: "example/buzz"
+      })
+    });
+
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload.data.status).toBe("ambiguous");
+    expect(payload.data.project).toBeNull();
+    expect(payload.data.candidates.map((candidate) => candidate.project.project_id)).toEqual(["buzz", "buzz-feature"]);
   });
 
   it("returns health diagnostics", async () => {
@@ -162,7 +216,7 @@ describe("HiveMind API", () => {
     expect(bundlePayload.data.files.some((file) => file.target === "AGENTS.md")).toBe(true);
   });
 
-  it("assigns a project standard profile and reports guidance drift", async () => {
+  it("assigns a project standard profile and treats customized starter files as current", async () => {
     const app = createTestApp();
     await createProject(app);
 
@@ -190,7 +244,7 @@ describe("HiveMind API", () => {
       profile_ref: "aws-microservice@v2",
       files: firstGuidancePayload.data.drift.map((file) => ({
         target: file.target,
-        sha256: file.expected_sha256
+        sha256: file.required ? `custom-${file.expected_sha256}` : file.expected_sha256
       }))
     };
     const currentGuidanceResponse = await app.request("/v1/guidance/check", {
@@ -201,6 +255,7 @@ describe("HiveMind API", () => {
     expect(currentGuidanceResponse.status).toBe(200);
     const currentGuidancePayload = await currentGuidanceResponse.json();
     expect(currentGuidancePayload.data.recommended_action).toBe("current");
+    expect(currentGuidancePayload.data.drift.some((file) => file.status === "customized")).toBe(true);
   });
 
   it("returns unregistered guidance for unknown projects", async () => {
@@ -1357,6 +1412,8 @@ async function createProject(app) {
     body: JSON.stringify({
       project_id: "buzz",
       name: "Buzz",
+      repository_url: "https://github.com/example/buzz.git",
+      repository_slug: "example/buzz",
       root_path: "/repo/buzz",
       default_branch: "main",
       description: "Buzz project"

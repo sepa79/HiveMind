@@ -93,6 +93,7 @@ Start the API from this repo, then register another repo:
 npm run hivemind:init -- \
   --project my-project \
   --name "My Project" \
+  --repository-url https://github.com/org/my-project.git \
   --root /absolute/path/to/my-project \
   --default-branch main \
   --feature UI \

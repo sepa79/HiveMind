@@ -1,6 +1,8 @@
 {
   "project_id": "hivemind",
   "name": "HiveMind",
+  "repository_url": "https://github.com/sepa79/HiveMind.git",
+  "repository_slug": "sepa79/HiveMind",
   "default_branch": "main",
   "description": "Standalone MCP memory service for agent and team development context."
 }

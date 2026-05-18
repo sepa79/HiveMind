@@ -23,6 +23,21 @@ export class HiveMindApiClient {
     });
   }
 
+  async listProjects() {
+    return this.#request({
+      method: "GET",
+      path: "/v1/projects"
+    });
+  }
+
+  async resolveProject(input) {
+    return this.#request({
+      method: "POST",
+      path: "/v1/projects/resolve",
+      body: input
+    });
+  }
+
   async listFeatures(projectId) {
     return this.#request({
       method: "GET",
@@ -308,28 +323,43 @@ export class HiveMindApiClient {
     }
 
     let response;
-    try {
-      response = await this.fetchImpl(url, {
-        method,
-        headers: {
-          ...(body ? { "content-type": "application/json" } : {}),
-          ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {})
-        },
-        ...(body ? { body: JSON.stringify(body) } : {})
-      });
-    } catch (error) {
-      throw new HiveMindApiClientError({
-        status: 0,
-        code: "API_TRANSPORT_FAILED",
-        message: error instanceof Error ? error.message : String(error),
-        details: {
+    let attempts = 0;
+    for (let attempt = 1; attempt <= 2; attempt += 1) {
+      attempts = attempt;
+      try {
+        response = await this.fetchImpl(url, {
           method,
-          url: url.toString(),
-          cause: serializeErrorCause(error?.cause)
-        },
-        meta: {},
-        cause: error
-      });
+          headers: {
+            ...(body ? { "content-type": "application/json" } : {}),
+            ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {})
+          },
+          ...(body ? { body: JSON.stringify(body) } : {})
+        });
+      } catch (error) {
+        if (attempt === 1) {
+          await delay(300);
+          continue;
+        }
+        throw new HiveMindApiClientError({
+          status: 0,
+          code: "API_TRANSPORT_FAILED",
+          message: error instanceof Error ? error.message : String(error),
+          details: {
+            method,
+            url: url.toString(),
+            attempts,
+            cause: serializeErrorCause(error?.cause)
+          },
+          meta: {},
+          cause: error
+        });
+      }
+
+      if (attempt === 1 && [502, 503, 504].includes(response.status)) {
+        await delay(300);
+        continue;
+      }
+      break;
     }
 
     const payload = await response.json();
@@ -338,13 +368,20 @@ export class HiveMindApiClient {
         status: response.status,
         code: payload?.error?.code ?? "API_REQUEST_FAILED",
         message: payload?.error?.message ?? `Request failed with status ${response.status}.`,
-        details: payload?.error?.details ?? {},
+        details: {
+          ...(payload?.error?.details ?? {}),
+          attempts
+        },
         meta: payload?.meta ?? {}
       });
     }
 
     return payload.data;
   }
+}
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function serializeErrorCause(cause) {

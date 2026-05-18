@@ -97,6 +97,10 @@ For meaningful work:
 6. Submit relevant rule checks.
 7. End the session and inspect the closeout report.
 
+Do not submit a rule check only to prove HiveMind was used. A session with
+concise entries is the evidence of use; rule checks are for rules that need a
+separate verification signal.
+
 For local shell work, `npm run hivemind:work -- ...` wraps the common `session_start`, progress logging, rule checks, and `session_end` flow. See `docs/team-quickstart.md` for exact commands.
 
 ## AI Ruleset Catalog
@@ -118,8 +122,10 @@ aws-microservice@v2
 ```
 
 Clients can call `guidance_check` with the local `.hivemind-standard.json`
-marker to learn whether the repo is current, missing files, or assigned to a
-newer profile. The marker is produced by the standardization CLI:
+marker to learn whether required starter files are present or the project is
+assigned to a newer profile. The starter files are templates: teams are expected
+to customize them after applying a profile. Customized content is not drift.
+The marker is produced by the standardization CLI:
 
 ```bash
 npm run hivemind:standard -- apply --project my-service --profile aws-microservice@v2 --target /repo
@@ -127,7 +133,7 @@ npm run hivemind:standard -- apply --project my-service --profile aws-microservi
 ```
 
 The first command is a dry-run and writes nothing. `--write` creates missing
-files and `.hivemind-standard.json`; changed files are skipped unless
+files and `.hivemind-standard.json`; customized files are skipped unless
 `--conflict overwrite` is passed.
 
 ## Human UI
@@ -208,5 +214,10 @@ For production environments, provide these passwords through the platform secret
 ## Other Projects
 
 HiveMind can track other local repos against the same API. Register them through REST, MCP, or the helper command described in `docs/team-quickstart.md`.
+Project metadata must include repository identity (`repository_url` and
+`repository_slug`). HiveMind allows more than one project record for the same
+repository, for example separate long-lived work streams, so clients should use
+`project_list` or `project_resolve` instead of guessing from the local directory
+name.
 
 Use a small, explicit feature vocabulary for each project. Good feature names are broad work streams, user stories, or plan names.
