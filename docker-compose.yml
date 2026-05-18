@@ -50,5 +50,23 @@ services:
         condition: on-failure
         delay: 5s
 
+  hivemind-mcp:
+    image: ${HIVEMIND_API_IMAGE:?HIVEMIND_API_IMAGE is required}
+    restart: on-failure
+    command: ["node", "hivemind-mcp/src/server.mjs"]
+    environment:
+      HIVEMIND_MCP_TRANSPORT: http
+      HIVEMIND_MCP_HOST: 0.0.0.0
+      HIVEMIND_MCP_PORT: "4011"
+      HIVEMIND_API_BASE_URL: http://hivemind-api:4010
+    ports:
+      - "4011:4011"
+    depends_on:
+      - hivemind-api
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+
 volumes:
   opensearch-data:

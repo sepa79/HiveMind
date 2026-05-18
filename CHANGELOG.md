@@ -9,6 +9,7 @@ All notable HiveMind changes are recorded here.
 - Add one bounded MCP API retry for transient transport failures and HTTP `502`, `503`, and `504` responses.
 - Treat ruleset catalog files as customizable starter templates: guidance now reports `missing`, `template_unmodified`, or `customized` instead of failing personalized files as drift.
 - Remove `use_hivemind` from checkable required rules; session entries are the evidence that HiveMind was used.
+- Package `hivemind-mcp` in the release image and expose a Compose `hivemind-mcp` service on port `4011`.
 - Update bootstrap, CLI init, rollout docs, and tests for repository metadata and the new guidance semantics.
 
 ## 0.2.1 - 2026-05-14

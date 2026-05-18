@@ -10,7 +10,8 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY assets ./assets
 COPY ai-rulesets ./ai-rulesets
 COPY hivemind-api ./hivemind-api
+COPY hivemind-mcp ./hivemind-mcp
 COPY scripts/opensearch-init.mjs ./scripts/opensearch-init.mjs
 COPY package.json ./
-EXPOSE 4010
+EXPOSE 4010 4011
 CMD ["node", "hivemind-api/src/server.mjs"]
