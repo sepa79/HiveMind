@@ -65,7 +65,7 @@ Create a local `.env` file first:
 OPENSEARCH_INITIAL_ADMIN_PASSWORD=<strong-bootstrap-admin-password>
 HIVEMIND_OPENSEARCH_USERNAME=hivemind_api
 HIVEMIND_OPENSEARCH_PASSWORD=<strong-service-user-password>
-HIVEMIND_API_IMAGE=ghcr.io/<owner>/<repo>/hivemind-api:0.2.0
+HIVEMIND_API_IMAGE=ghcr.io/<owner>/<repo>/hivemind-api:0.3.0
 HIVEMIND_RULESET_CATALOG_PATH=/opt/hivemind/ai-rulesets
 ```
 
@@ -75,7 +75,13 @@ Open:
 http://127.0.0.1:4010/
 ```
 
-The stack runs `hivemind-api` with `HIVEMIND_STORAGE_BACKEND=opensearch` and a single private OpenSearch node. OpenSearch `9200` is not published on the host. `docker-compose.yml` uses the image named by `HIVEMIND_API_IMAGE`; CI publishes the API image to GHCR. See [docs/plans/opensearch-storage-stack.md](docs/plans/opensearch-storage-stack.md). For a company rollout with shared VS Code MCP clients, use [docs/company-swarm-rollout.md](docs/company-swarm-rollout.md).
+The stack runs:
+
+- `hivemind-api` on `4010` with `HIVEMIND_STORAGE_BACKEND=opensearch`
+- `hivemind-mcp` on `4011`, using HTTP transport and calling `hivemind-api`
+- one private OpenSearch node
+
+OpenSearch `9200` is not published on the host. `docker-compose.yml` uses the image named by `HIVEMIND_API_IMAGE` for both `hivemind-api` and `hivemind-mcp`; CI publishes that image to GHCR. See [docs/plans/opensearch-storage-stack.md](docs/plans/opensearch-storage-stack.md). For a company rollout with shared VS Code MCP clients, use [docs/company-swarm-rollout.md](docs/company-swarm-rollout.md).
 
 ## Releases
 

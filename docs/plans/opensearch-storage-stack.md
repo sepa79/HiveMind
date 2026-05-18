@@ -2,14 +2,15 @@
 
 ## Goal
 
-Run HiveMind as one shared API backed by one shared OpenSearch node, so many MCP/API clients can read and write the same project memory.
+Run HiveMind as one shared API backed by one shared OpenSearch node, with a separate shared MCP service for clients that support Streamable HTTP.
 
 Primary optimization: search and recall reads. HiveMind data is mostly document-shaped memory: entries, learnings, issues, rule checks, tags, summaries, details, branch context, feature context, and status. OpenSearch is the system of record for this deployment shape.
 
 ## Deployment Shape
 
 ```text
-MCP clients -> hivemind-api -> OpenSearch
+MCP clients -> hivemind-mcp -> hivemind-api -> OpenSearch
+REST/UI clients -> hivemind-api -> OpenSearch
 ```
 
 The MCP server remains thin and still talks to `hivemind-api` over REST. Storage details stay inside `hivemind-api`.
@@ -19,13 +20,13 @@ The MCP server remains thin and still talks to `hivemind-api` over REST. Storage
 Use the Docker stack from the repo root:
 
 ```bash
-HIVEMIND_API_IMAGE=ghcr.io/<owner>/<repo>/hivemind-api:0.1.2 docker compose up
+HIVEMIND_API_IMAGE=ghcr.io/<owner>/<repo>/hivemind-api:0.3.0 docker compose up
 ```
 
 For Docker Swarm, deploy the published API image:
 
 ```bash
-HIVEMIND_API_IMAGE=registry.example.com/hivemind-api:0.1.2 docker stack deploy -c docker-compose.yml hivemind
+HIVEMIND_API_IMAGE=registry.example.com/hivemind-api:0.3.0 docker stack deploy -c docker-compose.yml hivemind
 ```
 
 `docker-compose.yml` intentionally does not define a local `build:` section.
@@ -35,13 +36,20 @@ deployments.
 Default ports:
 
 - HiveMind API/UI: `http://127.0.0.1:4010`
+- HiveMind MCP: `http://127.0.0.1:4011/mcp`
 
 OpenSearch is intentionally not published on the host. It is reachable only inside the Docker network as `https://opensearch:9200`.
 
-Point MCP clients at:
+Point stdio MCP clients at the API:
 
 ```bash
 HIVEMIND_API_BASE_URL=http://127.0.0.1:4010
+```
+
+Clients that support Streamable HTTP can connect directly to:
+
+```text
+http://127.0.0.1:4011/mcp
 ```
 
 ## Configuration
@@ -66,7 +74,7 @@ The Docker stack keeps the OpenSearch Security plugin enabled. It requires:
 OPENSEARCH_INITIAL_ADMIN_PASSWORD=<strong-bootstrap-admin-password>
 HIVEMIND_OPENSEARCH_USERNAME=hivemind_api
 HIVEMIND_OPENSEARCH_PASSWORD=<strong-service-user-password>
-HIVEMIND_API_IMAGE=ghcr.io/<owner>/<repo>/hivemind-api:0.1.2
+HIVEMIND_API_IMAGE=ghcr.io/<owner>/<repo>/hivemind-api:0.3.0
 ```
 
 `admin` is used only by the one-shot `opensearch-init` service to create the dedicated API role, service user, and role mapping. `hivemind-api` authenticates as the service user.

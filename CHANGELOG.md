@@ -2,6 +2,12 @@
 
 All notable HiveMind changes are recorded here.
 
+## 0.3.1 - 2026-05-18
+
+- Document the shared stack as separate `hivemind-api` and `hivemind-mcp` services, both using the same release image.
+- Update rollout and MCP client distribution docs for the `4011` Streamable HTTP MCP endpoint.
+- Record the operational consolidation of the legacy `skrybe` project records into the canonical `hivemind` project.
+
 ## 0.3.0 - 2026-05-18
 
 - Require `repository_url` and `repository_slug` in project metadata so clients can resolve projects by repository identity instead of guessing from local directory names.

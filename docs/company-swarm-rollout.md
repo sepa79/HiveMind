@@ -3,7 +3,7 @@
 This runbook describes the intended company deployment shape:
 
 ```text
-VS Code / MCP clients -> HiveMind API/UI -> OpenSearch
+VS Code / MCP clients -> HiveMind MCP/API/UI -> OpenSearch
 ```
 
 Developers and agents do not need a HiveMind checkout to use the shared service.
@@ -15,7 +15,7 @@ Choose these values before deployment:
 
 ```text
 HIVEMIND_PUBLIC_URL=https://hivemind.company.example
-REGISTRY_IMAGE=ghcr.io/<owner>/<repo>/hivemind-api:0.2.0
+REGISTRY_IMAGE=ghcr.io/<owner>/<repo>/hivemind-api:0.3.0
 STACK_NAME=hivemind
 INDEX_PREFIX=hivemind
 SERVICE_USER=hivemind_api
@@ -28,13 +28,13 @@ does not implement a secret backend.
 
 ## 2. Build And Publish The API Image
 
-CI publishes the API image to GHCR only from version tags such as `v0.2.0`.
+CI publishes the API image to GHCR only from version tags such as `v0.3.0`.
 For a private company registry, mirror or rebuild the tagged image from a
 trusted build machine:
 
 ```bash
-docker build -t registry.company.example/hivemind-api:0.2.0 .
-docker push registry.company.example/hivemind-api:0.2.0
+docker build -t registry.company.example/hivemind-api:0.3.0 .
+docker push registry.company.example/hivemind-api:0.3.0
 ```
 
 Swarm does not build images during `docker stack deploy`, so the image must
@@ -49,7 +49,7 @@ export OPENSEARCH_INITIAL_ADMIN_PASSWORD='<strong-bootstrap-admin-password>'
 export HIVEMIND_OPENSEARCH_USERNAME='hivemind_api'
 export HIVEMIND_OPENSEARCH_PASSWORD='<strong-service-user-password>'
 export HIVEMIND_OPENSEARCH_INDEX_PREFIX='hivemind'
-export HIVEMIND_API_IMAGE='ghcr.io/<owner>/<repo>/hivemind-api:0.2.0'
+export HIVEMIND_API_IMAGE='ghcr.io/<owner>/<repo>/hivemind-api:0.3.0'
 export HIVEMIND_RULESET_CATALOG_PATH='/opt/hivemind/ai-rulesets'
 export HIVEMIND_RULESET_CATALOG_SOURCE_URL='https://git.company.example/eng/ai-rulesets'
 ```
@@ -68,6 +68,7 @@ docker stack services hivemind
 
 ```text
 hivemind_hivemind-api      1/1
+hivemind_hivemind-mcp      1/1
 hivemind_opensearch        1/1
 hivemind_opensearch-init   0/1
 ```
@@ -77,10 +78,16 @@ expected after it creates the role, user, and role mapping.
 
 ## 4. Network Exposure
 
-Expose only HiveMind API/UI to clients:
+Expose HiveMind API/UI to clients:
 
 ```text
 https://hivemind.company.example
+```
+
+If clients support Streamable HTTP MCP, expose the separate MCP service too:
+
+```text
+https://hivemind-mcp.company.example/mcp
 ```
 
 Do not publish OpenSearch `9200` to the company network unless there is an
@@ -189,7 +196,7 @@ npm run pack:mcp
 This creates:
 
 ```text
-dist/hivemind-mcp-0.2.0.tgz
+dist/hivemind-mcp-0.3.0.tgz
 ```
 
 The MCP package is thin. It does not include the API or OpenSearch.
@@ -217,7 +224,7 @@ code --add-mcp '{"name":"hivemind","type":"stdio","command":"npx","args":["-y","
 Tarball:
 
 ```bash
-code --add-mcp '{"name":"hivemind","type":"stdio","command":"npx","args":["-y","/path/to/hivemind-mcp-0.2.0.tgz"],"env":{"HIVEMIND_API_BASE_URL":"https://hivemind.company.example"}}'
+code --add-mcp '{"name":"hivemind","type":"stdio","command":"npx","args":["-y","/path/to/hivemind-mcp-0.3.0.tgz"],"env":{"HIVEMIND_API_BASE_URL":"https://hivemind.company.example"}}'
 ```
 
 After changing MCP config, reload VS Code or restart the `hivemind` MCP server.
@@ -276,6 +283,7 @@ Server:
 ```bash
 docker stack services hivemind
 docker service logs --tail 100 hivemind_hivemind-api
+docker service logs --tail 100 hivemind_hivemind-mcp
 docker service logs --tail 100 hivemind_opensearch
 curl -fsS https://hivemind.company.example/health
 ```

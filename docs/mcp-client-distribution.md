@@ -14,14 +14,22 @@ Set `HIVEMIND_API_IMAGE` to the published API image first. GitHub Actions
 publishes versioned API images to GHCR from `v*.*.*` tags:
 
 ```bash
-HIVEMIND_API_IMAGE=ghcr.io/<owner>/<repo>/hivemind-api:0.2.0
+HIVEMIND_API_IMAGE=ghcr.io/<owner>/<repo>/hivemind-api:0.3.0
 ```
 
-Expose only the HiveMind API endpoint to clients, for example:
+The shared Compose stack now runs both:
+
+- `hivemind-api` on `4010`
+- `hivemind-mcp` on `4011`
+
+Expose the HiveMind API endpoint to stdio MCP clients, for example:
 
 ```text
 https://hivemind.example.com
 ```
+
+Clients that support Streamable HTTP can instead connect to the central
+`hivemind-mcp` endpoint, for example `https://hivemind-mcp.example.com/mcp`.
 
 Clients do not need a HiveMind checkout. They only need Node.js, VS Code, and access to the API URL.
 
@@ -36,7 +44,7 @@ npm run pack:mcp
 This creates:
 
 ```text
-dist/hivemind-mcp-0.2.0.tgz
+dist/hivemind-mcp-0.3.0.tgz
 ```
 
 For a company registry, publish `hivemind-mcp/` as the package instead of distributing the tarball.
@@ -54,14 +62,14 @@ code --add-mcp '{"name":"hivemind","type":"stdio","command":"npx","args":["-y","
 From a tarball:
 
 ```bash
-code --add-mcp '{"name":"hivemind","type":"stdio","command":"npx","args":["-y","/path/to/hivemind-mcp-0.2.0.tgz"],"env":{"HIVEMIND_API_BASE_URL":"https://hivemind.example.com"}}'
+code --add-mcp '{"name":"hivemind","type":"stdio","command":"npx","args":["-y","/path/to/hivemind-mcp-0.3.0.tgz"],"env":{"HIVEMIND_API_BASE_URL":"https://hivemind.example.com"}}'
 ```
 
 Or use the installer helper:
 
 ```bash
 scripts/install-vscode-hivemind-mcp.sh https://hivemind.example.com hivemind-mcp
-scripts/install-vscode-hivemind-mcp.sh https://hivemind.example.com /path/to/hivemind-mcp-0.2.0.tgz
+scripts/install-vscode-hivemind-mcp.sh https://hivemind.example.com /path/to/hivemind-mcp-0.3.0.tgz
 ```
 
 The installer writes a user-level VS Code MCP server. It is not tied to any workspace checkout.
