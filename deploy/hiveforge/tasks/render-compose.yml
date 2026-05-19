@@ -1,0 +1,23 @@
+- name: Check HiveMind Compose template
+  ansible.builtin.stat:
+    path: "{{ hivemind_compose_template }}"
+  register: hivemind_compose_template_stat
+
+- name: Require HiveMind Compose template
+  ansible.builtin.assert:
+    that:
+      - hivemind_compose_template_stat.stat.exists
+      - hivemind_compose_template_stat.stat.isreg
+    fail_msg: "HiveMind Compose template is missing: {{ hivemind_compose_template }}"
+
+- name: Ensure HiveMind runtime directory exists
+  ansible.builtin.file:
+    path: "{{ hivemind_runtime_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Render HiveMind Compose file
+  ansible.builtin.template:
+    src: "{{ hivemind_compose_template }}"
+    dest: "{{ hivemind_compose_file }}"
+    mode: "0644"

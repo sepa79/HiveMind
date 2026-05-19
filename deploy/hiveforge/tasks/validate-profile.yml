@@ -1,0 +1,98 @@
+- name: Require explicit HIVEFORGE_PROFILE
+  ansible.builtin.assert:
+    that:
+      - hivemind_profile | length > 0
+    fail_msg: "HIVEFORGE_PROFILE must be set explicitly for HiveMind."
+
+- name: Require supported HiveMind profile
+  ansible.builtin.assert:
+    that:
+      - hivemind_profile in ['docker-single', 'swarm']
+    fail_msg: "Unsupported HIVEFORGE_PROFILE for HiveMind: {{ hivemind_profile }}"
+
+- name: Derive HiveMind runtime profile flags
+  ansible.builtin.set_fact:
+    hivemind_swarm_profile: "{{ hivemind_profile == 'swarm' }}"
+    hivemind_compose_profile: "{{ hivemind_profile == 'docker-single' }}"
+    hivemind_internal_api_base_url: "{{ 'http://tasks.hivemind-api:4010' if hivemind_profile == 'swarm' else 'http://hivemind-api:4010' }}"
+
+- name: Require explicit HiveMind deployment name
+  ansible.builtin.assert:
+    that:
+      - hivemind_deployment_name | length > 0
+    fail_msg: "HIVEMIND_DEPLOYMENT_NAME must be set explicitly. Use the existing Compose project or Swarm stack name to preserve data."
+
+- name: Require explicit HiveMind API image
+  ansible.builtin.assert:
+    that:
+      - hivemind_api_image | length > 0
+    fail_msg: "HIVEMIND_API_IMAGE must be set explicitly."
+
+- name: Require explicit OpenSearch admin password
+  ansible.builtin.assert:
+    that:
+      - opensearch_initial_admin_password | length > 0
+    fail_msg: "OPENSEARCH_INITIAL_ADMIN_PASSWORD must be set explicitly."
+
+- name: Require explicit OpenSearch service username
+  ansible.builtin.assert:
+    that:
+      - hivemind_opensearch_username | length > 0
+    fail_msg: "HIVEMIND_OPENSEARCH_USERNAME must be set explicitly."
+
+- name: Require explicit OpenSearch service password
+  ansible.builtin.assert:
+    that:
+      - hivemind_opensearch_password | length > 0
+    fail_msg: "HIVEMIND_OPENSEARCH_PASSWORD must be set explicitly."
+
+- name: Require explicit OpenSearch index prefix
+  ansible.builtin.assert:
+    that:
+      - hivemind_opensearch_index_prefix | length > 0
+    fail_msg: "HIVEMIND_OPENSEARCH_INDEX_PREFIX must be set explicitly."
+
+- name: Require explicit OpenSearch endpoint
+  ansible.builtin.assert:
+    that:
+      - hivemind_opensearch_node_override | length > 0
+    fail_msg: "HIVEMIND_OPENSEARCH_NODE must be set explicitly. Use https://opensearch:9200 for docker-single or https://tasks.opensearch:9200 for Swarm when task DNS is required."
+
+- name: Require explicit OpenSearch TLS verification setting
+  ansible.builtin.assert:
+    that:
+      - hivemind_opensearch_tls_reject_unauthorized | length > 0
+      - hivemind_opensearch_tls_reject_unauthorized in ['true', 'false']
+    fail_msg: "HIVEMIND_OPENSEARCH_TLS_REJECT_UNAUTHORIZED must be set explicitly."
+
+- name: Require explicit HiveMind API port
+  ansible.builtin.assert:
+    that:
+      - hivemind_api_port | length > 0
+    fail_msg: "HIVEMIND_API_PORT must be set explicitly."
+
+- name: Require explicit HiveMind MCP port
+  ansible.builtin.assert:
+    that:
+      - hivemind_mcp_port | length > 0
+    fail_msg: "HIVEMIND_MCP_PORT must be set explicitly."
+
+- name: Require explicit HiveMind ruleset catalog path
+  ansible.builtin.assert:
+    that:
+      - hivemind_ruleset_catalog_path | length > 0
+    fail_msg: "HIVEMIND_RULESET_CATALOG_PATH must be set explicitly."
+
+- name: Require explicit HiveMind Swarm node
+  ansible.builtin.assert:
+    that:
+      - hivemind_swarm_node | length > 0
+    fail_msg: "HIVEMIND_SWARM_NODE must be set explicitly for the HiveMind swarm profile."
+  when: hivemind_swarm_profile
+
+- name: Require explicit HiveMind Swarm network
+  ansible.builtin.assert:
+    that:
+      - hivemind_swarm_network | length > 0
+    fail_msg: "HIVEMIND_SWARM_NETWORK must be set explicitly for the HiveMind swarm profile."
+  when: hivemind_swarm_profile

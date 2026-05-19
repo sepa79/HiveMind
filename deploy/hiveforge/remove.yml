@@ -1,0 +1,57 @@
+- name: Remove HiveMind stack without deleting data
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    hivemind_repo_root: "{{ playbook_dir }}/../.."
+    hivemind_runtime_dir: "{{ hivemind_repo_root }}/.hiveforge"
+    hivemind_compose_template: "{{ playbook_dir }}/templates/docker-compose.yml.j2"
+    hivemind_compose_file: "{{ hivemind_runtime_dir }}/docker-compose.yml"
+    hivemind_profile: "{{ lookup('ansible.builtin.env', 'HIVEFORGE_PROFILE') }}"
+    hivemind_deployment_name: "{{ lookup('ansible.builtin.env', 'HIVEMIND_DEPLOYMENT_NAME') }}"
+    hivemind_api_image: "{{ lookup('ansible.builtin.env', 'HIVEMIND_API_IMAGE') }}"
+    opensearch_initial_admin_password: "{{ lookup('ansible.builtin.env', 'OPENSEARCH_INITIAL_ADMIN_PASSWORD') }}"
+    hivemind_opensearch_username: "{{ lookup('ansible.builtin.env', 'HIVEMIND_OPENSEARCH_USERNAME') }}"
+    hivemind_opensearch_password: "{{ lookup('ansible.builtin.env', 'HIVEMIND_OPENSEARCH_PASSWORD') }}"
+    hivemind_opensearch_index_prefix: "{{ lookup('ansible.builtin.env', 'HIVEMIND_OPENSEARCH_INDEX_PREFIX') }}"
+    hivemind_opensearch_node_override: "{{ lookup('ansible.builtin.env', 'HIVEMIND_OPENSEARCH_NODE') }}"
+    hivemind_opensearch_tls_reject_unauthorized: "{{ lookup('ansible.builtin.env', 'HIVEMIND_OPENSEARCH_TLS_REJECT_UNAUTHORIZED') }}"
+    hivemind_ruleset_catalog_path: "{{ lookup('ansible.builtin.env', 'HIVEMIND_RULESET_CATALOG_PATH') }}"
+    hivemind_ruleset_catalog_source_url: "{{ lookup('ansible.builtin.env', 'HIVEMIND_RULESET_CATALOG_SOURCE_URL') }}"
+    hivemind_api_port: "{{ lookup('ansible.builtin.env', 'HIVEMIND_API_PORT') }}"
+    hivemind_mcp_port: "{{ lookup('ansible.builtin.env', 'HIVEMIND_MCP_PORT') }}"
+    hivemind_swarm_node: "{{ lookup('ansible.builtin.env', 'HIVEMIND_SWARM_NODE') }}"
+    hivemind_swarm_network: "{{ lookup('ansible.builtin.env', 'HIVEMIND_SWARM_NETWORK') }}"
+  tasks:
+    - name: Validate HiveMind profile and required inputs
+      ansible.builtin.import_tasks: tasks/validate-profile.yml
+
+    - name: Set explicit OpenSearch node endpoint
+      ansible.builtin.set_fact:
+        hivemind_opensearch_node: "{{ hivemind_opensearch_node_override }}"
+
+    - name: Check Docker CLI access
+      ansible.builtin.command:
+        cmd: docker version --format '{{ "{{" }}.Server.Version{{ "}}" }}'
+      changed_when: false
+
+    - name: Check Docker Compose plugin
+      ansible.builtin.command:
+        cmd: docker compose version
+      changed_when: false
+      when: hivemind_compose_profile
+
+    - name: Render HiveMind Compose file
+      ansible.builtin.import_tasks: tasks/render-compose.yml
+
+    - name: Remove HiveMind Compose stack without deleting volumes
+      ansible.builtin.command:
+        cmd: docker compose --project-name {{ hivemind_deployment_name }} -f {{ hivemind_compose_file }} down --remove-orphans
+        chdir: "{{ hivemind_runtime_dir }}"
+      when: hivemind_compose_profile
+
+    - name: Remove HiveMind Swarm stack without deleting volumes
+      ansible.builtin.command:
+        cmd: docker stack rm {{ hivemind_deployment_name }}
+        chdir: "{{ hivemind_runtime_dir }}"
+      when: hivemind_swarm_profile

@@ -1,0 +1,20 @@
+kind: component
+component:
+  name: service
+  type: service
+  actions:
+    deploy:
+      runner: ansible
+      playbook: deploy/hiveforge/deploy.yml
+    remove:
+      runner: ansible
+      playbook: deploy/hiveforge/remove.yml
+    purge:
+      runner: ansible
+      playbook: deploy/hiveforge/purge.yml
+    update:
+      runner: ansible
+      playbook: deploy/hiveforge/update.yml
+    upgrade:
+      runner: ansible
+      playbook: deploy/hiveforge/upgrade.yml

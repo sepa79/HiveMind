@@ -83,6 +83,78 @@ The stack runs:
 
 OpenSearch `9200` is not published on the host. `docker-compose.yml` uses the image named by `HIVEMIND_API_IMAGE` for both `hivemind-api` and `hivemind-mcp`; CI publishes that image to GHCR. See [docs/plans/opensearch-storage-stack.md](docs/plans/opensearch-storage-stack.md). For a company rollout with shared VS Code MCP clients, use [docs/company-swarm-rollout.md](docs/company-swarm-rollout.md).
 
+## HiveForge Deployment
+
+HiveForge manages this repo through `hiveforge.yaml`.
+
+The declared lifecycle actions are `deploy`, `remove`, `purge`, `update`, and
+`upgrade`.
+
+HiveMind declares two explicit HiveForge profiles:
+
+- `docker-single` - Docker Compose deployment on one Docker engine.
+- `swarm` - Docker Swarm deployment of the same shared OpenSearch stack.
+
+All HiveForge actions require these explicit inputs:
+
+```bash
+HIVEFORGE_PROFILE=docker-single
+HIVEMIND_DEPLOYMENT_NAME=hivemind
+HIVEMIND_API_IMAGE=ghcr.io/sepa79/hivemind/hivemind-api:0.3.2
+OPENSEARCH_INITIAL_ADMIN_PASSWORD=<strong-bootstrap-admin-password>
+HIVEMIND_OPENSEARCH_USERNAME=hivemind_api
+HIVEMIND_OPENSEARCH_PASSWORD=<strong-service-user-password>
+HIVEMIND_OPENSEARCH_INDEX_PREFIX=hivemind
+HIVEMIND_OPENSEARCH_NODE=https://opensearch:9200
+HIVEMIND_OPENSEARCH_TLS_REJECT_UNAUTHORIZED=false
+HIVEMIND_RULESET_CATALOG_PATH=/app/ai-rulesets
+HIVEMIND_API_PORT=4010
+HIVEMIND_MCP_PORT=4011
+```
+
+For Swarm, also set:
+
+```bash
+HIVEFORGE_PROFILE=swarm
+HIVEMIND_SWARM_NODE=<node-hostname>
+HIVEMIND_SWARM_NETWORK=<external-overlay-network-name>
+HIVEMIND_OPENSEARCH_NODE=https://tasks.opensearch:9200
+```
+
+The Swarm profile pins all services to `HIVEMIND_SWARM_NODE`, publishes API and
+MCP ports in host mode, and uses an explicitly named external overlay network.
+The project playbook creates that network when it is missing and rejects it when
+it exists with the wrong driver. HiveForge itself does not manage Docker
+networks; it only runs the project playbooks.
+
+Use the existing `HIVEMIND_DEPLOYMENT_NAME` when redeploying an existing
+instance. Docker Compose and Docker Swarm scope the `opensearch-data` volume by
+deployment name, so changing that name creates a separate data volume.
+
+Data-preserving redeploy:
+
+```bash
+hiveforge run-action hivemind main service update
+```
+
+Version upgrade, also data-preserving, requires explicit approval:
+
+```bash
+HIVEFORGE_UPGRADE_APPROVED=true hiveforge run-action hivemind main service upgrade
+```
+
+Remove without deleting data:
+
+```bash
+hiveforge run-action hivemind main service remove
+```
+
+Purge deletes OpenSearch data and requires explicit approval:
+
+```bash
+HIVEFORGE_PURGE_APPROVED=true hiveforge run-action hivemind main service purge
+```
+
 ## Releases
 
 - Current version: [VERSION](VERSION)

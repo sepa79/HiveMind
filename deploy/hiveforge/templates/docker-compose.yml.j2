@@ -1,0 +1,129 @@
+services:
+  opensearch:
+    image: opensearchproject/opensearch:2.17.1
+    environment:
+      discovery.type: single-node
+      OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
+      OPENSEARCH_INITIAL_ADMIN_PASSWORD: "{{ opensearch_initial_admin_password }}"
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -k -fsS -u admin:$$OPENSEARCH_INITIAL_ADMIN_PASSWORD https://127.0.0.1:9200/_cluster/health >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+{% if hivemind_swarm_profile %}
+    deploy:
+      placement:
+        constraints:
+          - node.hostname == {{ hivemind_swarm_node }}
+{% endif %}
+
+  opensearch-init:
+    image: "{{ hivemind_api_image }}"
+    restart: on-failure
+    environment:
+      NODE_TLS_REJECT_UNAUTHORIZED: "{{ '1' if hivemind_opensearch_tls_reject_unauthorized == 'true' else '0' }}"
+      OPENSEARCH_INITIAL_ADMIN_PASSWORD: "{{ opensearch_initial_admin_password }}"
+      HIVEMIND_OPENSEARCH_USERNAME: "{{ hivemind_opensearch_username }}"
+      HIVEMIND_OPENSEARCH_PASSWORD: "{{ hivemind_opensearch_password }}"
+      HIVEMIND_OPENSEARCH_NODE: "{{ hivemind_opensearch_node }}"
+      HIVEMIND_OPENSEARCH_INDEX_PREFIX: "{{ hivemind_opensearch_index_prefix }}"
+    command: ["node", "scripts/opensearch-init.mjs"]
+{% if hivemind_swarm_profile %}
+    deploy:
+      placement:
+        constraints:
+          - node.hostname == {{ hivemind_swarm_node }}
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+{% else %}
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+{% endif %}
+
+  hivemind-api:
+    image: "{{ hivemind_api_image }}"
+    restart: on-failure
+    environment:
+      HIVEMIND_API_PORT: "4010"
+      HIVEMIND_STORAGE_BACKEND: opensearch
+      HIVEMIND_OPENSEARCH_NODE: "{{ hivemind_opensearch_node }}"
+      HIVEMIND_OPENSEARCH_INDEX_PREFIX: "{{ hivemind_opensearch_index_prefix }}"
+      HIVEMIND_OPENSEARCH_USERNAME: "{{ hivemind_opensearch_username }}"
+      HIVEMIND_OPENSEARCH_PASSWORD: "{{ hivemind_opensearch_password }}"
+      HIVEMIND_OPENSEARCH_TLS_REJECT_UNAUTHORIZED: "{{ hivemind_opensearch_tls_reject_unauthorized }}"
+      HIVEMIND_RULESET_CATALOG_PATH: "{{ hivemind_ruleset_catalog_path }}"
+      HIVEMIND_RULESET_CATALOG_SOURCE_URL: "{{ hivemind_ruleset_catalog_source_url }}"
+    ports:
+{% if hivemind_swarm_profile %}
+      - target: 4010
+        published: {{ hivemind_api_port }}
+        protocol: tcp
+        mode: host
+{% else %}
+      - "{{ hivemind_api_port }}:4010"
+{% endif %}
+{% if hivemind_swarm_profile %}
+    deploy:
+      placement:
+        constraints:
+          - node.hostname == {{ hivemind_swarm_node }}
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+{% else %}
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+{% endif %}
+
+  hivemind-mcp:
+    image: "{{ hivemind_api_image }}"
+    restart: on-failure
+    command: ["node", "hivemind-mcp/src/server.mjs"]
+    environment:
+      HIVEMIND_MCP_TRANSPORT: http
+      HIVEMIND_MCP_HOST: 0.0.0.0
+      HIVEMIND_MCP_PORT: "4011"
+      HIVEMIND_API_BASE_URL: "{{ hivemind_internal_api_base_url }}"
+    ports:
+{% if hivemind_swarm_profile %}
+      - target: 4011
+        published: {{ hivemind_mcp_port }}
+        protocol: tcp
+        mode: host
+{% else %}
+      - "{{ hivemind_mcp_port }}:4011"
+{% endif %}
+    depends_on:
+      - hivemind-api
+{% if hivemind_swarm_profile %}
+    deploy:
+      placement:
+        constraints:
+          - node.hostname == {{ hivemind_swarm_node }}
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+{% else %}
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+{% endif %}
+
+volumes:
+  opensearch-data:
+
+{% if hivemind_swarm_profile %}
+networks:
+  default:
+    name: "{{ hivemind_swarm_network }}"
+    external: true
+{% endif %}

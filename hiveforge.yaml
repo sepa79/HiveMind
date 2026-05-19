@@ -1,0 +1,27 @@
+kind: project
+project:
+  name: hivemind
+  repository: https://github.com/sepa79/HiveMind.git
+  actions:
+    - deploy
+    - remove
+    - purge
+    - update
+    - upgrade
+  vars:
+    imageRepository.project: ghcr.io/sepa79/hivemind
+    extRepository.docker: docker.io
+    extRepository.ghcr: ghcr.io
+  profiles:
+    - id: docker-single
+      runtime: docker-single
+      serviceSet: shared-opensearch
+    - id: swarm
+      runtime: docker-swarm
+      serviceSet: shared-opensearch
+      requires:
+        capabilities:
+          - placement
+components:
+  - name: service
+    manifest: hivemind-service.hiveforge.yaml

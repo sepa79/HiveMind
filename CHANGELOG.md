@@ -2,6 +2,15 @@
 
 All notable HiveMind changes are recorded here.
 
+## 0.3.2 - 2026-05-19
+
+- Add HiveForge project and service manifests for the shared OpenSearch stack.
+- Add HiveForge lifecycle playbooks for deploy, remove, purge, update, and upgrade.
+- Add explicit `docker-single` and `swarm` deployment profiles.
+- Keep normal remove, update, and upgrade flows data-preserving; only purge deletes OpenSearch volumes and requires explicit approval.
+- Add Swarm deployment support with explicit placement node, explicit overlay network, host-mode API/MCP ports, and explicit OpenSearch task endpoint configuration.
+- Document HiveForge deployment inputs and safe redeploy guidance.
+
 ## 0.3.1 - 2026-05-18
 
 - Document the shared stack as separate `hivemind-api` and `hivemind-mcp` services, both using the same release image.

@@ -1,0 +1,18 @@
+- name: Inspect HiveMind Swarm Docker network
+  ansible.builtin.command:
+    cmd: docker network inspect {{ hivemind_swarm_network }} --format '{{ "{{" }}.Driver{{ "}}" }}'
+  register: hivemind_network_driver
+  changed_when: false
+  failed_when: false
+
+- name: Reject incompatible HiveMind Swarm Docker network
+  ansible.builtin.assert:
+    that:
+      - hivemind_network_driver.stdout == 'overlay'
+    fail_msg: "Docker network {{ hivemind_swarm_network }} exists but is not an overlay network required by the HiveMind swarm profile."
+  when: hivemind_network_driver.rc == 0
+
+- name: Create HiveMind Swarm Docker network
+  ansible.builtin.command:
+    cmd: docker network create --driver overlay --attachable {{ hivemind_swarm_network }}
+  when: hivemind_network_driver.rc != 0
