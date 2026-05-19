@@ -100,7 +100,7 @@ All HiveForge actions require these explicit inputs:
 ```bash
 HIVEFORGE_PROFILE=docker-single
 HIVEMIND_DEPLOYMENT_NAME=hivemind
-HIVEMIND_API_IMAGE=ghcr.io/sepa79/hivemind/hivemind-api:0.3.2
+HIVEMIND_API_IMAGE=ghcr.io/sepa79/hivemind/hivemind-api:0.3.3
 OPENSEARCH_INITIAL_ADMIN_PASSWORD=<strong-bootstrap-admin-password>
 HIVEMIND_OPENSEARCH_USERNAME=hivemind_api
 HIVEMIND_OPENSEARCH_PASSWORD=<strong-service-user-password>

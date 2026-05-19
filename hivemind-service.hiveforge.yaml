@@ -1,20 +1,31 @@
 kind: component
 component:
   name: service
-  type: service
+  project: hivemind
+deployment:
+  adapter: ansible
   actions:
     deploy:
-      runner: ansible
       playbook: deploy/hiveforge/deploy.yml
     remove:
-      runner: ansible
       playbook: deploy/hiveforge/remove.yml
     purge:
-      runner: ansible
       playbook: deploy/hiveforge/purge.yml
     update:
-      runner: ansible
       playbook: deploy/hiveforge/update.yml
     upgrade:
-      runner: ansible
       playbook: deploy/hiveforge/upgrade.yml
+requirements:
+  environment:
+    - HIVEFORGE_PROFILE
+    - HIVEMIND_DEPLOYMENT_NAME
+    - HIVEMIND_API_IMAGE
+    - OPENSEARCH_INITIAL_ADMIN_PASSWORD
+    - HIVEMIND_OPENSEARCH_USERNAME
+    - HIVEMIND_OPENSEARCH_PASSWORD
+    - HIVEMIND_OPENSEARCH_INDEX_PREFIX
+    - HIVEMIND_OPENSEARCH_NODE
+    - HIVEMIND_OPENSEARCH_TLS_REJECT_UNAUTHORIZED
+    - HIVEMIND_RULESET_CATALOG_PATH
+    - HIVEMIND_API_PORT
+    - HIVEMIND_MCP_PORT

@@ -2,6 +2,11 @@
 
 All notable HiveMind changes are recorded here.
 
+## 0.3.3 - 2026-05-19
+
+- Fix the HiveForge service component manifest to match the current component deployment contract.
+- Keep Compose-scoped OpenSearch volume handling inside the lifecycle playbooks instead of declaring an unscoped Docker volume precheck.
+
 ## 0.3.2 - 2026-05-19
 
 - Add HiveForge project and service manifests for the shared OpenSearch stack.
