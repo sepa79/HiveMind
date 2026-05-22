@@ -830,6 +830,109 @@ describe("HiveMind API", () => {
     expect(searchPayload.data.entries[0].summary).toBe("Searchable entry");
   });
 
+  it("corrects an entry and reports review actions for open project memory", async () => {
+    const app = createTestApp();
+    await createProject(app);
+    const sessionResponse = await app.request("/v1/sessions", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "Idempotency-Key": "review-session"
+      },
+      body: JSON.stringify({
+        project_id: "buzz",
+        branch: "feat/review",
+        workspace_path: "/repo/buzz",
+        author_id: "codex-main",
+        author_type: "agent",
+        source: "mcp",
+        agent_id: "codex-main",
+        goal: "Review project memory"
+      })
+    });
+    const sessionPayload = await sessionResponse.json();
+
+    const entryResponse = await app.request("/v1/entries", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "Idempotency-Key": "review-entry"
+      },
+      body: JSON.stringify({
+        project_id: "buzz",
+        session_id: sessionPayload.data.session.session_id,
+        branch: "feat/review",
+        author_id: "codex-main",
+        author_type: "agent",
+        source: "mcp",
+        entry_type: "feedback",
+        summary: "Old wording needs correction",
+        lifecycle_state: "open"
+      })
+    });
+    const entryPayload = await entryResponse.json();
+
+    const correctionResponse = await app.request(
+      `/v1/projects/buzz/entries/${entryPayload.data.entry.entry_id}/corrections`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "Idempotency-Key": "review-correction"
+        },
+        body: JSON.stringify({
+          session_id: sessionPayload.data.session.session_id,
+          branch: "feat/review",
+          author_id: "codex-main",
+          author_type: "agent",
+          source: "mcp",
+          summary: "Corrected wording",
+          reason: "The original wording was ambiguous."
+        })
+      }
+    );
+    const reviewResponse = await app.request("/v1/projects/buzz/review", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        branch: "feat/review"
+      })
+    });
+    const retryResponse = await app.request(
+      `/v1/projects/buzz/entries/${entryPayload.data.entry.entry_id}/corrections`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "Idempotency-Key": "review-correction"
+        },
+        body: JSON.stringify({
+          session_id: sessionPayload.data.session.session_id,
+          branch: "feat/review",
+          author_id: "codex-main",
+          author_type: "agent",
+          source: "mcp",
+          summary: "Corrected wording",
+          reason: "The original wording was ambiguous."
+        })
+      }
+    );
+
+    expect(correctionResponse.status).toBe(201);
+    const correctionPayload = await correctionResponse.json();
+    const retryPayload = await retryResponse.json();
+    expect(correctionPayload.data.original_entry.lifecycle_state).toBe("superseded");
+    expect(correctionPayload.data.correction_entry.related_entry_ids).toEqual([entryPayload.data.entry.entry_id]);
+    expect(retryPayload.data.correction_entry.entry_id).toBe(correctionPayload.data.correction_entry.entry_id);
+    expect(reviewResponse.status).toBe(200);
+    const reviewPayload = await reviewResponse.json();
+    expect(reviewPayload.data.signals.open_feedback.map((entry) => entry.summary)).toContain("Corrected wording");
+    expect(reviewPayload.data.recommended_actions[0]).toMatchObject({
+      action_type: "review",
+      target_kind: "entry"
+    });
+  });
+
   it("ends a session and returns closeout reminders for missing rules and active learnings", async () => {
     const app = createTestApp();
     await createProject(app);

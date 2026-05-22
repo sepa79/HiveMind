@@ -4,8 +4,10 @@ All notable HiveMind changes are recorded here.
 
 ## Unreleased
 
+- Add entry lifecycle, correction, project review, HiveMind feedback, and admin memory review REST/MCP tools for explicit memory cleanup and support triage.
 - Add MCP `health_check` diagnostics for fast backend reachability checks from MCP clients, including API URL, latency, and transport/API error details.
 - Add an OpenSearch restart policy to the local Compose stack and HiveForge-rendered Compose template so the shared backend recovers after host restarts.
+- Apply the bundled `base@v1` AI ruleset standard to the HiveMind repository itself, preserving the customized project `AGENTS.md` and adding the standard marker/docs.
 
 ## 0.3.3 - 2026-05-19
 

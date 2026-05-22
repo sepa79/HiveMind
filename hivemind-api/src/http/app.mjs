@@ -379,6 +379,44 @@ export function createApp({ service, accessLogger = null }) {
     return success(c, data, 201);
   });
 
+  app.post("/v1/projects/:projectId/entries/:entryId/mark", async (c) => {
+    const payload = await readJsonBody(c);
+    const data = await service.markEntry({
+      project_id: c.req.param("projectId"),
+      entry_id: c.req.param("entryId"),
+      ...payload
+    });
+    return success(c, data);
+  });
+
+  app.post("/v1/projects/:projectId/entries/:entryId/corrections", async (c) => {
+    const payload = await readJsonBody(c);
+    const data = await service.correctEntry(
+      {
+        project_id: c.req.param("projectId"),
+        entry_id: c.req.param("entryId"),
+        ...payload
+      },
+      { idempotencyKey: c.req.header("Idempotency-Key") }
+    );
+    return success(c, data, 201);
+  });
+
+  app.post("/v1/projects/:projectId/review", async (c) => {
+    const payload = await readJsonBody(c);
+    const data = await service.reviewProject({
+      project_id: c.req.param("projectId"),
+      ...payload
+    });
+    return success(c, data);
+  });
+
+  app.post("/v1/admin/memory-review", async (c) => {
+    const payload = await readJsonBody(c);
+    const data = await service.reviewAdminMemory(payload);
+    return success(c, data);
+  });
+
   app.post("/v1/rule-checks", async (c) => {
     const payload = await readJsonBody(c);
     const data = await service.submitRuleCheck(payload, {

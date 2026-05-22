@@ -612,12 +612,127 @@ server.registerTool(
           })
         )
         .optional(),
+      related_entry_ids: z.array(z.string()).optional(),
       lifecycle_state: z.enum(["open", "resolved", "superseded"]).optional(),
       importance: z.enum(["low", "normal", "high"]).optional(),
       idempotencyKey: z.string().optional()
     }
   },
   runtime.entryAppend
+);
+
+server.registerTool(
+  "entry_mark",
+  {
+    title: "Mark a HiveMind entry lifecycle state",
+    description: "Mark one entry as open, resolved, or superseded without rewriting the original entry.",
+    inputSchema: {
+      project_id: z.string(),
+      entry_id: z.string(),
+      lifecycle_state: z.enum(["open", "resolved", "superseded"]),
+      reason: z.string(),
+      replacement_entry_id: z.string().optional()
+    }
+  },
+  runtime.entryMark
+);
+
+server.registerTool(
+  "entry_correct",
+  {
+    title: "Correct a HiveMind entry",
+    description: "Append a correction entry and mark the original entry as superseded.",
+    inputSchema: {
+      project_id: z.string(),
+      entry_id: z.string(),
+      session_id: z.string(),
+      branch: z.string(),
+      author_id: z.string(),
+      author_type: z.enum(["human", "agent", "system"]),
+      source: z.enum(["mcp", "cli", "web", "import"]),
+      entry_type: z.enum(["decision", "plan_ref", "progress", "feedback", "artifact_ref", "tooling_note", "risk"]).optional(),
+      summary: z.string(),
+      details: z.string().optional(),
+      feature: z.string().optional(),
+      category: z.string().optional(),
+      tags: z.array(z.string()).optional(),
+      links: z
+        .array(
+          z.object({
+            kind: z.enum(["file", "repo_file", "commit", "pr", "command", "url"]),
+            target: z.string(),
+            label: z.string().optional()
+          })
+        )
+        .optional(),
+      artifacts: z
+        .array(
+          z.object({
+            kind: z.enum(["file", "repo_file", "commit", "pr", "command", "url"]),
+            target: z.string(),
+            label: z.string().optional()
+          })
+        )
+        .optional(),
+      importance: z.enum(["low", "normal", "high"]).optional(),
+      reason: z.string().optional(),
+      idempotencyKey: z.string().optional()
+    }
+  },
+  runtime.entryCorrect
+);
+
+server.registerTool(
+  "project_review",
+  {
+    title: "Review one project's HiveMind memory",
+    description: "Summarize project memory signals and recommend cleanup or triage actions.",
+    inputSchema: {
+      project_id: z.string(),
+      branch: z.string().optional(),
+      limit: z.number().int().positive().max(50).optional()
+    }
+  },
+  runtime.projectReview
+);
+
+server.registerTool(
+  "hivemind_feedback",
+  {
+    title: "Record feedback about HiveMind itself",
+    description: "Store product feedback about HiveMind in the HiveMind project memory.",
+    inputSchema: {
+      session_id: z.string(),
+      branch: z.string(),
+      author_id: z.string(),
+      author_type: z.enum(["human", "agent", "system"]),
+      source: z.enum(["mcp", "cli", "web", "import"]),
+      summary: z.string(),
+      details: z.string().optional(),
+      source_project_id: z.string().optional(),
+      source_session_id: z.string().optional(),
+      source_entry_id: z.string().optional(),
+      source_workspace_path: z.string().optional(),
+      tags: z.array(z.string()).optional(),
+      idempotencyKey: z.string().optional()
+    }
+  },
+  runtime.hivemindFeedback
+);
+
+server.registerTool(
+  "admin_memory_review",
+  {
+    title: "Review HiveMind memory across projects",
+    description: "Summarize memory health and recommended actions across selected registered projects.",
+    inputSchema: {
+      project_ids: z.array(z.string()).optional(),
+      branch: z.string().optional(),
+      query: z.string().optional(),
+      limit: z.number().int().positive().max(20).optional()
+    }
+  },
+  runtime.adminMemoryReview
 );
 
 server.registerTool(

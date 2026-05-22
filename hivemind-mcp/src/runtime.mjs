@@ -329,6 +329,77 @@ export function createHiveMindRuntime({ apiClient }) {
       }
     },
 
+    async entryMark(input) {
+      try {
+        const payload = await apiClient.markEntry(input);
+        return jsonResult(payload);
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+
+    async entryCorrect(input) {
+      try {
+        const payload = await apiClient.correctEntry(input, {
+          idempotencyKey: input.idempotencyKey ?? `entry-correct-${randomUUID()}`
+        });
+        return jsonResult(payload);
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+
+    async projectReview(input) {
+      try {
+        const payload = await apiClient.reviewProject(input);
+        return jsonResult(payload);
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+
+    async hivemindFeedback(input) {
+      try {
+        const contextLines = [
+          input.details,
+          input.source_project_id ? `Source project: ${input.source_project_id}` : null,
+          input.source_session_id ? `Source session: ${input.source_session_id}` : null,
+          input.source_entry_id ? `Source entry: ${input.source_entry_id}` : null,
+          input.source_workspace_path ? `Source workspace: ${input.source_workspace_path}` : null
+        ].filter(Boolean);
+        const payload = await apiClient.appendEntry(
+          {
+            project_id: "hivemind",
+            session_id: input.session_id,
+            branch: input.branch,
+            author_id: input.author_id,
+            author_type: input.author_type,
+            source: input.source,
+            entry_type: "feedback",
+            summary: input.summary,
+            details: contextLines.length ? contextLines.join("\n") : undefined,
+            category: "product-feedback",
+            tags: [...new Set(["hivemind-feedback", ...(input.tags ?? [])])],
+            lifecycle_state: "open",
+            importance: "high"
+          },
+          { idempotencyKey: input.idempotencyKey ?? `hivemind-feedback-${randomUUID()}` }
+        );
+        return jsonResult(payload);
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+
+    async adminMemoryReview(input) {
+      try {
+        const payload = await apiClient.reviewAdminMemory(input);
+        return jsonResult(payload);
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+
     async ruleCheckSubmit(input) {
       try {
         const payload = await apiClient.submitRuleCheck(input, {

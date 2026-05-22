@@ -31,6 +31,11 @@ describe("HiveMind MCP runtime", () => {
     expect(toolNames).toContain("project_resolve");
     expect(toolNames).toContain("session_start");
     expect(toolNames).toContain("entry_append");
+    expect(toolNames).toContain("entry_mark");
+    expect(toolNames).toContain("entry_correct");
+    expect(toolNames).toContain("project_review");
+    expect(toolNames).toContain("hivemind_feedback");
+    expect(toolNames).toContain("admin_memory_review");
     expect(toolNames).toContain("ruleset_catalog_list");
     expect(toolNames).toContain("ruleset_catalog_get");
     expect(toolNames).toContain("guidance_check");
@@ -853,6 +858,60 @@ describe("HiveMind MCP runtime", () => {
     expect(result.isError).toBeUndefined();
     expect(result.structuredContent.entries).toHaveLength(1);
     expect(result.structuredContent.entries[0].summary).toBe("Useful search result");
+  });
+
+  it("entry.correct and project_review expose lifecycle cleanup through MCP", async () => {
+    const runtime = createRuntime();
+    await runtime.projectRegister({
+      project_id: "buzz",
+      name: "Buzz",
+      repository_url: "https://github.com/example/buzz.git",
+      repository_slug: "example/buzz",
+      root_path: "/repo/buzz",
+      default_branch: "main",
+      description: "Buzz project"
+    });
+    const session = await runtime.sessionStart({
+      project_id: "buzz",
+      branch: "feat/review",
+      workspace_path: "/repo/buzz",
+      author_id: "codex-main",
+      author_type: "agent",
+      source: "mcp",
+      agent_id: "codex-main",
+      goal: "Review entries"
+    });
+    const original = await runtime.entryAppend({
+      project_id: "buzz",
+      session_id: session.structuredContent.session.session_id,
+      branch: "feat/review",
+      author_id: "codex-main",
+      author_type: "agent",
+      source: "mcp",
+      entry_type: "feedback",
+      summary: "Outdated feedback",
+      lifecycle_state: "open"
+    });
+
+    const correction = await runtime.entryCorrect({
+      project_id: "buzz",
+      entry_id: original.structuredContent.entry.entry_id,
+      session_id: session.structuredContent.session.session_id,
+      branch: "feat/review",
+      author_id: "codex-main",
+      author_type: "agent",
+      source: "mcp",
+      summary: "Updated feedback"
+    });
+    const review = await runtime.projectReview({
+      project_id: "buzz",
+      branch: "feat/review"
+    });
+
+    expect(correction.isError).toBeUndefined();
+    expect(correction.structuredContent.original_entry.lifecycle_state).toBe("superseded");
+    expect(review.isError).toBeUndefined();
+    expect(review.structuredContent.signals.open_feedback.map((entry) => entry.summary)).toContain("Updated feedback");
   });
 
   it("rule_check.submit returns reminders and list_for_session returns stored checks", async () => {

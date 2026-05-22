@@ -139,6 +139,14 @@ export class StorageAdapter {
     throw new Error("Not implemented");
   }
 
+  async getEntry(_projectId, _entryId) {
+    throw new Error("Not implemented");
+  }
+
+  async markEntryLifecycle(_input) {
+    throw new Error("Not implemented");
+  }
+
   async appendRuleCheck(_ruleCheckInput, _options) {
     throw new Error("Not implemented");
   }

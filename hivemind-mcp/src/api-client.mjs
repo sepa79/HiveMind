@@ -294,6 +294,42 @@ export class HiveMindApiClient {
     });
   }
 
+  async markEntry(input) {
+    const { project_id, entry_id, ...body } = input;
+    return this.#request({
+      method: "POST",
+      path: `/v1/projects/${encodeURIComponent(project_id)}/entries/${encodeURIComponent(entry_id)}/mark`,
+      body
+    });
+  }
+
+  async correctEntry(input, { idempotencyKey }) {
+    const { project_id, entry_id, idempotencyKey: _ignored, ...body } = input;
+    return this.#request({
+      method: "POST",
+      path: `/v1/projects/${encodeURIComponent(project_id)}/entries/${encodeURIComponent(entry_id)}/corrections`,
+      body,
+      idempotencyKey
+    });
+  }
+
+  async reviewProject(input) {
+    const { project_id, ...body } = input;
+    return this.#request({
+      method: "POST",
+      path: `/v1/projects/${encodeURIComponent(project_id)}/review`,
+      body
+    });
+  }
+
+  async reviewAdminMemory(input) {
+    return this.#request({
+      method: "POST",
+      path: "/v1/admin/memory-review",
+      body: input
+    });
+  }
+
   async submitRuleCheck(input, { idempotencyKey }) {
     return this.#request({
       method: "POST",

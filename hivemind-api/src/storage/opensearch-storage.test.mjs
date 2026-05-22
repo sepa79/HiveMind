@@ -113,6 +113,59 @@ describe("OpenSearchStorage", () => {
     expect(updated.standard_profile_ref).toBe("aws-microservice@v2");
     expect((await storage.getProject("alpha")).standard_profile_ref).toBe("aws-microservice@v2");
   });
+
+  it("reads and marks entry lifecycle state", async () => {
+    const client = new FakeOpenSearchClient();
+    const storage = new OpenSearchStorage({ client, indexPrefix: "test" });
+    await storage.createProject({
+      project_id: "alpha",
+      name: "Alpha",
+      repository_url: "https://github.com/example/alpha.git",
+      repository_slug: "example/alpha",
+      root_path: "/repo/alpha",
+      default_branch: "main",
+      description: "Alpha project"
+    });
+    const { session } = await storage.createSession(
+      {
+        project_id: "alpha",
+        branch: "feat/a",
+        workspace_path: "/repo/alpha",
+        author_id: "agent-alpha",
+        author_type: "agent",
+        source: "mcp",
+        agent_id: "codex",
+        goal: "Mark entry"
+      },
+      { idempotencyKey: "mark-session" }
+    );
+    const { entry } = await storage.appendEntry(
+      {
+        project_id: "alpha",
+        session_id: session.session_id,
+        branch: "feat/a",
+        author_id: "agent-alpha",
+        author_type: "agent",
+        source: "mcp",
+        entry_type: "feedback",
+        summary: "Needs triage",
+        lifecycle_state: "open"
+      },
+      { idempotencyKey: "mark-entry" }
+    );
+
+    const result = await storage.markEntryLifecycle({
+      project_id: "alpha",
+      entry_id: entry.entry_id,
+      lifecycle_state: "resolved",
+      reason: "Triage completed."
+    });
+    const stored = await storage.getEntry("alpha", entry.entry_id);
+
+    expect(result.action.previous_lifecycle_state).toBe("open");
+    expect(result.entry.summary).toBe("Needs triage");
+    expect(stored.lifecycle_state).toBe("resolved");
+  });
 });
 
 class FakeOpenSearchClient {

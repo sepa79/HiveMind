@@ -10,7 +10,13 @@ import {
   ContextProjectBriefResultSchema,
   ContextRecordSchema,
   ContextUpdateInputSchema,
+  AdminMemoryReviewInputSchema,
+  AdminMemoryReviewResultSchema,
+  EntryCorrectInputSchema,
+  EntryCorrectResultSchema,
   EntryCreateInputSchema,
+  EntryMarkInputSchema,
+  EntryMarkResultSchema,
   EntrySearchInputSchema,
   FeatureAddInputSchema,
   FeatureListResultSchema,
@@ -37,6 +43,8 @@ import {
   ProjectRegisterInputSchema,
   ProjectResolveInputSchema,
   ProjectResolveResultSchema,
+  ProjectReviewInputSchema,
+  ProjectReviewResultSchema,
   ProjectStandardProfileDefineInputSchema,
   ProjectStandardProfileDefineResultSchema,
   RuleCheckCreateInputSchema,
@@ -474,6 +482,63 @@ export class HiveMindService {
     };
   }
 
+  async markEntry(input) {
+    const payload = parseWithSchema(EntryMarkInputSchema, input);
+    return parseWithSchema(EntryMarkResultSchema, await this.storage.markEntryLifecycle(payload));
+  }
+
+  async correctEntry(input, { idempotencyKey }) {
+    if (!idempotencyKey) {
+      throw new ApiError(400, "IDEMPOTENCY_KEY_REQUIRED", "Missing required Idempotency-Key header.");
+    }
+    const payload = parseWithSchema(EntryCorrectInputSchema, input);
+    const original = await this.storage.getEntry(payload.project_id, payload.entry_id);
+    if (!original) {
+      throw new ApiError(404, "ENTRY_NOT_FOUND", `No entry exists with id '${payload.entry_id}' in project '${payload.project_id}'.`, {
+        project_id: payload.project_id,
+        entry_id: payload.entry_id
+      });
+    }
+
+    const { entry_id: entryId, reason, ...entryInput } = payload;
+    const { entry: correctionEntry } = await this.storage.appendEntry(
+      {
+        ...entryInput,
+        entry_type: entryInput.entry_type ?? "feedback",
+        category: entryInput.category ?? "correction",
+        tags: [...new Set([...(entryInput.tags ?? []), "correction"])],
+        related_entry_ids: [entryId],
+        lifecycle_state: "open"
+      },
+      { idempotencyKey }
+    );
+    const markReason = reason ?? `Superseded by correction entry '${correctionEntry.entry_id}'.`;
+    const currentOriginal = await this.storage.getEntry(payload.project_id, entryId);
+    const alreadyMarked =
+      currentOriginal?.lifecycle_state === "superseded" &&
+      (currentOriginal.related_entry_ids ?? []).includes(correctionEntry.entry_id);
+    const marked = alreadyMarked
+      ? { entry: currentOriginal }
+      : await this.storage.markEntryLifecycle({
+          project_id: payload.project_id,
+          entry_id: entryId,
+          lifecycle_state: "superseded",
+          reason: markReason,
+          replacement_entry_id: correctionEntry.entry_id
+        });
+
+    return parseWithSchema(EntryCorrectResultSchema, {
+      original_entry: marked.entry,
+      correction_entry: correctionEntry,
+      action: {
+        entry_id: entryId,
+        correction_entry_id: correctionEntry.entry_id,
+        lifecycle_state: "superseded",
+        reason: markReason
+      }
+    });
+  }
+
   async submitRuleCheck(input, { idempotencyKey }) {
     if (!idempotencyKey) {
       throw new ApiError(400, "IDEMPOTENCY_KEY_REQUIRED", "Missing required Idempotency-Key header.");
@@ -494,6 +559,119 @@ export class HiveMindService {
   async searchEntries(input) {
     const payload = parseWithSchema(EntrySearchInputSchema, input);
     return parseWithSchema(SearchResultSchema, await this.storage.searchEntries(payload));
+  }
+
+  async reviewProject(input) {
+    const payload = parseWithSchema(ProjectReviewInputSchema, input);
+    const project = await this.storage.getProject(payload.project_id);
+    if (!project) {
+      throw new ApiError(404, "PROJECT_NOT_FOUND", `No project exists with id '${payload.project_id}'.`, {
+        project_id: payload.project_id
+      });
+    }
+    return parseWithSchema(ProjectReviewResultSchema, await this.#buildProjectReview(project, payload));
+  }
+
+  async reviewAdminMemory(input) {
+    const payload = parseWithSchema(AdminMemoryReviewInputSchema, input);
+    const { projects } = await this.storage.listProjects();
+    const selectedProjectIds = new Set(payload.project_ids ?? projects.map((project) => project.project_id));
+    const missingProjectIds = [...selectedProjectIds].filter(
+      (projectId) => !projects.some((project) => project.project_id === projectId)
+    );
+    if (missingProjectIds.length > 0) {
+      throw new ApiError(404, "PROJECT_NOT_FOUND", `Unknown project id '${missingProjectIds[0]}'.`, {
+        project_ids: missingProjectIds
+      });
+    }
+    const selectedProjects = projects.filter((project) => selectedProjectIds.has(project.project_id));
+    const projectReviews = [];
+    for (const project of selectedProjects) {
+      projectReviews.push(
+        await this.#buildProjectReview(project, {
+          branch: payload.branch,
+          query: payload.query,
+          limit: payload.limit ?? 10
+        })
+      );
+    }
+    const recommendedActions = projectReviews.flatMap((review) => review.recommended_actions);
+    const staleCount = projectReviews.reduce((sum, review) => sum + review.signals.stale_open_entries.length, 0);
+    const summary =
+      projectReviews.length === 0
+        ? "No registered projects matched the memory review request."
+        : `Reviewed ${projectReviews.length} project${projectReviews.length === 1 ? "" : "s"}; found ${recommendedActions.length} recommended action${recommendedActions.length === 1 ? "" : "s"} and ${staleCount} stale open entr${staleCount === 1 ? "y" : "ies"}.`;
+
+    return parseWithSchema(AdminMemoryReviewResultSchema, {
+      generated_at: new Date().toISOString(),
+      project_reviews: projectReviews,
+      recommended_actions: recommendedActions,
+      summary
+    });
+  }
+
+  async #buildProjectReview(project, { branch, query, limit = 10 } = {}) {
+    const projectId = project.project_id;
+    const base = {
+      project_id: projectId,
+      ...(branch ? { branch } : {}),
+      ...(query ? { query } : {})
+    };
+    const [recent, openEntries, openFeedback, openRisks, toolingNotes] = await Promise.all([
+      this.storage.searchEntries({ ...base, entry_type: ["decision"], limit, sort: "recent" }),
+      this.storage.searchEntries({ ...base, lifecycle_state: "open", limit: 200, sort: "recent" }),
+      this.storage.searchEntries({ ...base, entry_type: ["feedback"], lifecycle_state: "open", limit, sort: "recent" }),
+      this.storage.searchEntries({ ...base, entry_type: ["risk"], lifecycle_state: "open", limit, sort: "recent" }),
+      this.storage.searchEntries({ ...base, entry_type: ["tooling_note"], limit, sort: "recent" })
+    ]);
+    const staleCutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const staleOpenEntries = openEntries.entries
+      .filter((entry) => new Date(entry.updated_at).getTime() < staleCutoff)
+      .slice(0, limit);
+    const recommendedActions = [
+      ...openFeedback.entries.map((entry) => ({
+        action_type: "review",
+        target_kind: "entry",
+        target_id: entry.entry_id,
+        summary: `Review open feedback: ${entry.summary}`,
+        reason: "Open feedback is waiting for triage.",
+        priority: entry.importance === "high" ? "high" : "normal"
+      })),
+      ...openRisks.entries.map((entry) => ({
+        action_type: "review",
+        target_kind: "entry",
+        target_id: entry.entry_id,
+        summary: `Review open risk: ${entry.summary}`,
+        reason: "Open risk may need mitigation or resolution.",
+        priority: entry.importance === "high" ? "high" : "normal"
+      })),
+      ...staleOpenEntries.map((entry) => ({
+        action_type: "mark_resolved",
+        target_kind: "entry",
+        target_id: entry.entry_id,
+        summary: `Resolve or supersede stale open entry: ${entry.summary}`,
+        reason: "Open entry has not been updated for at least 7 days.",
+        priority: "normal"
+      }))
+    ].slice(0, limit);
+
+    return {
+      project,
+      branch: branch ?? null,
+      generated_at: new Date().toISOString(),
+      signals: {
+        recent_decisions: recent.entries,
+        open_feedback: openFeedback.entries,
+        open_risks: openRisks.entries,
+        stale_open_entries: staleOpenEntries,
+        tooling_notes: toolingNotes.entries
+      },
+      recommended_actions: recommendedActions,
+      summary:
+        recommendedActions.length === 0
+          ? `No immediate memory cleanup actions found for project '${projectId}'.`
+          : `Found ${recommendedActions.length} recommended memory action${recommendedActions.length === 1 ? "" : "s"} for project '${projectId}'.`
+    };
   }
 
   async #buildRuleCheckReminder(projectId, sessionId) {

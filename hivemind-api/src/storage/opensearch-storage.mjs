@@ -1103,7 +1103,7 @@ export class OpenSearchStorage extends StorageAdapter {
       links: entryInput.links ?? [],
       artifacts: entryInput.artifacts ?? [],
       related_rule_ids: [],
-      related_entry_ids: [],
+      related_entry_ids: entryInput.related_entry_ids ?? [],
       lifecycle_state: entryInput.lifecycle_state ?? null,
       importance: entryInput.importance ?? "normal",
       visibility: "project",
@@ -1130,6 +1130,55 @@ export class OpenSearchStorage extends StorageAdapter {
     }
     await this.#put("entries", entry.entry_id, entry);
     return { entry, idempotent: false };
+  }
+
+  async getEntry(projectId, entryId) {
+    const project = await this.getProject(projectId);
+    ensure(project, 404, "PROJECT_NOT_FOUND", `No project exists with id '${projectId}'.`, { project_id: projectId });
+    const entry = await this.#get("entries", entryId);
+    return entry?.project_id === projectId ? entry : null;
+  }
+
+  async markEntryLifecycle(input) {
+    const project = await this.getProject(input.project_id);
+    ensure(project, 404, "PROJECT_NOT_FOUND", `No project exists with id '${input.project_id}'.`, { project_id: input.project_id });
+    const existing = await this.getEntry(input.project_id, input.entry_id);
+    ensure(existing, 404, "ENTRY_NOT_FOUND", `No entry exists with id '${input.entry_id}' in project '${input.project_id}'.`, {
+      project_id: input.project_id,
+      entry_id: input.entry_id
+    });
+    if (input.replacement_entry_id) {
+      const replacement = await this.getEntry(input.project_id, input.replacement_entry_id);
+      ensure(
+        replacement,
+        404,
+        "REPLACEMENT_ENTRY_NOT_FOUND",
+        `No replacement entry exists with id '${input.replacement_entry_id}' in project '${input.project_id}'.`,
+        {
+          project_id: input.project_id,
+          replacement_entry_id: input.replacement_entry_id
+        }
+      );
+    }
+    const updated = {
+      ...existing,
+      related_entry_ids: input.replacement_entry_id
+        ? [...new Set([...(existing.related_entry_ids ?? []), input.replacement_entry_id])]
+        : (existing.related_entry_ids ?? []),
+      lifecycle_state: input.lifecycle_state,
+      updated_at: isoNow()
+    };
+    await this.#put("entries", updated.entry_id, updated);
+    return {
+      entry: updated,
+      action: {
+        entry_id: input.entry_id,
+        previous_lifecycle_state: existing.lifecycle_state ?? null,
+        lifecycle_state: input.lifecycle_state,
+        reason: input.reason,
+        replacement_entry_id: input.replacement_entry_id ?? null
+      }
+    };
   }
 
   async appendRuleCheck(ruleCheckInput, { idempotencyKey }) {

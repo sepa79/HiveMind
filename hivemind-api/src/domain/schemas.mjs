@@ -522,6 +522,7 @@ export const EntryCreateInputSchema = z.object({
   tags: z.array(NonEmptyString).optional(),
   links: z.array(LinkSchema).optional(),
   artifacts: z.array(LinkSchema).optional(),
+  related_entry_ids: z.array(NonEmptyString).optional(),
   lifecycle_state: z.enum(LIFECYCLE_STATE_VALUES).optional(),
   importance: z.enum(IMPORTANCE_VALUES).optional()
 });
@@ -573,6 +574,93 @@ export const SearchResultSchema = z.object({
     categories: z.array(z.object({ value: NonEmptyString, count: z.number().int().nonnegative() })),
     tags: z.array(z.object({ value: NonEmptyString, count: z.number().int().nonnegative() }))
   }),
+  summary: NonEmptyString
+});
+
+export const EntryMarkInputSchema = z.object({
+  project_id: NonEmptyString,
+  entry_id: NonEmptyString,
+  lifecycle_state: z.enum(LIFECYCLE_STATE_VALUES),
+  reason: NonEmptyString,
+  replacement_entry_id: z.string().trim().min(1).optional()
+});
+
+export const EntryMarkResultSchema = z.object({
+  entry: EntryRecordSchema,
+  action: z.object({
+    entry_id: NonEmptyString,
+    previous_lifecycle_state: z.enum(LIFECYCLE_STATE_VALUES).nullable(),
+    lifecycle_state: z.enum(LIFECYCLE_STATE_VALUES),
+    reason: NonEmptyString,
+    replacement_entry_id: z.string().nullable()
+  })
+});
+
+export const EntryCorrectInputSchema = EntryCreateInputSchema.omit({
+  project_id: true,
+  lifecycle_state: true,
+  related_entry_ids: true
+}).extend({
+  project_id: NonEmptyString,
+  entry_id: NonEmptyString,
+  entry_type: z.enum(ENTRY_TYPE_VALUES).optional(),
+  reason: z.string().trim().min(1).optional()
+});
+
+export const EntryCorrectResultSchema = z.object({
+  original_entry: EntryRecordSchema,
+  correction_entry: EntryRecordSchema,
+  action: z.object({
+    entry_id: NonEmptyString,
+    correction_entry_id: NonEmptyString,
+    lifecycle_state: z.literal("superseded"),
+    reason: z.string().nullable()
+  })
+});
+
+const ReviewActionSchema = z.object({
+  action_type: z.enum(["mark_superseded", "mark_resolved", "create_issue", "update_docs", "verify_state", "review"]),
+  target_kind: z.enum(["entry", "project", "docs", "deployment"]),
+  target_id: z.string().nullable(),
+  summary: NonEmptyString,
+  reason: NonEmptyString,
+  priority: z.enum(["low", "normal", "high"])
+});
+
+const ProjectReviewSignalsSchema = z.object({
+  recent_decisions: z.array(EntryRecordSchema),
+  open_feedback: z.array(EntryRecordSchema),
+  open_risks: z.array(EntryRecordSchema),
+  stale_open_entries: z.array(EntryRecordSchema),
+  tooling_notes: z.array(EntryRecordSchema)
+});
+
+export const ProjectReviewInputSchema = z.object({
+  project_id: NonEmptyString,
+  branch: z.string().trim().min(1).optional(),
+  limit: z.number().int().positive().max(50).optional()
+});
+
+export const ProjectReviewResultSchema = z.object({
+  project: ProjectRecordSchema,
+  branch: z.string().nullable(),
+  generated_at: NonEmptyString,
+  signals: ProjectReviewSignalsSchema,
+  recommended_actions: z.array(ReviewActionSchema),
+  summary: NonEmptyString
+});
+
+export const AdminMemoryReviewInputSchema = z.object({
+  project_ids: z.array(NonEmptyString).optional(),
+  branch: z.string().trim().min(1).optional(),
+  query: z.string().trim().min(1).optional(),
+  limit: z.number().int().positive().max(20).optional()
+});
+
+export const AdminMemoryReviewResultSchema = z.object({
+  generated_at: NonEmptyString,
+  project_reviews: z.array(ProjectReviewResultSchema),
+  recommended_actions: z.array(ReviewActionSchema),
   summary: NonEmptyString
 });
 
