@@ -15,6 +15,15 @@ export class HiveMindApiClient {
     this.fetchImpl = fetchImpl;
   }
 
+  async healthCheck({ timeoutMs = 1500 } = {}) {
+    return this.#request({
+      method: "GET",
+      path: "/health",
+      maxAttempts: 1,
+      timeoutMs
+    });
+  }
+
   async registerProject(input) {
     return this.#request({
       method: "POST",
@@ -314,7 +323,7 @@ export class HiveMindApiClient {
     });
   }
 
-  async #request({ method, path, body, query, idempotencyKey }) {
+  async #request({ method, path, body, query, idempotencyKey, maxAttempts = 2, timeoutMs = null }) {
     const url = new URL(`${this.baseUrl}${path}`);
     for (const [key, value] of Object.entries(query ?? {})) {
       if (value !== undefined && value !== null) {
@@ -324,8 +333,12 @@ export class HiveMindApiClient {
 
     let response;
     let attempts = 0;
-    for (let attempt = 1; attempt <= 2; attempt += 1) {
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       attempts = attempt;
+      const abortController = timeoutMs ? new AbortController() : null;
+      const timeout = abortController
+        ? setTimeout(() => abortController.abort(new Error(`Request timed out after ${timeoutMs}ms.`)), timeoutMs)
+        : null;
       try {
         response = await this.fetchImpl(url, {
           method,
@@ -333,10 +346,11 @@ export class HiveMindApiClient {
             ...(body ? { "content-type": "application/json" } : {}),
             ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {})
           },
+          ...(abortController ? { signal: abortController.signal } : {}),
           ...(body ? { body: JSON.stringify(body) } : {})
         });
       } catch (error) {
-        if (attempt === 1) {
+        if (attempt < maxAttempts) {
           await delay(300);
           continue;
         }
@@ -353,9 +367,13 @@ export class HiveMindApiClient {
           meta: {},
           cause: error
         });
+      } finally {
+        if (timeout) {
+          clearTimeout(timeout);
+        }
       }
 
-      if (attempt === 1 && [502, 503, 504].includes(response.status)) {
+      if (attempt < maxAttempts && [502, 503, 504].includes(response.status)) {
         await delay(300);
         continue;
       }

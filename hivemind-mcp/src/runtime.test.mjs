@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { HiveMindService } from "../../hivemind-api/src/app/service.mjs";
 import { createApp } from "../../hivemind-api/src/http/app.mjs";
 import { FsJsonlStorage } from "../../hivemind-api/src/storage/fs-jsonl-storage.mjs";
-import { HiveMindApiClient } from "./api-client.mjs";
+import { HiveMindApiClient, HiveMindApiClientError } from "./api-client.mjs";
 import { createHiveMindRuntime } from "./runtime.mjs";
 
 const serverSource = () => readFileSync(new URL("./server.mjs", import.meta.url), "utf8");
@@ -25,6 +25,7 @@ describe("HiveMind MCP runtime", () => {
 
     expect(toolNames.length).toBeGreaterThan(0);
     expect(toolNames.every((name) => /^[a-z0-9_-]+$/.test(name))).toBe(true);
+    expect(toolNames).toContain("health_check");
     expect(toolNames).toContain("project_register");
     expect(toolNames).toContain("project_list");
     expect(toolNames).toContain("project_resolve");
@@ -42,6 +43,69 @@ describe("HiveMind MCP runtime", () => {
     expect(source).toContain('new URL("../package.json", import.meta.url)');
     expect(source).toContain("version: packageJson.version");
     expect(source).not.toContain('version: "0.1.0"');
+  });
+
+  it("health.check reports configured API health through MCP", async () => {
+    const runtime = createRuntime();
+
+    const result = await runtime.healthCheck({ timeout_ms: 1000 });
+
+    expect(result.isError).toBeUndefined();
+    expect(result.structuredContent).toMatchObject({
+      status: "ok",
+      reachable: true,
+      api_base_url: "http://hivemind.test",
+      api: {
+        status: "ok",
+        service: "hivemind-api"
+      }
+    });
+    expect(result.structuredContent.latency_ms).toBeGreaterThanOrEqual(0);
+  });
+
+  it("health.check returns an unreachable diagnostic instead of hiding transport failures", async () => {
+    const runtime = createHiveMindRuntime({
+      apiClient: {
+        baseUrl: "http://hivemind-api:4010",
+        async healthCheck() {
+          throw new HiveMindApiClientError({
+            status: 0,
+            code: "API_TRANSPORT_FAILED",
+            message: "fetch failed",
+            details: {
+              method: "GET",
+              url: "http://hivemind-api:4010/health",
+              attempts: 1,
+              cause: {
+                code: "ENOTFOUND"
+              }
+            },
+            meta: {}
+          });
+        }
+      }
+    });
+
+    const result = await runtime.healthCheck();
+
+    expect(result.isError).toBeUndefined();
+    expect(result.structuredContent).toMatchObject({
+      status: "unreachable",
+      reachable: false,
+      api_base_url: "http://hivemind-api:4010",
+      error: {
+        code: "API_TRANSPORT_FAILED",
+        message: "fetch failed",
+        details: {
+          method: "GET",
+          url: "http://hivemind-api:4010/health",
+          attempts: 1,
+          cause: {
+            code: "ENOTFOUND"
+          }
+        }
+      }
+    });
   });
 
   it("project.register calls the API and returns structured content", async () => {

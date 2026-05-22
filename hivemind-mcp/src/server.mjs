@@ -23,6 +23,18 @@ const runtime = createHiveMindRuntime({
 });
 
 server.registerTool(
+  "health_check",
+  {
+    title: "Check HiveMind backend health",
+    description: "Run a fast MCP-facing diagnostic check against the configured HiveMind API backend.",
+    inputSchema: {
+      timeout_ms: z.number().int().positive().max(30000).optional()
+    }
+  },
+  runtime.healthCheck
+);
+
+server.registerTool(
   "project_register",
   {
     title: "Register or update a HiveMind project",

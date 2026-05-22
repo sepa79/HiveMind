@@ -3,6 +3,37 @@ import { HiveMindApiClientError } from "./api-client.mjs";
 
 export function createHiveMindRuntime({ apiClient }) {
   return {
+    async healthCheck(input = {}) {
+      const startedAt = Date.now();
+      try {
+        const payload = await apiClient.healthCheck({ timeoutMs: input.timeout_ms });
+        return jsonResult({
+          status: "ok",
+          reachable: true,
+          api_base_url: apiClient.baseUrl,
+          latency_ms: Date.now() - startedAt,
+          api: payload
+        });
+      } catch (error) {
+        if (error instanceof HiveMindApiClientError) {
+          return jsonResult({
+            status: error.status === 0 ? "unreachable" : "unhealthy",
+            reachable: error.status !== 0,
+            api_base_url: apiClient.baseUrl,
+            latency_ms: Date.now() - startedAt,
+            error: {
+              code: error.code,
+              message: error.message,
+              details: error.details
+            },
+            meta: error.meta
+          });
+        }
+
+        return errorResult(error);
+      }
+    },
+
     async projectRegister(input) {
       try {
         const payload = await apiClient.registerProject(input);

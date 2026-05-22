@@ -1,6 +1,7 @@
 services:
   opensearch:
     image: opensearchproject/opensearch:2.17.1
+    restart: on-failure
     environment:
       discovery.type: single-node
       OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
@@ -13,6 +14,10 @@ services:
       timeout: 5s
       retries: 30
       start_period: 30s
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
 
   opensearch-init:
     image: ${HIVEMIND_API_IMAGE:?HIVEMIND_API_IMAGE is required}

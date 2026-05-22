@@ -2,6 +2,11 @@
 
 All notable HiveMind changes are recorded here.
 
+## Unreleased
+
+- Add MCP `health_check` diagnostics for fast backend reachability checks from MCP clients, including API URL, latency, and transport/API error details.
+- Add an OpenSearch restart policy to the local Compose stack and HiveForge-rendered Compose template so the shared backend recovers after host restarts.
+
 ## 0.3.3 - 2026-05-19
 
 - Fix the HiveForge service component manifest to match the current component deployment contract.

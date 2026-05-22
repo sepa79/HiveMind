@@ -43,6 +43,10 @@ Default endpoints:
 - UI: `http://127.0.0.1:4010/`
 - health diagnostics: `http://127.0.0.1:4010/health`
 
+MCP clients should call `health_check` as the first diagnostic step. It checks
+the configured API `/health` endpoint quickly and reports whether the backend is
+`ok`, `unhealthy`, or `unreachable`, including transport details for support.
+
 The API writes one structured JSON access log line per request when started
 through `hivemind-api/src/server.mjs`. Each line includes request id, method,
 path, status, duration, client IP from forwarding headers when present, user

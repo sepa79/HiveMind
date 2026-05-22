@@ -44,6 +44,13 @@ http://127.0.0.1:4011/mcp
 ## Tool Names
 
 MCP tools use underscore-separated names such as `project_list`,
-`project_resolve`, `project_register`, `session_start`, `entry_append`, and
-`session_end`. This keeps the server
+`project_resolve`, `project_register`, `health_check`, `session_start`,
+`entry_append`, and `session_end`. This keeps the server
 compatible with clients that only accept tool names matching `[a-z0-9_-]`.
+
+## Diagnostics
+
+Use `health_check` first when a client cannot tell whether HiveMind is down or
+misconfigured. The tool calls the configured `HIVEMIND_API_BASE_URL` `/health`
+endpoint with a short timeout and returns `status: "ok"`, `"unhealthy"`, or
+`"unreachable"` with the API URL, latency, and transport/API error details.

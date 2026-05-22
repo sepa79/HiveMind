@@ -1,6 +1,7 @@
 services:
   opensearch:
     image: opensearchproject/opensearch:2.17.1
+    restart: on-failure
     environment:
       discovery.type: single-node
       OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
@@ -18,6 +19,14 @@ services:
       placement:
         constraints:
           - node.hostname == {{ hivemind_swarm_node }}
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+{% else %}
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
 {% endif %}
 
   opensearch-init:

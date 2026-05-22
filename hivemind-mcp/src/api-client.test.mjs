@@ -2,6 +2,53 @@ import { describe, expect, it } from "vitest";
 import { HiveMindApiClient, HiveMindApiClientError } from "./api-client.mjs";
 
 describe("HiveMindApiClient", () => {
+  it("checks API health with one fast request", async () => {
+    let calls = 0;
+    const client = new HiveMindApiClient({
+      baseUrl: "http://127.0.0.1:4010",
+      fetchImpl: async (input, init) => {
+        calls += 1;
+        expect(input.toString()).toBe("http://127.0.0.1:4010/health");
+        expect(init.method).toBe("GET");
+        expect(init.signal).toBeTruthy();
+        return jsonResponse(200, {
+          ok: true,
+          data: {
+            status: "ok",
+            service: "hivemind-api"
+          }
+        });
+      }
+    });
+
+    await expect(client.healthCheck({ timeoutMs: 1000 })).resolves.toEqual({
+      status: "ok",
+      service: "hivemind-api"
+    });
+    expect(calls).toBe(1);
+  });
+
+  it("does not retry health check transport failures", async () => {
+    let calls = 0;
+    const client = new HiveMindApiClient({
+      baseUrl: "http://127.0.0.1:4010",
+      fetchImpl: async () => {
+        calls += 1;
+        throw new TypeError("fetch failed");
+      }
+    });
+
+    await expect(client.healthCheck()).rejects.toMatchObject({
+      code: "API_TRANSPORT_FAILED",
+      details: {
+        method: "GET",
+        url: "http://127.0.0.1:4010/health",
+        attempts: 1
+      }
+    });
+    expect(calls).toBe(1);
+  });
+
   it("retries one transient transport failure", async () => {
     let calls = 0;
     const client = new HiveMindApiClient({
