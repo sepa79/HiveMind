@@ -4,6 +4,9 @@ All notable HiveMind changes are recorded here.
 
 ## Unreleased
 
+## 0.4.0 - 2026-05-22
+
+- Add MCP backend routing for multi-deployment setups that keep HiveMind tenant-free, list projects across configured backends, and fail fast on duplicate project ids.
 - Add entry lifecycle, correction, project review, HiveMind feedback, and admin memory review REST/MCP tools for explicit memory cleanup and support triage.
 - Add MCP `health_check` diagnostics for fast backend reachability checks from MCP clients, including API URL, latency, and transport/API error details.
 - Add an OpenSearch restart policy to the local Compose stack and HiveForge-rendered Compose template so the shared backend recovers after host restarts.

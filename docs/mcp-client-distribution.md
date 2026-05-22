@@ -74,6 +74,13 @@ scripts/install-vscode-hivemind-mcp.sh https://hivemind.example.com /path/to/hiv
 
 The installer writes a user-level VS Code MCP server. It is not tied to any workspace checkout.
 
+For multiple separate HiveMind deployments, configure explicit backend
+profiles instead of mixing tenants into one API:
+
+```bash
+code --add-mcp '{"name":"hivemind","type":"stdio","command":"npx","args":["-y","hivemind-mcp"],"env":{"HIVEMIND_BACKENDS":"[{\"backend_id\":\"default\",\"api_base_url\":\"https://hivemind.example.com\"},{\"backend_id\":\"skippybot\",\"api_base_url\":\"https://skippybot-hivemind.example.com\"}]"}}'
+```
+
 ## User Configuration Shape
 
 VS Code user-level `mcp.json` should look like this:
@@ -87,6 +94,23 @@ VS Code user-level `mcp.json` should look like this:
       "args": ["-y", "hivemind-mcp"],
       "env": {
         "HIVEMIND_API_BASE_URL": "https://hivemind.example.com"
+      }
+    }
+  }
+}
+```
+
+Multi-backend user-level config:
+
+```json
+{
+  "servers": {
+    "hivemind": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "hivemind-mcp"],
+      "env": {
+        "HIVEMIND_BACKENDS": "[{\"backend_id\":\"default\",\"api_base_url\":\"https://hivemind.example.com\"},{\"backend_id\":\"skippybot\",\"api_base_url\":\"https://skippybot-hivemind.example.com\"}]"
       }
     }
   }
@@ -110,6 +134,9 @@ http://127.0.0.1:4011/mcp
 
 ## Notes
 
-- Keep the API URL stable; MCP clients read it from `HIVEMIND_API_BASE_URL`.
+- Keep API URLs stable; MCP clients read either `HIVEMIND_API_BASE_URL` for
+  single-backend mode or `HIVEMIND_BACKENDS` for explicit multi-backend mode.
+- Duplicate project ids across configured backends are treated as MCP
+  configuration errors. The client fails instead of guessing a backend.
 - Put auth, VPN, or reverse-proxy controls in front of the shared API before broad team use.
 - The MCP package is intentionally thin and does not include API or storage code.

@@ -229,6 +229,29 @@ code --add-mcp '{"name":"hivemind","type":"stdio","command":"npx","args":["-y","
 
 After changing MCP config, reload VS Code or restart the `hivemind` MCP server.
 
+For users who must access multiple isolated HiveMind deployments, configure
+one MCP server with explicit backend profiles:
+
+```json
+{
+  "servers": {
+    "hivemind": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "hivemind-mcp"],
+      "env": {
+        "HIVEMIND_BACKENDS": "[{\"backend_id\":\"default\",\"api_base_url\":\"https://hivemind.company.example\"},{\"backend_id\":\"skippybot\",\"api_base_url\":\"https://skippybot-hivemind.company.example\"}]"
+      }
+    }
+  }
+}
+```
+
+These backend profiles point at separate deployments. HiveMind API remains
+tenant-free. If the same `project_id` appears in more than one configured
+backend, MCP discovery and project operations fail until the configuration is
+made unambiguous.
+
 Expected user-level config shape:
 
 ```json

@@ -25,6 +25,7 @@ describe("HiveMind MCP runtime", () => {
 
     expect(toolNames.length).toBeGreaterThan(0);
     expect(toolNames.every((name) => /^[a-z0-9_-]+$/.test(name))).toBe(true);
+    expect(toolNames).toContain("backend_list");
     expect(toolNames).toContain("health_check");
     expect(toolNames).toContain("project_register");
     expect(toolNames).toContain("project_list");
@@ -48,6 +49,12 @@ describe("HiveMind MCP runtime", () => {
     expect(source).toContain('new URL("../package.json", import.meta.url)');
     expect(source).toContain("version: packageJson.version");
     expect(source).not.toContain('version: "0.1.0"');
+  });
+
+  it("includes backend config in the packed MCP package file list", () => {
+    const manifest = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+
+    expect(manifest.files).toContain("src/backend-config.mjs");
   });
 
   it("health.check reports configured API health through MCP", async () => {
@@ -113,6 +120,17 @@ describe("HiveMind MCP runtime", () => {
     });
   });
 
+  it("health.check returns a structured error for an unknown backend id", async () => {
+    const runtime = createRuntimeWithBackends(["default", "skippybot"]);
+
+    const result = await runtime.healthCheck({
+      backend_id: "missing"
+    });
+
+    expect(result.isError).toBe(true);
+    expect(result.structuredContent.error.code).toBe("MCP_BACKEND_NOT_FOUND");
+  });
+
   it("project.register calls the API and returns structured content", async () => {
     const runtime = createRuntime();
 
@@ -153,6 +171,188 @@ describe("HiveMind MCP runtime", () => {
     expect(resolved.isError).toBeUndefined();
     expect(resolved.structuredContent.status).toBe("matched");
     expect(resolved.structuredContent.project.project_id).toBe("buzz");
+  });
+
+  it("lists and resolves projects across configured backends", async () => {
+    const runtime = createRuntimeWithBackends(["default", "skippybot"]);
+    await runtime.projectRegister({
+      backend_id: "default",
+      project_id: "buzz",
+      name: "Buzz",
+      repository_url: "https://github.com/example/buzz.git",
+      repository_slug: "example/buzz",
+      root_path: "/repo/buzz",
+      default_branch: "main",
+      description: "Buzz project"
+    });
+    await runtime.projectRegister({
+      backend_id: "skippybot",
+      project_id: "skippybot",
+      name: "SkippyBot",
+      repository_url: "https://github.com/example/skippybot.git",
+      repository_slug: "example/skippybot",
+      root_path: "/repo/skippybot",
+      default_branch: "main",
+      description: "SkippyBot project"
+    });
+
+    const backends = await runtime.backendList({});
+    const listed = await runtime.projectList({});
+    const resolved = await runtime.projectResolve({
+      repository_slug: "example/skippybot"
+    });
+
+    expect(backends.structuredContent.backends.map((backend) => backend.backend_id)).toEqual(["default", "skippybot"]);
+    expect(listed.isError).toBeUndefined();
+    expect(listed.structuredContent.projects.map((project) => [project.backend_id, project.project_id])).toEqual([
+      ["default", "buzz"],
+      ["skippybot", "skippybot"]
+    ]);
+    expect(resolved.isError).toBeUndefined();
+    expect(resolved.structuredContent.backend_id).toBe("skippybot");
+    expect(resolved.structuredContent.project.project_id).toBe("skippybot");
+  });
+
+  it("fails when duplicate project ids exist across configured backends", async () => {
+    const runtime = createRuntimeWithBackends(["default", "skippybot"]);
+    for (const backend_id of ["default", "skippybot"]) {
+      await runtime.projectRegister({
+        backend_id,
+        project_id: "buzz",
+        name: `Buzz ${backend_id}`,
+        repository_url: `https://github.com/example/${backend_id}-buzz.git`,
+        repository_slug: `example/${backend_id}-buzz`,
+        root_path: `/repo/${backend_id}/buzz`,
+        default_branch: "main",
+        description: "Duplicate project"
+      });
+    }
+
+    const listed = await runtime.projectList({});
+    const session = await runtime.sessionStart({
+      project_id: "buzz",
+      branch: "main",
+      workspace_path: "/repo/buzz",
+      author_id: "codex-main",
+      author_type: "agent",
+      source: "mcp",
+      agent_id: "codex-main",
+      goal: "Ambiguous session"
+    });
+
+    expect(listed.isError).toBe(true);
+    expect(listed.structuredContent.error.code).toBe("MCP_BACKEND_DUPLICATE_PROJECT");
+    expect(session.isError).toBe(true);
+    expect(session.structuredContent.error.code).toBe("MCP_BACKEND_AMBIGUOUS");
+  });
+
+  it("routes mutating project tools to the unique backend containing the project", async () => {
+    const runtime = createRuntimeWithBackends(["default", "skippybot"]);
+    await runtime.projectRegister({
+      backend_id: "skippybot",
+      project_id: "skippybot",
+      name: "SkippyBot",
+      repository_url: "https://github.com/example/skippybot.git",
+      repository_slug: "example/skippybot",
+      root_path: "/repo/skippybot",
+      default_branch: "main",
+      description: "SkippyBot project"
+    });
+
+    const session = await runtime.sessionStart({
+      project_id: "skippybot",
+      branch: "main",
+      workspace_path: "/repo/skippybot",
+      author_id: "codex-main",
+      author_type: "agent",
+      source: "mcp",
+      agent_id: "codex-main",
+      goal: "Route session"
+    });
+    const listedDefault = await runtime.projectList({ backend_id: "default" });
+    const listedSkippybot = await runtime.projectList({ backend_id: "skippybot" });
+
+    expect(session.isError).toBeUndefined();
+    expect(session.structuredContent.session.project_id).toBe("skippybot");
+    expect(listedDefault.structuredContent.projects).toHaveLength(0);
+    expect(listedSkippybot.structuredContent.projects).toHaveLength(1);
+  });
+
+  it("remembers context and session routes created by the same MCP runtime", async () => {
+    const runtime = createRuntimeWithBackends(["default", "skippybot"]);
+    await runtime.projectRegister({
+      backend_id: "skippybot",
+      project_id: "skippybot",
+      name: "SkippyBot",
+      repository_url: "https://github.com/example/skippybot.git",
+      repository_slug: "example/skippybot",
+      root_path: "/repo/skippybot",
+      default_branch: "main",
+      description: "SkippyBot project"
+    });
+    const opened = await runtime.contextOpen({
+      project_id: "skippybot",
+      branch: "main",
+      workspace_path: "/repo/skippybot",
+      author_id: "codex-main",
+      author_type: "agent",
+      source: "mcp",
+      agent_id: "codex-main"
+    });
+    const started = await runtime.sessionStart({
+      project_id: "skippybot",
+      branch: "main",
+      workspace_path: "/repo/skippybot",
+      author_id: "codex-main",
+      author_type: "agent",
+      source: "mcp",
+      agent_id: "codex-main",
+      goal: "Route session"
+    });
+
+    const context = await runtime.contextGet({
+      context_token: opened.structuredContent.context.context_token
+    });
+    const ended = await runtime.sessionEnd({
+      session_id: started.structuredContent.session.session_id
+    });
+
+    expect(context.isError).toBeUndefined();
+    expect(context.structuredContent.context.project_id).toBe("skippybot");
+    expect(ended.isError).toBeUndefined();
+    expect(ended.structuredContent.session.project_id).toBe("skippybot");
+  });
+
+  it("admin memory review spans configured backends when projects are unique", async () => {
+    const runtime = createRuntimeWithBackends(["default", "skippybot"]);
+    await runtime.projectRegister({
+      backend_id: "default",
+      project_id: "buzz",
+      name: "Buzz",
+      repository_url: "https://github.com/example/buzz.git",
+      repository_slug: "example/buzz",
+      root_path: "/repo/buzz",
+      default_branch: "main",
+      description: "Buzz project"
+    });
+    await runtime.projectRegister({
+      backend_id: "skippybot",
+      project_id: "skippybot",
+      name: "SkippyBot",
+      repository_url: "https://github.com/example/skippybot.git",
+      repository_slug: "example/skippybot",
+      root_path: "/repo/skippybot",
+      default_branch: "main",
+      description: "SkippyBot project"
+    });
+
+    const review = await runtime.adminMemoryReview({});
+
+    expect(review.isError).toBeUndefined();
+    expect(review.structuredContent.project_reviews.map((item) => [item.backend_id, item.project.project_id])).toEqual([
+      ["default", "buzz"],
+      ["skippybot", "skippybot"]
+    ]);
   });
 
   it("lists catalog profiles and checks standardization guidance", async () => {
@@ -989,4 +1189,22 @@ function createRuntime() {
     fetchImpl: (input, init) => app.request(input, init)
   });
   return createHiveMindRuntime({ apiClient });
+}
+
+function createRuntimeWithBackends(backendIds) {
+  const apiClients = backendIds.map((backendId) => {
+    const dataRoot = mkdtempSync(join(tmpdir(), `hivemind-mcp-${backendId}-`));
+    roots.push(dataRoot);
+    const storage = new FsJsonlStorage({ dataRoot });
+    const service = new HiveMindService({ storage });
+    const app = createApp({ service });
+    return {
+      backend_id: backendId,
+      apiClient: new HiveMindApiClient({
+        baseUrl: `http://${backendId}.hivemind.test`,
+        fetchImpl: (input, init) => app.request(input, init)
+      })
+    };
+  });
+  return createHiveMindRuntime({ apiClients });
 }

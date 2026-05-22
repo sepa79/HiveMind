@@ -46,6 +46,8 @@ Default endpoints:
 MCP clients should call `health_check` as the first diagnostic step. It checks
 the configured API `/health` endpoint quickly and reports whether the backend is
 `ok`, `unhealthy`, or `unreachable`, including transport details for support.
+When MCP is configured with multiple backend profiles, `health_check` reports
+each configured deployment.
 
 The API writes one structured JSON access log line per request when started
 through `hivemind-api/src/server.mjs`. Each line includes request id, method,
@@ -194,6 +196,9 @@ Important environment variables:
   choose a different API port
 - `HIVEMIND_API_BASE_URL`
   point the MCP server or wrapper at a different API instance
+- `HIVEMIND_BACKENDS`
+  JSON backend profile list for MCP clients that need to route across multiple
+  separate HiveMind deployments; each item has `backend_id` and `api_base_url`
 - `HIVEMIND_RULESET_CATALOG_PATH`
   choose the local filesystem catalog path for AI ruleset profiles
 - `HIVEMIND_RULESET_CATALOG_SOURCE_URL`
@@ -227,5 +232,9 @@ Project metadata must include repository identity (`repository_url` and
 repository, for example separate long-lived work streams, so clients should use
 `project_list` or `project_resolve` instead of guessing from the local directory
 name.
+
+For isolated spaces, run separate HiveMind deployments and configure MCP with
+`HIVEMIND_BACKENDS`. MCP discovery lists projects across configured backends
+and fails when duplicate `project_id` values make routing ambiguous.
 
 Use a small, explicit feature vocabulary for each project. Good feature names are broad work streams, user stories, or plan names.

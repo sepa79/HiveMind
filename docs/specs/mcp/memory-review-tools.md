@@ -118,3 +118,5 @@ No mutation.
 - Review tools never mutate.
 - Lifecycle and correction tools must be explicit and return updated records.
 - Old entry content is retained; corrections are appended and linked.
+- In multi-backend MCP setups, mutating tools route to exactly one resolved
+  backend and fail when project/backend resolution is ambiguous.

@@ -7,9 +7,9 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { z } from "zod";
 import { HiveMindApiClient } from "./api-client.mjs";
+import { parseBackendProfiles } from "./backend-config.mjs";
 import { createHiveMindRuntime } from "./runtime.mjs";
 
-const apiBaseUrl = process.env.HIVEMIND_API_BASE_URL || "http://127.0.0.1:4010";
 const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
 
 function createHiveMindMcpServer() {
@@ -18,9 +18,24 @@ const server = new McpServer({
   version: packageJson.version
 });
 
+const backendProfiles = parseBackendProfiles();
 const runtime = createHiveMindRuntime({
-  apiClient: new HiveMindApiClient({ baseUrl: apiBaseUrl })
+  apiClients: backendProfiles.map((profile) => ({
+    backend_id: profile.backend_id,
+    label: profile.label,
+    apiClient: new HiveMindApiClient({ baseUrl: profile.api_base_url })
+  }))
 });
+
+server.registerTool(
+  "backend_list",
+  {
+    title: "List configured HiveMind backends",
+    description: "List MCP backend profiles that route to separate HiveMind API deployments.",
+    inputSchema: {}
+  },
+  runtime.backendList
+);
 
 server.registerTool(
   "health_check",
@@ -28,6 +43,7 @@ server.registerTool(
     title: "Check HiveMind backend health",
     description: "Run a fast MCP-facing diagnostic check against the configured HiveMind API backend.",
     inputSchema: {
+      backend_id: z.string().optional(),
       timeout_ms: z.number().int().positive().max(30000).optional()
     }
   },
@@ -47,7 +63,8 @@ server.registerTool(
       root_path: z.string(),
       default_branch: z.string(),
       description: z.string().optional(),
-      standard_profile_ref: z.string().optional()
+      standard_profile_ref: z.string().optional(),
+      backend_id: z.string().optional()
     }
   },
   runtime.projectRegister
@@ -58,7 +75,9 @@ server.registerTool(
   {
     title: "List HiveMind projects",
     description: "List all registered HiveMind projects so agents can avoid guessing project ids.",
-    inputSchema: {}
+    inputSchema: {
+      backend_id: z.string().optional()
+    }
   },
   runtime.projectList
 );
@@ -73,7 +92,8 @@ server.registerTool(
       name_hint: z.string().optional(),
       repository_url: z.string().optional(),
       repository_slug: z.string().optional(),
-      workspace_path: z.string().optional()
+      workspace_path: z.string().optional(),
+      backend_id: z.string().optional()
     }
   },
   runtime.projectResolve
@@ -85,7 +105,8 @@ server.registerTool(
     title: "List project features",
     description: "Fetch the managed feature vocabulary for one project.",
     inputSchema: {
-      project_id: z.string()
+      project_id: z.string(),
+      backend_id: z.string().optional()
     }
   },
   runtime.featureList
@@ -98,7 +119,8 @@ server.registerTool(
     description: "Add one feature or user-story name to the managed project vocabulary so agents can tag future entries consistently.",
     inputSchema: {
       project_id: z.string(),
-      feature: z.string()
+      feature: z.string(),
+      backend_id: z.string().optional()
     }
   },
   runtime.featureAdd
@@ -111,7 +133,8 @@ server.registerTool(
     description: "Remove one feature name from the managed project vocabulary if it is not used in stored project memory.",
     inputSchema: {
       project_id: z.string(),
-      feature: z.string()
+      feature: z.string(),
+      backend_id: z.string().optional()
     }
   },
   runtime.featureRemove
@@ -125,7 +148,8 @@ server.registerTool(
     inputSchema: {
       project_id: z.string(),
       feature: z.string(),
-      new_feature: z.string()
+      new_feature: z.string(),
+      backend_id: z.string().optional()
     }
   },
   runtime.featureRename
@@ -149,6 +173,7 @@ server.registerTool(
       author_type: z.enum(["human", "agent", "system"]),
       source: z.enum(["mcp", "cli", "web", "import"]),
       agent_id: z.string().optional(),
+      backend_id: z.string().optional(),
       idempotencyKey: z.string().optional()
     }
   },
@@ -161,7 +186,8 @@ server.registerTool(
     title: "Get a reusable HiveMind context",
     description: "Fetch the stored context behind a context token.",
     inputSchema: {
-      context_token: z.string()
+      context_token: z.string(),
+      backend_id: z.string().optional()
     }
   },
   runtime.contextGet
@@ -174,6 +200,7 @@ server.registerTool(
     description: "Patch the mutable fields of a stored context token.",
     inputSchema: {
       context_token: z.string(),
+      backend_id: z.string().optional(),
       branch: z.string().optional(),
       workspace_path: z.string().optional(),
       feature: z.string().optional(),
@@ -193,7 +220,8 @@ server.registerTool(
     title: "Close a reusable HiveMind context",
     description: "Mark a stored context token as closed.",
     inputSchema: {
-      context_token: z.string()
+      context_token: z.string(),
+      backend_id: z.string().optional()
     }
   },
   runtime.contextClose
@@ -205,7 +233,8 @@ server.registerTool(
     title: "Get a project brief for a context",
     description: "Fetch a bounded project summary including rules, recent decisions, recent learnings, active issues, and open threads.",
     inputSchema: {
-      context_token: z.string()
+      context_token: z.string(),
+      backend_id: z.string().optional()
     }
   },
   runtime.contextGetProjectBrief
@@ -218,6 +247,7 @@ server.registerTool(
     description: "Fetch a bounded branch summary including rules, recent decisions, recent learnings, active issues, and open threads.",
     inputSchema: {
       context_token: z.string(),
+      backend_id: z.string().optional(),
       branch: z.string().optional()
     }
   },
@@ -231,6 +261,7 @@ server.registerTool(
     description: "Fetch bounded open threads for the resolved project and branch context.",
     inputSchema: {
       context_token: z.string(),
+      backend_id: z.string().optional(),
       branch: z.string().optional(),
       limit: z.number().int().positive().max(50).optional()
     }
@@ -245,6 +276,7 @@ server.registerTool(
     description: "Store a project learning using an existing context token instead of repeating full project metadata.",
     inputSchema: {
       context_token: z.string(),
+      backend_id: z.string().optional(),
       summary: z.string(),
       details: z.string().optional(),
       scope: z.enum(["tool", "env", "data", "workflow", "test_strategy"]),
@@ -284,6 +316,7 @@ server.registerTool(
     description: "Fetch the most relevant recent learnings for a context, defaulting to active learnings for the same feature/tool when present.",
     inputSchema: {
       context_token: z.string(),
+      backend_id: z.string().optional(),
       feature: z.string().optional(),
       source_tool: z.string().optional(),
       scope: z.enum(["tool", "env", "data", "workflow", "test_strategy"]).optional(),
@@ -301,6 +334,7 @@ server.registerTool(
     description: "Record confirmation, negative confirmation, or a comment for an existing learning without rewriting the original learning.",
     inputSchema: {
       context_token: z.string(),
+      backend_id: z.string().optional(),
       learning_id: z.string(),
       feedback_type: z.enum(["confirm", "did_not_work", "comment"]),
       comment: z.string().optional(),
@@ -317,6 +351,7 @@ server.registerTool(
     description: "Search project learnings within the project resolved by a context token.",
     inputSchema: {
       context_token: z.string(),
+      backend_id: z.string().optional(),
       branch: z.string().optional(),
       feature: z.string().optional(),
       source_tool: z.string().optional(),
@@ -338,6 +373,7 @@ server.registerTool(
     description: "Create a first-class issue bound to an existing context token.",
     inputSchema: {
       context_token: z.string(),
+      backend_id: z.string().optional(),
       title: z.string(),
       summary: z.string(),
       details: z.string().optional(),
@@ -357,6 +393,7 @@ server.registerTool(
     description: "Fetch one issue together with its event history.",
     inputSchema: {
       context_token: z.string(),
+      backend_id: z.string().optional(),
       issue_id: z.string()
     }
   },
@@ -370,6 +407,7 @@ server.registerTool(
     description: "Record a workaround, GitHub link, fix link, verification, or reopen event for a tracked issue.",
     inputSchema: {
       context_token: z.string(),
+      backend_id: z.string().optional(),
       issue_id: z.string(),
       event_type: z.enum([
         "reported",
@@ -415,6 +453,7 @@ server.registerTool(
     description: "List issues for the project resolved by a context token, with filters for branch, feature, tool, and status.",
     inputSchema: {
       context_token: z.string(),
+      backend_id: z.string().optional(),
       branch: z.string().optional(),
       feature: z.string().optional(),
       source_tool: z.string().optional(),
@@ -435,6 +474,7 @@ server.registerTool(
     description: "Store the active structured ruleset for one project.",
     inputSchema: {
       project_id: z.string(),
+      backend_id: z.string().optional(),
       rules: z.array(
         z.object({
           rule_id: z.string(),
@@ -463,7 +503,8 @@ server.registerTool(
     title: "Get the active project ruleset",
     description: "Fetch the current structured ruleset for one project.",
     inputSchema: {
-      project_id: z.string()
+      project_id: z.string(),
+      backend_id: z.string().optional()
     }
   },
   runtime.rulesGet
@@ -476,7 +517,8 @@ server.registerTool(
     description: "Assign one ruleset catalog profile ref such as aws-microservice@v2 to a HiveMind project.",
     inputSchema: {
       project_id: z.string(),
-      standard_profile_ref: z.string()
+      standard_profile_ref: z.string(),
+      backend_id: z.string().optional()
     }
   },
   runtime.projectStandardProfileDefine
@@ -487,7 +529,9 @@ server.registerTool(
   {
     title: "List ruleset catalog profiles",
     description: "List available standardization profiles from the configured HiveMind ruleset catalog.",
-    inputSchema: {}
+    inputSchema: {
+      backend_id: z.string().optional()
+    }
   },
   runtime.rulesetCatalogList
 );
@@ -500,6 +544,7 @@ server.registerTool(
     inputSchema: {
       profile_id: z.string(),
       version: z.string(),
+      backend_id: z.string().optional(),
       include_files: z.boolean().optional()
     }
   },
@@ -513,6 +558,7 @@ server.registerTool(
     description: "Compare a project's assigned standard profile against an optional local .hivemind-standard.json marker.",
     inputSchema: {
       project_id: z.string(),
+      backend_id: z.string().optional(),
       standard_marker: z
         .object({
           project_id: z.string(),
@@ -541,6 +587,7 @@ server.registerTool(
     description: "Open a HiveMind session and receive bounded warm-start context, including project features agents should use when tagging entries.",
     inputSchema: {
       project_id: z.string(),
+      backend_id: z.string().optional(),
       branch: z.string(),
       workspace_path: z.string(),
       author_id: z.string(),
@@ -570,6 +617,7 @@ server.registerTool(
     description: "Mark a work-unit session ended and return a closeout report.",
     inputSchema: {
       session_id: z.string(),
+      backend_id: z.string().optional(),
       status: z.enum(["completed", "abandoned"]).optional()
     }
   },
@@ -583,6 +631,7 @@ server.registerTool(
     description: "Store one structured journal entry in HiveMind. Use a feature from session_start context when the entry belongs to a feature, user story, or work stream.",
     inputSchema: {
       project_id: z.string(),
+      backend_id: z.string().optional(),
       session_id: z.string(),
       branch: z.string(),
       author_id: z.string(),
@@ -628,6 +677,7 @@ server.registerTool(
     description: "Mark one entry as open, resolved, or superseded without rewriting the original entry.",
     inputSchema: {
       project_id: z.string(),
+      backend_id: z.string().optional(),
       entry_id: z.string(),
       lifecycle_state: z.enum(["open", "resolved", "superseded"]),
       reason: z.string(),
@@ -644,6 +694,7 @@ server.registerTool(
     description: "Append a correction entry and mark the original entry as superseded.",
     inputSchema: {
       project_id: z.string(),
+      backend_id: z.string().optional(),
       entry_id: z.string(),
       session_id: z.string(),
       branch: z.string(),
@@ -689,6 +740,7 @@ server.registerTool(
     description: "Summarize project memory signals and recommend cleanup or triage actions.",
     inputSchema: {
       project_id: z.string(),
+      backend_id: z.string().optional(),
       branch: z.string().optional(),
       limit: z.number().int().positive().max(50).optional()
     }
@@ -703,6 +755,7 @@ server.registerTool(
     description: "Store product feedback about HiveMind in the HiveMind project memory.",
     inputSchema: {
       session_id: z.string(),
+      backend_id: z.string().optional(),
       branch: z.string(),
       author_id: z.string(),
       author_type: z.enum(["human", "agent", "system"]),
@@ -727,6 +780,7 @@ server.registerTool(
     description: "Summarize memory health and recommended actions across selected registered projects.",
     inputSchema: {
       project_ids: z.array(z.string()).optional(),
+      backend_id: z.string().optional(),
       branch: z.string().optional(),
       query: z.string().optional(),
       limit: z.number().int().positive().max(20).optional()
@@ -742,6 +796,7 @@ server.registerTool(
     description: "Record whether one project rule was followed in a session.",
     inputSchema: {
       project_id: z.string(),
+      backend_id: z.string().optional(),
       session_id: z.string(),
       rule_id: z.string(),
       author_id: z.string(),
@@ -772,6 +827,7 @@ server.registerTool(
     description: "Fetch stored rule checks for one project session.",
     inputSchema: {
       project_id: z.string(),
+      backend_id: z.string().optional(),
       session_id: z.string(),
       rule_id: z.string().optional(),
       status: z.enum(["applied", "not_applicable", "blocked", "skipped"]).optional()
@@ -787,6 +843,7 @@ server.registerTool(
     description: "Search entries in one HiveMind project.",
     inputSchema: {
       project_id: z.string(),
+      backend_id: z.string().optional(),
       branch: z.string().optional(),
       session_id: z.string().optional(),
       entry_type: z
