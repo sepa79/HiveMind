@@ -87,6 +87,15 @@ OpenSearch `9200` is not published on the host. `docker-compose.yml` uses the im
 
 HiveForge manages this repo through `hiveforge.yaml`.
 
+Use the current HiveForge operator flow from the HiveForge project docs:
+
+- [HiveForge README](https://github.com/sepa79/HiveForge#how-to-use)
+- [First Swarm quickstart](https://github.com/sepa79/HiveForge/blob/main/docs/quickstart/first-swarm.md)
+
+HiveMind does not duplicate HiveForge MCP or REST usage here. Treat the
+HiveForge docs as the source of truth for project registration, environment
+policy, requirement validation, and action execution.
+
 The declared lifecycle actions are `deploy`, `remove`, `purge`, `update`, and
 `upgrade`.
 
@@ -131,29 +140,9 @@ Use the existing `HIVEMIND_DEPLOYMENT_NAME` when redeploying an existing
 instance. Docker Compose and Docker Swarm scope the `opensearch-data` volume by
 deployment name, so changing that name creates a separate data volume.
 
-Data-preserving redeploy:
-
-```bash
-hiveforge run-action hivemind main service update
-```
-
-Version upgrade, also data-preserving, requires explicit approval:
-
-```bash
-HIVEFORGE_UPGRADE_APPROVED=true hiveforge run-action hivemind main service upgrade
-```
-
-Remove without deleting data:
-
-```bash
-hiveforge run-action hivemind main service remove
-```
-
-Purge deletes OpenSearch data and requires explicit approval:
-
-```bash
-HIVEFORGE_PURGE_APPROVED=true hiveforge run-action hivemind main service purge
-```
+`upgrade` and `purge` require explicit approval through the runtime environment:
+`HIVEFORGE_UPGRADE_APPROVED=true` and `HIVEFORGE_PURGE_APPROVED=true`
+respectively. `purge` deletes OpenSearch data.
 
 ## Releases
 
