@@ -4,6 +4,11 @@ All notable HiveMind changes are recorded here.
 
 ## Unreleased
 
+## 0.4.4 - 2026-06-08
+
+- Align HiveMind GHCR publishing and HiveForge release deployment metadata with
+  the flat package path `ghcr.io/sepa79/hivemind-api`.
+
 ## 0.4.3 - 2026-06-08
 
 - Remove the `HIVEMIND_SWARM_NETWORK` deployment input and external overlay

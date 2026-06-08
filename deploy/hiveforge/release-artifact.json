@@ -1,0 +1,12 @@
+{
+  "env": {
+    "HIVEMIND_API_IMAGE": "{{ imageRepository.project }}/hivemind-api:{{ release.imageTag }}"
+  },
+  "images": [
+    {
+      "name": "hivemind-api",
+      "image": "{{ imageRepository.project }}/hivemind-api:{{ release.imageTag }}",
+      "application": true
+    }
+  ]
+}

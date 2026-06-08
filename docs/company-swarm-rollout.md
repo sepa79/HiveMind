@@ -15,7 +15,7 @@ Choose these values before deployment:
 
 ```text
 HIVEMIND_PUBLIC_URL=https://hivemind.company.example
-REGISTRY_IMAGE=ghcr.io/<owner>/<repo>/hivemind-api:0.3.0
+REGISTRY_IMAGE=ghcr.io/<owner>/hivemind-api:0.3.0
 STACK_NAME=hivemind
 INDEX_PREFIX=hivemind
 SERVICE_USER=hivemind_api
@@ -49,7 +49,7 @@ export OPENSEARCH_INITIAL_ADMIN_PASSWORD='<strong-bootstrap-admin-password>'
 export HIVEMIND_OPENSEARCH_USERNAME='hivemind_api'
 export HIVEMIND_OPENSEARCH_PASSWORD='<strong-service-user-password>'
 export HIVEMIND_OPENSEARCH_INDEX_PREFIX='hivemind'
-export HIVEMIND_API_IMAGE='ghcr.io/<owner>/<repo>/hivemind-api:0.3.0'
+export HIVEMIND_API_IMAGE='ghcr.io/<owner>/hivemind-api:0.3.0'
 export HIVEMIND_RULESET_CATALOG_PATH='/opt/hivemind/ai-rulesets'
 export HIVEMIND_RULESET_CATALOG_SOURCE_URL='https://git.company.example/eng/ai-rulesets'
 ```

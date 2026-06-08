@@ -9,7 +9,7 @@ project:
     - update
     - upgrade
   vars:
-    imageRepository.project: ghcr.io/sepa79/hivemind
+    imageRepository.project: ghcr.io/sepa79
     extRepository.docker: docker.io
     extRepository.ghcr: ghcr.io
   profiles:

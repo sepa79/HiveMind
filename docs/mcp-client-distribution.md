@@ -14,7 +14,7 @@ Set `HIVEMIND_API_IMAGE` to the published API image first. GitHub Actions
 publishes versioned API images to GHCR from `v*.*.*` tags:
 
 ```bash
-HIVEMIND_API_IMAGE=ghcr.io/<owner>/<repo>/hivemind-api:0.3.0
+HIVEMIND_API_IMAGE=ghcr.io/<owner>/hivemind-api:0.3.0
 ```
 
 The shared Compose stack now runs both:

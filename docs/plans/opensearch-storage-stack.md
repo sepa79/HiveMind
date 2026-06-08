@@ -20,7 +20,7 @@ The MCP server remains thin and still talks to `hivemind-api` over REST. Storage
 Use the Docker stack from the repo root:
 
 ```bash
-HIVEMIND_API_IMAGE=ghcr.io/<owner>/<repo>/hivemind-api:0.3.0 docker compose up
+HIVEMIND_API_IMAGE=ghcr.io/<owner>/hivemind-api:0.3.0 docker compose up
 ```
 
 For Docker Swarm, deploy the published API image:
@@ -74,7 +74,7 @@ The Docker stack keeps the OpenSearch Security plugin enabled. It requires:
 OPENSEARCH_INITIAL_ADMIN_PASSWORD=<strong-bootstrap-admin-password>
 HIVEMIND_OPENSEARCH_USERNAME=hivemind_api
 HIVEMIND_OPENSEARCH_PASSWORD=<strong-service-user-password>
-HIVEMIND_API_IMAGE=ghcr.io/<owner>/<repo>/hivemind-api:0.3.0
+HIVEMIND_API_IMAGE=ghcr.io/<owner>/hivemind-api:0.3.0
 ```
 
 `admin` is used only by the one-shot `opensearch-init` service to create the dedicated API role, service user, and role mapping. `hivemind-api` authenticates as the service user.
