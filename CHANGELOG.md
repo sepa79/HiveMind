@@ -4,6 +4,11 @@ All notable HiveMind changes are recorded here.
 
 ## Unreleased
 
+## 0.4.8 - 2026-06-08
+
+- Move the HiveMind release line forward after the Swarm secrets deployment
+  fix, avoiding a version lower than the surrounding deployment tool releases.
+
 ## 0.4.6 - 2026-06-08
 
 - Align the packaged MCP server version with the HiveMind release version so
