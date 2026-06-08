@@ -4,6 +4,15 @@ All notable HiveMind changes are recorded here.
 
 ## Unreleased
 
+## 0.4.5 - 2026-06-08
+
+- Let Swarm deployments consume existing Docker secrets directly for the
+  OpenSearch admin and HiveMind application passwords.
+- Add `_FILE` credential support for the API and OpenSearch initialization so
+  Swarm secrets are not copied into HiveForge runtime environment variables.
+- Remove the Swarm placement-node and external-network deployment requirements,
+  and default OpenSearch endpoints per deployment profile.
+
 ## 0.4.4 - 2026-06-08
 
 - Align HiveMind GHCR publishing and HiveForge release deployment metadata with

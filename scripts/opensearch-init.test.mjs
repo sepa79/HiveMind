@@ -14,6 +14,28 @@ describe("opensearch-init", () => {
     );
   });
 
+  it("reads credentials from *_FILE", () => {
+    expect(
+      requiredEnv(
+        { OPENSEARCH_INITIAL_ADMIN_PASSWORD_FILE: "/run/secrets/admin-password" },
+        "OPENSEARCH_INITIAL_ADMIN_PASSWORD",
+        () => "admin-pass\n"
+      )
+    ).toBe("admin-pass");
+  });
+
+  it("rejects mixed env and *_FILE credentials", () => {
+    expect(() =>
+      requiredEnv(
+        {
+          OPENSEARCH_INITIAL_ADMIN_PASSWORD: "admin-pass",
+          OPENSEARCH_INITIAL_ADMIN_PASSWORD_FILE: "/run/secrets/admin-password"
+        },
+        "OPENSEARCH_INITIAL_ADMIN_PASSWORD"
+      )
+    ).toThrow("OPENSEARCH_INITIAL_ADMIN_PASSWORD and OPENSEARCH_INITIAL_ADMIN_PASSWORD_FILE are mutually exclusive.");
+  });
+
   it("builds the expected security provisioning requests", () => {
     expect(
       buildProvisioningRequests({

@@ -106,7 +106,11 @@ HIVEMIND_OPENSEARCH_TLS_REJECT_UNAUTHORIZED=true
 
 Do not publish OpenSearch `9200` from the stack unless there is an explicit operational need. If temporary host access is required for debugging, bind it to loopback rather than all interfaces.
 
-For production environments, pass admin and service-user passwords through the platform secret mechanism instead of plain environment variables. This stack keeps the required variables explicit and does not implement a secret backend.
+For production environments, pass admin and service-user passwords through the
+platform secret mechanism instead of plain environment variables. The HiveForge
+Swarm playbooks consume Docker secrets named
+`hivemind_opensearch_admin_password` and `hivemind_opensearch_password` by
+default; HiveMind does not store secret values itself.
 
 ## Index Model
 

@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const DEFAULT_ENDPOINT = "https://opensearch:9200";
@@ -6,12 +7,23 @@ const DEFAULT_ATTEMPTS = 60;
 const DEFAULT_DELAY_MS = 2000;
 const ROLE_NAME = "hivemind_api";
 
-export function requiredEnv(env, name) {
+export function requiredEnv(env, name, readFile = readFileSync) {
+  const fileName = `${name}_FILE`;
   const value = env[name];
-  if (!value) {
-    throw new Error(`${name} is required.`);
+  const file = env[fileName];
+  if (value && file) {
+    throw new Error(`${name} and ${fileName} are mutually exclusive.`);
   }
-  return value;
+  if (value) {
+    return value;
+  }
+  if (file) {
+    const fileValue = readFile(file, "utf8").replace(/\n$/, "");
+    if (fileValue) {
+      return fileValue;
+    }
+  }
+  throw new Error(`${name} is required.`);
 }
 
 export function basicAuth(username, password) {

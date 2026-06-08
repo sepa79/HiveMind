@@ -222,7 +222,11 @@ over the private Docker network. The shared Docker stack runs separate
 `hivemind-api` serves API/UI on `4010`, and `hivemind-mcp` serves Streamable
 HTTP MCP on `4011`.
 
-For production environments, provide these passwords through the platform secret mechanism instead of plain environment variables. The repository stack documents the required values but does not implement a secret backend.
+For production environments, provide these passwords through the platform secret
+mechanism instead of plain environment variables. The HiveForge Swarm playbooks
+consume Docker secrets named `hivemind_opensearch_admin_password` and
+`hivemind_opensearch_password` by default; HiveMind does not store secret values
+itself.
 
 ## Other Projects
 

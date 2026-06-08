@@ -20,14 +20,15 @@
     hivemind_ruleset_catalog_source_url: "{{ lookup('ansible.builtin.env', 'HIVEMIND_RULESET_CATALOG_SOURCE_URL') }}"
     hivemind_api_port: "{{ lookup('ansible.builtin.env', 'HIVEMIND_API_PORT') }}"
     hivemind_mcp_port: "{{ lookup('ansible.builtin.env', 'HIVEMIND_MCP_PORT') }}"
-    hivemind_swarm_node: "{{ lookup('ansible.builtin.env', 'HIVEMIND_SWARM_NODE') }}"
+    hivemind_opensearch_admin_password_secret: "{{ lookup('ansible.builtin.env', 'OPENSEARCH_INITIAL_ADMIN_PASSWORD_SECRET') | default('hivemind_opensearch_admin_password', true) }}"
+    hivemind_opensearch_password_secret: "{{ lookup('ansible.builtin.env', 'HIVEMIND_OPENSEARCH_PASSWORD_SECRET') | default('hivemind_opensearch_password', true) }}"
   tasks:
     - name: Validate HiveMind profile and required inputs
       ansible.builtin.import_tasks: tasks/validate-profile.yml
 
-    - name: Set explicit OpenSearch node endpoint
+    - name: Set OpenSearch node endpoint
       ansible.builtin.set_fact:
-        hivemind_opensearch_node: "{{ hivemind_opensearch_node_override }}"
+        hivemind_opensearch_node: "{{ hivemind_opensearch_node_override if hivemind_opensearch_node_override | length > 0 else ('https://tasks.opensearch:9200' if hivemind_swarm_profile else 'https://opensearch:9200') }}"
 
     - name: Check Docker CLI access
       ansible.builtin.command:

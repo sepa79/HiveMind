@@ -27,8 +27,6 @@ project:
         managedRoot:
           required: true
           shared: true
-        capabilities:
-          - placement
 components:
   - name: service
     manifest: hivemind-service.hiveforge.yaml

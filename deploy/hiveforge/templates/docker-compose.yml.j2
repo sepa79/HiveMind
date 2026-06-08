@@ -1,3 +1,5 @@
+{% set opensearch_admin_secret_path = '/run/secrets/opensearch_initial_admin_password' %}
+{% set hivemind_opensearch_password_secret_path = '/run/secrets/hivemind_opensearch_password' %}
 services:
   opensearch:
     image: opensearchproject/opensearch:2.17.1
@@ -5,20 +7,33 @@ services:
     environment:
       discovery.type: single-node
       OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
+{% if not hivemind_swarm_profile %}
       OPENSEARCH_INITIAL_ADMIN_PASSWORD: "{{ opensearch_initial_admin_password }}"
+{% endif %}
+{% if hivemind_swarm_profile %}
+    entrypoint: ["/bin/bash", "-lc"]
+    command:
+      - |
+        export OPENSEARCH_INITIAL_ADMIN_PASSWORD="$$(cat {{ opensearch_admin_secret_path }})"
+        exec /usr/share/opensearch/opensearch-docker-entrypoint.sh opensearch
+    secrets:
+      - source: opensearch_admin_password
+        target: opensearch_initial_admin_password
+{% endif %}
     volumes:
       - opensearch-data:/usr/share/opensearch/data
     healthcheck:
+{% if hivemind_swarm_profile %}
+      test: ["CMD-SHELL", "curl -k -fsS -u admin:$$(cat {{ opensearch_admin_secret_path }}) https://127.0.0.1:9200/_cluster/health >/dev/null"]
+{% else %}
       test: ["CMD-SHELL", "curl -k -fsS -u admin:$$OPENSEARCH_INITIAL_ADMIN_PASSWORD https://127.0.0.1:9200/_cluster/health >/dev/null"]
+{% endif %}
       interval: 10s
       timeout: 5s
       retries: 30
       start_period: 30s
 {% if hivemind_swarm_profile %}
     deploy:
-      placement:
-        constraints:
-          - node.hostname == {{ hivemind_swarm_node }}
       restart_policy:
         condition: on-failure
         delay: 5s
@@ -34,17 +49,26 @@ services:
     restart: on-failure
     environment:
       NODE_TLS_REJECT_UNAUTHORIZED: "{{ '1' if hivemind_opensearch_tls_reject_unauthorized == 'true' else '0' }}"
+{% if hivemind_swarm_profile %}
+      OPENSEARCH_INITIAL_ADMIN_PASSWORD_FILE: "{{ opensearch_admin_secret_path }}"
+      HIVEMIND_OPENSEARCH_PASSWORD_FILE: "{{ hivemind_opensearch_password_secret_path }}"
+{% else %}
       OPENSEARCH_INITIAL_ADMIN_PASSWORD: "{{ opensearch_initial_admin_password }}"
-      HIVEMIND_OPENSEARCH_USERNAME: "{{ hivemind_opensearch_username }}"
       HIVEMIND_OPENSEARCH_PASSWORD: "{{ hivemind_opensearch_password }}"
+{% endif %}
+      HIVEMIND_OPENSEARCH_USERNAME: "{{ hivemind_opensearch_username }}"
       HIVEMIND_OPENSEARCH_NODE: "{{ hivemind_opensearch_node }}"
       HIVEMIND_OPENSEARCH_INDEX_PREFIX: "{{ hivemind_opensearch_index_prefix }}"
     command: ["node", "scripts/opensearch-init.mjs"]
 {% if hivemind_swarm_profile %}
+    secrets:
+      - source: opensearch_admin_password
+        target: opensearch_initial_admin_password
+      - source: hivemind_opensearch_password
+        target: hivemind_opensearch_password
+{% endif %}
+{% if hivemind_swarm_profile %}
     deploy:
-      placement:
-        constraints:
-          - node.hostname == {{ hivemind_swarm_node }}
       restart_policy:
         condition: on-failure
         delay: 5s
@@ -64,10 +88,19 @@ services:
       HIVEMIND_OPENSEARCH_NODE: "{{ hivemind_opensearch_node }}"
       HIVEMIND_OPENSEARCH_INDEX_PREFIX: "{{ hivemind_opensearch_index_prefix }}"
       HIVEMIND_OPENSEARCH_USERNAME: "{{ hivemind_opensearch_username }}"
+{% if hivemind_swarm_profile %}
+      HIVEMIND_OPENSEARCH_PASSWORD_FILE: "{{ hivemind_opensearch_password_secret_path }}"
+{% else %}
       HIVEMIND_OPENSEARCH_PASSWORD: "{{ hivemind_opensearch_password }}"
+{% endif %}
       HIVEMIND_OPENSEARCH_TLS_REJECT_UNAUTHORIZED: "{{ hivemind_opensearch_tls_reject_unauthorized }}"
       HIVEMIND_RULESET_CATALOG_PATH: "{{ hivemind_ruleset_catalog_path }}"
       HIVEMIND_RULESET_CATALOG_SOURCE_URL: "{{ hivemind_ruleset_catalog_source_url }}"
+{% if hivemind_swarm_profile %}
+    secrets:
+      - source: hivemind_opensearch_password
+        target: hivemind_opensearch_password
+{% endif %}
     ports:
 {% if hivemind_swarm_profile %}
       - target: 4010
@@ -78,9 +111,6 @@ services:
 {% endif %}
 {% if hivemind_swarm_profile %}
     deploy:
-      placement:
-        constraints:
-          - node.hostname == {{ hivemind_swarm_node }}
       restart_policy:
         condition: on-failure
         delay: 5s
@@ -112,9 +142,6 @@ services:
       - hivemind-api
 {% if hivemind_swarm_profile %}
     deploy:
-      placement:
-        constraints:
-          - node.hostname == {{ hivemind_swarm_node }}
       restart_policy:
         condition: on-failure
         delay: 5s
@@ -127,3 +154,13 @@ services:
 
 volumes:
   opensearch-data:
+
+{% if hivemind_swarm_profile %}
+secrets:
+  opensearch_admin_password:
+    external: true
+    name: "{{ hivemind_opensearch_admin_password_secret }}"
+  hivemind_opensearch_password:
+    external: true
+    name: "{{ hivemind_opensearch_password_secret }}"
+{% endif %}

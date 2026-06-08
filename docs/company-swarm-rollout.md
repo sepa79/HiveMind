@@ -22,9 +22,8 @@ SERVICE_USER=hivemind_api
 HIVEMIND_RULESET_CATALOG_PATH=/opt/hivemind/ai-rulesets
 ```
 
-For production, put passwords in the platform secret mechanism. The current
-stack keeps required variables explicit and documents where secrets belong; it
-does not implement a secret backend.
+For Swarm, put passwords in Docker secrets and pass only secret names through
+operator configuration when they differ from the defaults.
 
 ## 2. Build And Publish The API Image
 
@@ -45,9 +44,10 @@ already be available to every node through the registry.
 On a Swarm manager:
 
 ```bash
-export OPENSEARCH_INITIAL_ADMIN_PASSWORD='<strong-bootstrap-admin-password>'
+printf '%s' '<strong-bootstrap-admin-password>' | docker secret create hivemind_opensearch_admin_password -
+printf '%s' '<strong-service-user-password>' | docker secret create hivemind_opensearch_password -
+
 export HIVEMIND_OPENSEARCH_USERNAME='hivemind_api'
-export HIVEMIND_OPENSEARCH_PASSWORD='<strong-service-user-password>'
 export HIVEMIND_OPENSEARCH_INDEX_PREFIX='hivemind'
 export HIVEMIND_API_IMAGE='ghcr.io/<owner>/hivemind-api:0.3.0'
 export HIVEMIND_RULESET_CATALOG_PATH='/opt/hivemind/ai-rulesets'

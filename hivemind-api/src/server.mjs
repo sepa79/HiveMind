@@ -63,11 +63,22 @@ function createStorage({ storageBackend, dataRoot }) {
 }
 
 function requiredEnv(name) {
+  const fileName = `${name}_FILE`;
   const value = process.env[name];
-  if (!value) {
-    throw new Error(`${name} is required.`);
+  const file = process.env[fileName];
+  if (value && file) {
+    throw new Error(`${name} and ${fileName} are mutually exclusive.`);
   }
-  return value;
+  if (value) {
+    return value;
+  }
+  if (file) {
+    const fileValue = readFileSync(file, "utf8").replace(/\n$/, "");
+    if (fileValue) {
+      return fileValue;
+    }
+  }
+  throw new Error(`${name} is required.`);
 }
 
 function openSearchSslConfig(node) {

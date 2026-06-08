@@ -32,7 +32,8 @@
   ansible.builtin.assert:
     that:
       - opensearch_initial_admin_password | length > 0
-    fail_msg: "OPENSEARCH_INITIAL_ADMIN_PASSWORD must be set explicitly."
+    fail_msg: "OPENSEARCH_INITIAL_ADMIN_PASSWORD must be set explicitly for the HiveMind docker-single profile."
+  when: hivemind_compose_profile
 
 - name: Require explicit OpenSearch service username
   ansible.builtin.assert:
@@ -44,19 +45,14 @@
   ansible.builtin.assert:
     that:
       - hivemind_opensearch_password | length > 0
-    fail_msg: "HIVEMIND_OPENSEARCH_PASSWORD must be set explicitly."
+    fail_msg: "HIVEMIND_OPENSEARCH_PASSWORD must be set explicitly for the HiveMind docker-single profile."
+  when: hivemind_compose_profile
 
 - name: Require explicit OpenSearch index prefix
   ansible.builtin.assert:
     that:
       - hivemind_opensearch_index_prefix | length > 0
     fail_msg: "HIVEMIND_OPENSEARCH_INDEX_PREFIX must be set explicitly."
-
-- name: Require explicit OpenSearch endpoint
-  ansible.builtin.assert:
-    that:
-      - hivemind_opensearch_node_override | length > 0
-    fail_msg: "HIVEMIND_OPENSEARCH_NODE must be set explicitly. Use https://opensearch:9200 for docker-single or https://tasks.opensearch:9200 for Swarm when task DNS is required."
 
 - name: Require explicit OpenSearch TLS verification setting
   ansible.builtin.assert:
@@ -83,9 +79,28 @@
       - hivemind_ruleset_catalog_path | length > 0
     fail_msg: "HIVEMIND_RULESET_CATALOG_PATH must be set explicitly."
 
-- name: Require explicit HiveMind Swarm node
+- name: Require HiveMind OpenSearch admin Docker secret name
   ansible.builtin.assert:
     that:
-      - hivemind_swarm_node | length > 0
-    fail_msg: "HIVEMIND_SWARM_NODE must be set explicitly for the HiveMind swarm profile."
+      - hivemind_opensearch_admin_password_secret | length > 0
+    fail_msg: "OPENSEARCH_INITIAL_ADMIN_PASSWORD_SECRET must resolve to a Docker secret name for the HiveMind swarm profile."
+  when: hivemind_swarm_profile
+
+- name: Require HiveMind OpenSearch service Docker secret name
+  ansible.builtin.assert:
+    that:
+      - hivemind_opensearch_password_secret | length > 0
+    fail_msg: "HIVEMIND_OPENSEARCH_PASSWORD_SECRET must resolve to a Docker secret name for the HiveMind swarm profile."
+  when: hivemind_swarm_profile
+
+- name: Validate HiveMind OpenSearch admin Docker secret
+  ansible.builtin.command:
+    cmd: docker secret inspect {{ hivemind_opensearch_admin_password_secret }}
+  changed_when: false
+  when: hivemind_swarm_profile
+
+- name: Validate HiveMind OpenSearch service Docker secret
+  ansible.builtin.command:
+    cmd: docker secret inspect {{ hivemind_opensearch_password_secret }}
+  changed_when: false
   when: hivemind_swarm_profile

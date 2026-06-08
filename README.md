@@ -105,7 +105,7 @@ HiveMind declares two explicit HiveForge profiles:
 - `swarm` - Docker Swarm deployment of the same shared OpenSearch stack.
 
 Both profiles require a HiveForge managed root with `managedRoot.shared: true`.
-The `swarm` profile also requires placement capability.
+The `swarm` profile uses Docker Swarm services and stack-level Docker secrets.
 
 HiveForge profile selection is an action parameter. HiveForge passes the
 selected profile to the project playbooks as `HIVEFORGE_PROFILE`; it is not a
@@ -116,26 +116,42 @@ All HiveMind actions require these explicit project inputs:
 ```bash
 HIVEMIND_DEPLOYMENT_NAME=hivemind
 HIVEMIND_API_IMAGE=ghcr.io/sepa79/hivemind-api:0.4.4
-OPENSEARCH_INITIAL_ADMIN_PASSWORD=<strong-bootstrap-admin-password>
 HIVEMIND_OPENSEARCH_USERNAME=hivemind_api
-HIVEMIND_OPENSEARCH_PASSWORD=<strong-service-user-password>
 HIVEMIND_OPENSEARCH_INDEX_PREFIX=hivemind
-HIVEMIND_OPENSEARCH_NODE=https://opensearch:9200
 HIVEMIND_OPENSEARCH_TLS_REJECT_UNAUTHORIZED=false
 HIVEMIND_RULESET_CATALOG_PATH=/app/ai-rulesets
 HIVEMIND_API_PORT=4010
 HIVEMIND_MCP_PORT=4011
 ```
 
-For Swarm, also set:
+For `docker-single`, also set:
 
 ```bash
-HIVEMIND_SWARM_NODE=<node-hostname>
-HIVEMIND_OPENSEARCH_NODE=https://tasks.opensearch:9200
+OPENSEARCH_INITIAL_ADMIN_PASSWORD=<strong-bootstrap-admin-password>
+HIVEMIND_OPENSEARCH_PASSWORD=<strong-service-user-password>
 ```
 
-The Swarm profile pins all services to `HIVEMIND_SWARM_NODE`, publishes API and
-MCP ports through Swarm ingress, and uses the stack default network.
+For `swarm`, create Docker secrets before deploying:
+
+```bash
+printf '%s' '<strong-bootstrap-admin-password>' | docker secret create hivemind_opensearch_admin_password -
+printf '%s' '<strong-service-user-password>' | docker secret create hivemind_opensearch_password -
+```
+
+Override the secret names only when the environment uses different existing
+Docker secrets:
+
+```bash
+OPENSEARCH_INITIAL_ADMIN_PASSWORD_SECRET=<admin-secret-name>
+HIVEMIND_OPENSEARCH_PASSWORD_SECRET=<service-password-secret-name>
+```
+
+`HIVEMIND_OPENSEARCH_NODE` is optional. The playbooks default it to
+`https://opensearch:9200` for `docker-single` and
+`https://tasks.opensearch:9200` for `swarm`.
+
+The Swarm profile publishes API and MCP ports through Swarm ingress and uses the
+stack default network.
 
 Use the existing `HIVEMIND_DEPLOYMENT_NAME` when redeploying an existing
 instance. Docker Compose and Docker Swarm scope the `opensearch-data` volume by
