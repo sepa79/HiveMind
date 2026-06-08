@@ -4,6 +4,11 @@ All notable HiveMind changes are recorded here.
 
 ## Unreleased
 
+## 0.4.2 - 2026-06-08
+
+- Publish HiveMind Swarm API and MCP ports through the default Swarm ingress
+  mode instead of host mode.
+
 ## 0.4.1 - 2026-06-08
 
 - Update HiveForge deployment profiles so both `docker-single` and `swarm`
