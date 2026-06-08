@@ -54,13 +54,17 @@
       ansible.builtin.command:
         cmd: docker compose --project-name {{ hivemind_deployment_name }} -f {{ hivemind_compose_file }} down -v --remove-orphans
         chdir: "{{ hivemind_runtime_dir }}"
-      when: hivemind_compose_profile
+      when:
+        - hivemind_compose_profile
+        - not ansible_check_mode
 
     - name: Purge HiveMind Swarm stack
       ansible.builtin.command:
         cmd: docker stack rm {{ hivemind_deployment_name }}
         chdir: "{{ hivemind_runtime_dir }}"
-      when: hivemind_swarm_profile
+      when:
+        - hivemind_swarm_profile
+        - not ansible_check_mode
 
     - name: Wait for HiveMind Swarm stack removal
       ansible.builtin.command:
@@ -71,7 +75,9 @@
       until: hivemind_swarm_stack_ps.rc != 0 or hivemind_swarm_stack_ps.stdout | length == 0
       retries: 30
       delay: 2
-      when: hivemind_swarm_profile
+      when:
+        - hivemind_swarm_profile
+        - not ansible_check_mode
 
     - name: Purge HiveMind Swarm OpenSearch volume
       ansible.builtin.command:
@@ -81,4 +87,6 @@
       failed_when:
         - hivemind_swarm_volume_rm.rc != 0
         - "'No such volume' not in hivemind_swarm_volume_rm.stderr"
-      when: hivemind_swarm_profile
+      when:
+        - hivemind_swarm_profile
+        - not ansible_check_mode

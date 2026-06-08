@@ -4,6 +4,7 @@
   register: hivemind_network_driver
   changed_when: false
   failed_when: false
+  check_mode: false
 
 - name: Reject incompatible HiveMind Swarm Docker network
   ansible.builtin.assert:
@@ -15,4 +16,6 @@
 - name: Create HiveMind Swarm Docker network
   ansible.builtin.command:
     cmd: docker network create --driver overlay --attachable {{ hivemind_swarm_network }}
-  when: hivemind_network_driver.rc != 0
+  when:
+    - hivemind_network_driver.rc != 0
+    - not ansible_check_mode

@@ -17,7 +17,6 @@ deployment:
       playbook: deploy/hiveforge/upgrade.yml
 requirements:
   environment:
-    - HIVEFORGE_PROFILE
     - HIVEMIND_DEPLOYMENT_NAME
     - HIVEMIND_API_IMAGE
     - OPENSEARCH_INITIAL_ADMIN_PASSWORD

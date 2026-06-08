@@ -88,7 +88,7 @@ docker compose up
 ```bash
 npm run doctor
 npm run hivemind:standard -- catalog list
-npm run hivemind:standard -- guidance check --project hivemind --target /home/sepa/Skrybe
+npm run hivemind:standard -- guidance check --project hivemind --target /home/sepa/HiveMind
 ```
 
 MCP clients should use the `health_check` tool first when diagnosing backend
@@ -99,13 +99,13 @@ reachability.
 Dry run:
 
 ```bash
-npm run hivemind:standard -- apply --project hivemind --profile base@v1 --target /home/sepa/Skrybe
+npm run hivemind:standard -- apply --project hivemind --profile base@v1 --target /home/sepa/HiveMind
 ```
 
 Write missing standard files while preserving customized files:
 
 ```bash
-npm run hivemind:standard -- apply --project hivemind --profile base@v1 --target /home/sepa/Skrybe --write
+npm run hivemind:standard -- apply --project hivemind --profile base@v1 --target /home/sepa/HiveMind --write
 ```
 
 ## Package / Release

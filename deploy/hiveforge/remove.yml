@@ -48,10 +48,14 @@
       ansible.builtin.command:
         cmd: docker compose --project-name {{ hivemind_deployment_name }} -f {{ hivemind_compose_file }} down --remove-orphans
         chdir: "{{ hivemind_runtime_dir }}"
-      when: hivemind_compose_profile
+      when:
+        - hivemind_compose_profile
+        - not ansible_check_mode
 
     - name: Remove HiveMind Swarm stack without deleting volumes
       ansible.builtin.command:
         cmd: docker stack rm {{ hivemind_deployment_name }}
         chdir: "{{ hivemind_runtime_dir }}"
-      when: hivemind_swarm_profile
+      when:
+        - hivemind_swarm_profile
+        - not ansible_check_mode

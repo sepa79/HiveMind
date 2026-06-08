@@ -4,6 +4,21 @@ All notable HiveMind changes are recorded here.
 
 ## Unreleased
 
+## 0.4.1 - 2026-06-08
+
+- Update HiveForge deployment profiles so both `docker-single` and `swarm`
+  explicitly require a shared HiveForge managed root, while Swarm still
+  requires placement capability.
+- Treat `HIVEFORGE_PROFILE` as a HiveForge action parameter instead of a
+  project environment requirement in docs and component metadata.
+- Add repo-local Ansible inventory so HiveForge playbook validation does not
+  emit the default no-inventory warning.
+- Make HiveForge Docker/Swarm lifecycle actions safe in Ansible check mode by
+  skipping mutating Docker commands and keeping Swarm network inspection
+  read-only.
+- Update local AI command examples to use the canonical `/home/sepa/HiveMind`
+  checkout path.
+
 ## 0.4.0 - 2026-05-22
 
 - Add MCP backend routing for multi-deployment setups that keep HiveMind tenant-free, list projects across configured backends, and fail fast on duplicate project ids.

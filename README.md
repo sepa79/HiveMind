@@ -104,12 +104,18 @@ HiveMind declares two explicit HiveForge profiles:
 - `docker-single` - Docker Compose deployment on one Docker engine.
 - `swarm` - Docker Swarm deployment of the same shared OpenSearch stack.
 
-All HiveForge actions require these explicit inputs:
+Both profiles require a HiveForge managed root with `managedRoot.shared: true`.
+The `swarm` profile also requires placement capability.
+
+HiveForge profile selection is an action parameter. HiveForge passes the
+selected profile to the project playbooks as `HIVEFORGE_PROFILE`; it is not a
+project environment requirement.
+
+All HiveMind actions require these explicit project inputs:
 
 ```bash
-HIVEFORGE_PROFILE=docker-single
 HIVEMIND_DEPLOYMENT_NAME=hivemind
-HIVEMIND_API_IMAGE=ghcr.io/sepa79/hivemind/hivemind-api:0.3.3
+HIVEMIND_API_IMAGE=ghcr.io/sepa79/hivemind/hivemind-api:0.4.1
 OPENSEARCH_INITIAL_ADMIN_PASSWORD=<strong-bootstrap-admin-password>
 HIVEMIND_OPENSEARCH_USERNAME=hivemind_api
 HIVEMIND_OPENSEARCH_PASSWORD=<strong-service-user-password>
@@ -124,7 +130,6 @@ HIVEMIND_MCP_PORT=4011
 For Swarm, also set:
 
 ```bash
-HIVEFORGE_PROFILE=swarm
 HIVEMIND_SWARM_NODE=<node-hostname>
 HIVEMIND_SWARM_NETWORK=<external-overlay-network-name>
 HIVEMIND_OPENSEARCH_NODE=https://tasks.opensearch:9200

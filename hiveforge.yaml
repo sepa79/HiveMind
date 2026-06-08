@@ -16,10 +16,17 @@ project:
     - id: docker-single
       runtime: docker-single
       serviceSet: shared-opensearch
+      requires:
+        managedRoot:
+          required: true
+          shared: true
     - id: swarm
       runtime: docker-swarm
       serviceSet: shared-opensearch
       requires:
+        managedRoot:
+          required: true
+          shared: true
         capabilities:
           - placement
 components:

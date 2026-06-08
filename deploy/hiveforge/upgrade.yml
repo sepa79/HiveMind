@@ -64,26 +64,36 @@
       ansible.builtin.command:
         cmd: docker compose --project-name {{ hivemind_deployment_name }} -f {{ hivemind_compose_file }} pull
         chdir: "{{ hivemind_runtime_dir }}"
-      when: hivemind_compose_profile
+      when:
+        - hivemind_compose_profile
+        - not ansible_check_mode
 
     - name: Pull HiveMind API image for Swarm upgrade
       ansible.builtin.command:
         cmd: docker pull {{ hivemind_api_image }}
-      when: hivemind_swarm_profile
+      when:
+        - hivemind_swarm_profile
+        - not ansible_check_mode
 
     - name: Pull OpenSearch image for Swarm upgrade
       ansible.builtin.command:
         cmd: docker pull opensearchproject/opensearch:2.17.1
-      when: hivemind_swarm_profile
+      when:
+        - hivemind_swarm_profile
+        - not ansible_check_mode
 
     - name: Reconcile HiveMind Compose stack after upgrade
       ansible.builtin.command:
         cmd: docker compose --project-name {{ hivemind_deployment_name }} -f {{ hivemind_compose_file }} up -d --remove-orphans
         chdir: "{{ hivemind_runtime_dir }}"
-      when: hivemind_compose_profile
+      when:
+        - hivemind_compose_profile
+        - not ansible_check_mode
 
     - name: Reconcile HiveMind Swarm stack after upgrade
       ansible.builtin.command:
         cmd: docker stack deploy --with-registry-auth --compose-file {{ hivemind_compose_file }} {{ hivemind_deployment_name }}
         chdir: "{{ hivemind_runtime_dir }}"
-      when: hivemind_swarm_profile
+      when:
+        - hivemind_swarm_profile
+        - not ansible_check_mode

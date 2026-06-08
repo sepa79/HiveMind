@@ -58,10 +58,14 @@
       ansible.builtin.command:
         cmd: docker compose --project-name {{ hivemind_deployment_name }} -f {{ hivemind_compose_file }} up -d --remove-orphans
         chdir: "{{ hivemind_runtime_dir }}"
-      when: hivemind_compose_profile
+      when:
+        - hivemind_compose_profile
+        - not ansible_check_mode
 
     - name: Deploy HiveMind Swarm stack
       ansible.builtin.command:
         cmd: docker stack deploy --with-registry-auth --compose-file {{ hivemind_compose_file }} {{ hivemind_deployment_name }}
         chdir: "{{ hivemind_runtime_dir }}"
-      when: hivemind_swarm_profile
+      when:
+        - hivemind_swarm_profile
+        - not ansible_check_mode
