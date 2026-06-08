@@ -4,6 +4,11 @@ All notable HiveMind changes are recorded here.
 
 ## Unreleased
 
+## 0.4.6 - 2026-06-08
+
+- Align the packaged MCP server version with the HiveMind release version so
+  `/health` reports the deployed release consistently.
+
 ## 0.4.5 - 2026-06-08
 
 - Let Swarm deployments consume existing Docker secrets directly for the
