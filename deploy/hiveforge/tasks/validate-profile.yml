@@ -89,10 +89,3 @@
       - hivemind_swarm_node | length > 0
     fail_msg: "HIVEMIND_SWARM_NODE must be set explicitly for the HiveMind swarm profile."
   when: hivemind_swarm_profile
-
-- name: Require explicit HiveMind Swarm network
-  ansible.builtin.assert:
-    that:
-      - hivemind_swarm_network | length > 0
-    fail_msg: "HIVEMIND_SWARM_NETWORK must be set explicitly for the HiveMind swarm profile."
-  when: hivemind_swarm_profile

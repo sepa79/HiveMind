@@ -4,6 +4,15 @@ All notable HiveMind changes are recorded here.
 
 ## Unreleased
 
+## 0.4.3 - 2026-06-08
+
+- Remove the `HIVEMIND_SWARM_NETWORK` deployment input and external overlay
+  network handling from HiveForge Swarm playbooks.
+- Let `docker stack deploy` create and use the HiveMind stack default network
+  for Swarm deployments.
+- Update HiveForge deployment docs so Swarm only requires the placement node and
+  task-DNS OpenSearch endpoint in addition to the shared project inputs.
+
 ## 0.4.2 - 2026-06-08
 
 - Publish HiveMind Swarm API and MCP ports through the default Swarm ingress

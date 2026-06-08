@@ -21,7 +21,6 @@
     hivemind_api_port: "{{ lookup('ansible.builtin.env', 'HIVEMIND_API_PORT') }}"
     hivemind_mcp_port: "{{ lookup('ansible.builtin.env', 'HIVEMIND_MCP_PORT') }}"
     hivemind_swarm_node: "{{ lookup('ansible.builtin.env', 'HIVEMIND_SWARM_NODE') }}"
-    hivemind_swarm_network: "{{ lookup('ansible.builtin.env', 'HIVEMIND_SWARM_NETWORK') }}"
   tasks:
     - name: Require explicit purge approval
       ansible.builtin.assert:

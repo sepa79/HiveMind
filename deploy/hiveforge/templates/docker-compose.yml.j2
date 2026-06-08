@@ -127,10 +127,3 @@ services:
 
 volumes:
   opensearch-data:
-
-{% if hivemind_swarm_profile %}
-networks:
-  default:
-    name: "{{ hivemind_swarm_network }}"
-    external: true
-{% endif %}

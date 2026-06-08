@@ -115,7 +115,7 @@ All HiveMind actions require these explicit project inputs:
 
 ```bash
 HIVEMIND_DEPLOYMENT_NAME=hivemind
-HIVEMIND_API_IMAGE=ghcr.io/sepa79/hivemind/hivemind-api:0.4.2
+HIVEMIND_API_IMAGE=ghcr.io/sepa79/hivemind/hivemind-api:0.4.3
 OPENSEARCH_INITIAL_ADMIN_PASSWORD=<strong-bootstrap-admin-password>
 HIVEMIND_OPENSEARCH_USERNAME=hivemind_api
 HIVEMIND_OPENSEARCH_PASSWORD=<strong-service-user-password>
@@ -131,15 +131,11 @@ For Swarm, also set:
 
 ```bash
 HIVEMIND_SWARM_NODE=<node-hostname>
-HIVEMIND_SWARM_NETWORK=<external-overlay-network-name>
 HIVEMIND_OPENSEARCH_NODE=https://tasks.opensearch:9200
 ```
 
 The Swarm profile pins all services to `HIVEMIND_SWARM_NODE`, publishes API and
-MCP ports through Swarm ingress, and uses an explicitly named external overlay network.
-The project playbook creates that network when it is missing and rejects it when
-it exists with the wrong driver. HiveForge itself does not manage Docker
-networks; it only runs the project playbooks.
+MCP ports through Swarm ingress, and uses the stack default network.
 
 Use the existing `HIVEMIND_DEPLOYMENT_NAME` when redeploying an existing
 instance. Docker Compose and Docker Swarm scope the `opensearch-data` volume by
