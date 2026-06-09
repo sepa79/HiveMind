@@ -1,5 +1,5 @@
-{% set opensearch_admin_secret_path = '/run/secrets/opensearch_initial_admin_password' %}
-{% set hivemind_opensearch_password_secret_path = '/run/secrets/hivemind_opensearch_password' %}
+{% set opensearch_admin_secret_path = '/run/secrets/' ~ hivemind_opensearch_admin_password_secret %}
+{% set hivemind_opensearch_password_secret_path = '/run/secrets/' ~ hivemind_opensearch_password_secret %}
 services:
   opensearch:
     image: opensearchproject/opensearch:2.17.1
@@ -9,22 +9,18 @@ services:
       OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
 {% if not hivemind_swarm_profile %}
       OPENSEARCH_INITIAL_ADMIN_PASSWORD: "{{ opensearch_initial_admin_password }}"
+{% else %}
+      OPENSEARCH_INITIAL_ADMIN_PASSWORD_FILE: "{{ opensearch_admin_secret_path }}"
 {% endif %}
 {% if hivemind_swarm_profile %}
-    entrypoint: ["/bin/bash", "-lc"]
-    command:
-      - |
-        export OPENSEARCH_INITIAL_ADMIN_PASSWORD="$$(cat {{ opensearch_admin_secret_path }})"
-        exec /usr/share/opensearch/opensearch-docker-entrypoint.sh opensearch
     secrets:
-      - source: opensearch_admin_password
-        target: opensearch_initial_admin_password
+      - "{{ hivemind_opensearch_admin_password_secret }}"
 {% endif %}
     volumes:
       - opensearch-data:/usr/share/opensearch/data
     healthcheck:
 {% if hivemind_swarm_profile %}
-      test: ["CMD-SHELL", "curl -k -fsS -u admin:$$(cat {{ opensearch_admin_secret_path }}) https://127.0.0.1:9200/_cluster/health >/dev/null"]
+      test: ["CMD-SHELL", "status=$$(curl -k -sS -o /dev/null -w '%{http_code}' https://127.0.0.1:9200); test \"$$status\" = \"200\" -o \"$$status\" = \"401\""]
 {% else %}
       test: ["CMD-SHELL", "curl -k -fsS -u admin:$$OPENSEARCH_INITIAL_ADMIN_PASSWORD https://127.0.0.1:9200/_cluster/health >/dev/null"]
 {% endif %}
@@ -62,10 +58,8 @@ services:
     command: ["node", "scripts/opensearch-init.mjs"]
 {% if hivemind_swarm_profile %}
     secrets:
-      - source: opensearch_admin_password
-        target: opensearch_initial_admin_password
-      - source: hivemind_opensearch_password
-        target: hivemind_opensearch_password
+      - "{{ hivemind_opensearch_admin_password_secret }}"
+      - "{{ hivemind_opensearch_password_secret }}"
 {% endif %}
 {% if hivemind_swarm_profile %}
     deploy:
@@ -98,8 +92,7 @@ services:
       HIVEMIND_RULESET_CATALOG_SOURCE_URL: "{{ hivemind_ruleset_catalog_source_url }}"
 {% if hivemind_swarm_profile %}
     secrets:
-      - source: hivemind_opensearch_password
-        target: hivemind_opensearch_password
+      - "{{ hivemind_opensearch_password_secret }}"
 {% endif %}
     ports:
 {% if hivemind_swarm_profile %}
@@ -157,10 +150,8 @@ volumes:
 
 {% if hivemind_swarm_profile %}
 secrets:
-  opensearch_admin_password:
+  "{{ hivemind_opensearch_admin_password_secret }}":
     external: true
-    name: "{{ hivemind_opensearch_admin_password_secret }}"
-  hivemind_opensearch_password:
+  "{{ hivemind_opensearch_password_secret }}":
     external: true
-    name: "{{ hivemind_opensearch_password_secret }}"
 {% endif %}

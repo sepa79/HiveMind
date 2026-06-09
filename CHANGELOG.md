@@ -4,6 +4,14 @@ All notable HiveMind changes are recorded here.
 
 ## Unreleased
 
+## 0.4.9 - 2026-06-09
+
+- Simplify HiveForge Swarm Docker secrets rendering to the standard Compose
+  secrets pattern, without custom OpenSearch images, shell wrappers, or
+  `source`/`target` aliases.
+- Derive `/run/secrets/<secret_name>` paths from the configured Docker secret
+  names so Swarm secrets mount under the names Compose grants to each service.
+
 ## 0.4.8 - 2026-06-08
 
 - Move the HiveMind release line forward after the Swarm secrets deployment

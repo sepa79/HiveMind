@@ -1,6 +1,6 @@
 {
   "name": "hivemind",
-  "version": "0.4.8",
+  "version": "0.4.9",
   "private": true,
   "type": "module",
   "description": "Standalone MCP memory service for agent and team development context",
