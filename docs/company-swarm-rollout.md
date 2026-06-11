@@ -108,7 +108,7 @@ If the company stack runs in LXC or another environment where Swarm VIP routing
 does not work, use an explicit task endpoint instead:
 
 ```text
-HIVEMIND_OPENSEARCH_NODE=https://tasks.opensearch:9200
+HIVEMIND_OPENSEARCH_NODE=https://opensearch:9200
 ```
 
 If published ingress ports do not accept traffic in that environment, publish
@@ -152,6 +152,7 @@ SESSION_ID="$(
       "workspace_path": "/workspace/hivemind",
       "author_id": "company-admin",
       "author_type": "human",
+      "agent_id": "company-smoke",
       "source": "cli",
       "goal": "Smoke test company HiveMind deployment"
     }' \

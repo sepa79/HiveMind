@@ -2,7 +2,20 @@
 
 All notable HiveMind changes are recorded here.
 
-## Unreleased
+## 0.5.0 - 2026-06-11
+
+- Update the HiveForge deployment contract to `0.5`: project Ansible now renders
+  only the Compose file declared by `HIVEFORGE_RENDERED_COMPOSE_FILE`, while
+  HiveForge owns Docker Compose/Swarm execution and stable deployment naming.
+- Remove `HIVEMIND_DEPLOYMENT_NAME` from required HiveForge inputs. Data
+  retention is tied to the HiveForge deployment slot instead of a manually
+  configured Docker project or stack name.
+- Use Swarm service aliases such as `opensearch` and `hivemind-api` instead of
+  `tasks.*` names so deployments work with HiveForge-generated stack names.
+- For Swarm OpenSearch, read the admin password from the configured Docker
+  secret in the OpenSearch container entrypoint because OpenSearch 2.17.1
+  requires `OPENSEARCH_INITIAL_ADMIN_PASSWORD` and does not consume a `_FILE`
+  variant.
 
 ## 0.4.9 - 2026-06-09
 

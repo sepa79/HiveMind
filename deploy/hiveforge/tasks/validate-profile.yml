@@ -14,13 +14,7 @@
   ansible.builtin.set_fact:
     hivemind_swarm_profile: "{{ hivemind_profile == 'swarm' }}"
     hivemind_compose_profile: "{{ hivemind_profile == 'docker-single' }}"
-    hivemind_internal_api_base_url: "{{ 'http://tasks.hivemind-api:4010' if hivemind_profile == 'swarm' else 'http://hivemind-api:4010' }}"
-
-- name: Require explicit HiveMind deployment name
-  ansible.builtin.assert:
-    that:
-      - hivemind_deployment_name | length > 0
-    fail_msg: "HIVEMIND_DEPLOYMENT_NAME must be set explicitly. Use the existing Compose project or Swarm stack name to preserve data."
+    hivemind_internal_api_base_url: "http://hivemind-api:4010"
 
 - name: Require explicit HiveMind API image
   ansible.builtin.assert:
@@ -91,16 +85,4 @@
     that:
       - hivemind_opensearch_password_secret | length > 0
     fail_msg: "HIVEMIND_OPENSEARCH_PASSWORD_SECRET must resolve to a Docker secret name for the HiveMind swarm profile."
-  when: hivemind_swarm_profile
-
-- name: Validate HiveMind OpenSearch admin Docker secret
-  ansible.builtin.command:
-    cmd: docker secret inspect {{ hivemind_opensearch_admin_password_secret }}
-  changed_when: false
-  when: hivemind_swarm_profile
-
-- name: Validate HiveMind OpenSearch service Docker secret
-  ansible.builtin.command:
-    cmd: docker secret inspect {{ hivemind_opensearch_password_secret }}
-  changed_when: false
   when: hivemind_swarm_profile

@@ -4,11 +4,9 @@
   gather_facts: false
   vars:
     hivemind_repo_root: "{{ playbook_dir }}/../.."
-    hivemind_runtime_dir: "{{ hivemind_repo_root }}/.hiveforge"
     hivemind_compose_template: "{{ playbook_dir }}/templates/docker-compose.yml.j2"
-    hivemind_compose_file: "{{ hivemind_runtime_dir }}/docker-compose.yml"
+    hivemind_compose_file: "{{ lookup('ansible.builtin.env', 'HIVEFORGE_RENDERED_COMPOSE_FILE') }}"
     hivemind_profile: "{{ lookup('ansible.builtin.env', 'HIVEFORGE_PROFILE') }}"
-    hivemind_deployment_name: "{{ lookup('ansible.builtin.env', 'HIVEMIND_DEPLOYMENT_NAME') }}"
     hivemind_api_image: "{{ lookup('ansible.builtin.env', 'HIVEMIND_API_IMAGE') }}"
     opensearch_initial_admin_password: "{{ lookup('ansible.builtin.env', 'OPENSEARCH_INITIAL_ADMIN_PASSWORD') }}"
     hivemind_opensearch_username: "{{ lookup('ansible.builtin.env', 'HIVEMIND_OPENSEARCH_USERNAME') }}"
@@ -28,62 +26,7 @@
 
     - name: Set OpenSearch node endpoint
       ansible.builtin.set_fact:
-        hivemind_opensearch_node: "{{ hivemind_opensearch_node_override if hivemind_opensearch_node_override | length > 0 else ('https://tasks.opensearch:9200' if hivemind_swarm_profile else 'https://opensearch:9200') }}"
-
-    - name: Check Docker CLI access
-      ansible.builtin.command:
-        cmd: docker version --format '{{ "{{" }}.Server.Version{{ "}}" }}'
-      changed_when: false
-
-    - name: Check Docker Compose plugin
-      ansible.builtin.command:
-        cmd: docker compose version
-      changed_when: false
-      when: hivemind_compose_profile
-
-    - name: Check Docker Swarm access
-      ansible.builtin.command:
-        cmd: docker node ls --format '{{ "{{" }}.Hostname{{ "}}" }}'
-      changed_when: false
-      when: hivemind_swarm_profile
+        hivemind_opensearch_node: "{{ hivemind_opensearch_node_override if hivemind_opensearch_node_override | length > 0 else 'https://opensearch:9200' }}"
 
     - name: Render HiveMind Compose file
       ansible.builtin.import_tasks: tasks/render-compose.yml
-
-    - name: Pull HiveMind Compose images
-      ansible.builtin.command:
-        cmd: docker compose --project-name {{ hivemind_deployment_name }} -f {{ hivemind_compose_file }} pull
-        chdir: "{{ hivemind_runtime_dir }}"
-      when:
-        - hivemind_compose_profile
-        - not ansible_check_mode
-
-    - name: Pull HiveMind API image for Swarm
-      ansible.builtin.command:
-        cmd: docker pull {{ hivemind_api_image }}
-      when:
-        - hivemind_swarm_profile
-        - not ansible_check_mode
-
-    - name: Pull OpenSearch image for Swarm
-      ansible.builtin.command:
-        cmd: docker pull opensearchproject/opensearch:2.17.1
-      when:
-        - hivemind_swarm_profile
-        - not ansible_check_mode
-
-    - name: Reconcile HiveMind Compose stack
-      ansible.builtin.command:
-        cmd: docker compose --project-name {{ hivemind_deployment_name }} -f {{ hivemind_compose_file }} up -d --remove-orphans
-        chdir: "{{ hivemind_runtime_dir }}"
-      when:
-        - hivemind_compose_profile
-        - not ansible_check_mode
-
-    - name: Reconcile HiveMind Swarm stack
-      ansible.builtin.command:
-        cmd: docker stack deploy --with-registry-auth --compose-file {{ hivemind_compose_file }} {{ hivemind_deployment_name }}
-        chdir: "{{ hivemind_runtime_dir }}"
-      when:
-        - hivemind_swarm_profile
-        - not ansible_check_mode

@@ -114,8 +114,7 @@ project environment requirement.
 All HiveMind actions require these explicit project inputs:
 
 ```bash
-HIVEMIND_DEPLOYMENT_NAME=hivemind
-HIVEMIND_API_IMAGE=ghcr.io/sepa79/hivemind-api:0.4.4
+HIVEMIND_API_IMAGE=ghcr.io/sepa79/hivemind-api:0.5.0
 HIVEMIND_OPENSEARCH_USERNAME=hivemind_api
 HIVEMIND_OPENSEARCH_INDEX_PREFIX=hivemind
 HIVEMIND_OPENSEARCH_TLS_REJECT_UNAUTHORIZED=false
@@ -147,15 +146,20 @@ HIVEMIND_OPENSEARCH_PASSWORD_SECRET=<service-password-secret-name>
 ```
 
 `HIVEMIND_OPENSEARCH_NODE` is optional. The playbooks default it to
-`https://opensearch:9200` for `docker-single` and
-`https://tasks.opensearch:9200` for `swarm`.
+`https://opensearch:9200` for both profiles. In Swarm this uses the service
+alias on the stack network, so it remains stable when HiveForge owns the
+generated Docker stack name.
 
 The Swarm profile publishes API and MCP ports through Swarm ingress and uses the
 stack default network.
 
-Use the existing `HIVEMIND_DEPLOYMENT_NAME` when redeploying an existing
-instance. Docker Compose and Docker Swarm scope the `opensearch-data` volume by
-deployment name, so changing that name creates a separate data volume.
+For HiveForge contract `0.5`, the project playbooks render the Compose file to
+`HIVEFORGE_RENDERED_COMPOSE_FILE`; HiveForge owns Docker Compose/Swarm
+execution. Do not run Docker from the project Ansible playbooks.
+
+HiveForge assigns and persists the deployment slot. Redeploying the same
+registered project/component/profile reuses the same Docker project or stack
+name, so the scoped `opensearch-data` volume is retained.
 
 `upgrade` and `purge` require explicit approval through the runtime environment:
 `HIVEFORGE_UPGRADE_APPROVED=true` and `HIVEFORGE_PURGE_APPROVED=true`

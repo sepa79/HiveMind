@@ -1,4 +1,5 @@
 kind: project
+version: "0.5"
 project:
   name: hivemind
   repository: https://github.com/sepa79/HiveMind.git

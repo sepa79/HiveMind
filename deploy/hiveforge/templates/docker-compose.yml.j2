@@ -9,10 +9,11 @@ services:
       OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
 {% if not hivemind_swarm_profile %}
       OPENSEARCH_INITIAL_ADMIN_PASSWORD: "{{ opensearch_initial_admin_password }}"
-{% else %}
-      OPENSEARCH_INITIAL_ADMIN_PASSWORD_FILE: "{{ opensearch_admin_secret_path }}"
 {% endif %}
 {% if hivemind_swarm_profile %}
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - "export OPENSEARCH_INITIAL_ADMIN_PASSWORD=\"$$(cat {{ opensearch_admin_secret_path }})\"; exec ./opensearch-docker-entrypoint.sh opensearch"
     secrets:
       - "{{ hivemind_opensearch_admin_password_secret }}"
 {% endif %}
@@ -43,6 +44,8 @@ services:
   opensearch-init:
     image: "{{ hivemind_api_image }}"
     restart: on-failure
+    labels:
+      hiveforge.runtime.ignore: "true"
     environment:
       NODE_TLS_REJECT_UNAUTHORIZED: "{{ '1' if hivemind_opensearch_tls_reject_unauthorized == 'true' else '0' }}"
 {% if hivemind_swarm_profile %}
@@ -63,6 +66,8 @@ services:
 {% endif %}
 {% if hivemind_swarm_profile %}
     deploy:
+      labels:
+        hiveforge.runtime.ignore: "true"
       restart_policy:
         condition: on-failure
         delay: 5s
