@@ -114,7 +114,7 @@ project environment requirement.
 All HiveMind actions require these explicit project inputs:
 
 ```bash
-HIVEMIND_API_IMAGE=ghcr.io/sepa79/hivemind-api:0.5.0
+HIVEMIND_API_IMAGE=ghcr.io/sepa79/hivemind-api:0.5.1
 HIVEMIND_OPENSEARCH_USERNAME=hivemind_api
 HIVEMIND_OPENSEARCH_INDEX_PREFIX=hivemind
 HIVEMIND_OPENSEARCH_TLS_REJECT_UNAUTHORIZED=false
