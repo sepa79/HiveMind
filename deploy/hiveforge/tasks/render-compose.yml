@@ -10,12 +10,6 @@
       - hivemind_compose_template_stat.stat.isreg
     fail_msg: "HiveMind Compose template is missing: {{ hivemind_compose_template }}"
 
-- name: Require HiveForge rendered Compose file path
-  ansible.builtin.assert:
-    that:
-      - hivemind_compose_file | length > 0
-    fail_msg: "HIVEFORGE_RENDERED_COMPOSE_FILE must be set explicitly by HiveForge."
-
 - name: Ensure HiveMind rendered compose directory exists
   ansible.builtin.file:
     path: "{{ hivemind_compose_file | dirname }}"

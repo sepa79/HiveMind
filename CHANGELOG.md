@@ -2,6 +2,11 @@
 
 All notable HiveMind changes are recorded here.
 
+## Unreleased
+
+- Render the HiveForge-managed Compose file at `/hf/stacks/compose.yml` so the
+  project Ansible playbooks match the HiveForge 0.5.2 action-root contract.
+
 ## 0.5.0 - 2026-06-11
 
 - Update the HiveForge deployment contract to `0.5`: project Ansible now renders

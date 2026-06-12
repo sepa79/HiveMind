@@ -153,9 +153,10 @@ generated Docker stack name.
 The Swarm profile publishes API and MCP ports through Swarm ingress and uses the
 stack default network.
 
-For HiveForge contract `0.5`, the project playbooks render the Compose file to
-`HIVEFORGE_RENDERED_COMPOSE_FILE`; HiveForge owns Docker Compose/Swarm
-execution. Do not run Docker from the project Ansible playbooks.
+For HiveForge contract `0.5`, the project playbooks run with the project root
+mounted at `/hf` and render the Compose file to `/hf/stacks/compose.yml`;
+HiveForge owns Docker Compose/Swarm execution. Do not run Docker from the
+project Ansible playbooks.
 
 HiveForge assigns and persists the deployment slot. Redeploying the same
 registered project/component/profile reuses the same Docker project or stack

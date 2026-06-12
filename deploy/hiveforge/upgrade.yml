@@ -5,7 +5,7 @@
   vars:
     hivemind_repo_root: "{{ playbook_dir }}/../.."
     hivemind_compose_template: "{{ playbook_dir }}/templates/docker-compose.yml.j2"
-    hivemind_compose_file: "{{ lookup('ansible.builtin.env', 'HIVEFORGE_RENDERED_COMPOSE_FILE') }}"
+    hivemind_compose_file: /hf/stacks/compose.yml
     hivemind_profile: "{{ lookup('ansible.builtin.env', 'HIVEFORGE_PROFILE') }}"
     hivemind_api_image: "{{ lookup('ansible.builtin.env', 'HIVEMIND_API_IMAGE') }}"
     opensearch_initial_admin_password: "{{ lookup('ansible.builtin.env', 'OPENSEARCH_INITIAL_ADMIN_PASSWORD') }}"
