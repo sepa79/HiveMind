@@ -10,9 +10,10 @@ export class HiveMindApiClientError extends Error {
 }
 
 export class HiveMindApiClient {
-  constructor({ baseUrl, fetchImpl = fetch }) {
+  constructor({ baseUrl, fetchImpl = fetch, adminToken = null }) {
     this.baseUrl = baseUrl.replace(/\/$/, "");
     this.fetchImpl = fetchImpl;
+    this.adminToken = adminToken;
   }
 
   async healthCheck({ timeoutMs = 1500 } = {}) {
@@ -330,6 +331,26 @@ export class HiveMindApiClient {
     });
   }
 
+  async deleteProject(input) {
+    return this.#request({
+      method: "DELETE",
+      path: `/v1/admin/projects/${encodeURIComponent(input.project_id)}`,
+      query: {
+        reason: input.reason
+      },
+      maxAttempts: 1
+    });
+  }
+
+  async mergeProjects(input) {
+    return this.#request({
+      method: "POST",
+      path: "/v1/admin/projects/merge",
+      body: input,
+      maxAttempts: 1
+    });
+  }
+
   async submitRuleCheck(input, { idempotencyKey }) {
     return this.#request({
       method: "POST",
@@ -380,6 +401,9 @@ export class HiveMindApiClient {
           method,
           headers: {
             ...(body ? { "content-type": "application/json" } : {}),
+            ...(path.startsWith("/v1/admin/") && this.adminToken
+              ? { authorization: `Bearer ${this.adminToken.trim()}` }
+              : {}),
             ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {})
           },
           ...(abortController ? { signal: abortController.signal } : {}),

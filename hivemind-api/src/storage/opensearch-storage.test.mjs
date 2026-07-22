@@ -114,6 +114,394 @@ describe("OpenSearchStorage", () => {
     expect((await storage.getProject("alpha")).standard_profile_ref).toBe("aws-microservice@v2");
   });
 
+  it("atomically rejects concurrent repository identities for one project id", async () => {
+    const client = new FakeOpenSearchClient();
+    const storage = new OpenSearchStorage({ client, indexPrefix: "test" });
+    const base = {
+      project_id: "shared",
+      name: "Shared",
+      root_path: "/repo/shared",
+      default_branch: "main"
+    };
+
+    const results = await Promise.allSettled([
+      storage.createProject({
+        ...base,
+        repository_url: "https://github.com/one/shared.git",
+        repository_slug: "one/shared"
+      }),
+      storage.createProject({
+        ...base,
+        repository_url: "https://github.com/two/shared.git",
+        repository_slug: "two/shared"
+      })
+    ]);
+
+    expect(results.map((result) => result.status).sort()).toEqual(["fulfilled", "rejected"]);
+    expect(results.find((result) => result.status === "rejected").reason).toMatchObject({
+      status: 409,
+      code: "PROJECT_ID_REPOSITORY_CONFLICT"
+    });
+  });
+
+  it("deletes project-scoped OpenSearch documents", async () => {
+    const client = new FakeOpenSearchClient();
+    const storage = new OpenSearchStorage({ client, indexPrefix: "test" });
+    await storage.createProject({
+      project_id: "alpha",
+      name: "Alpha",
+      repository_url: "https://github.com/example/alpha.git",
+      repository_slug: "example/alpha",
+      root_path: "/repo/alpha",
+      default_branch: "main",
+      description: "Alpha project"
+    });
+    const { session } = await storage.createSession(
+      {
+        project_id: "alpha",
+        branch: "main",
+        workspace_path: "/repo/alpha",
+        author_id: "agent-alpha",
+        author_type: "agent",
+        source: "mcp",
+        agent_id: "codex",
+        goal: "Delete project"
+      },
+      { idempotencyKey: "delete-session" }
+    );
+    await storage.appendEntry(
+      {
+        project_id: "alpha",
+        session_id: session.session_id,
+        branch: "main",
+        author_id: "agent-alpha",
+        author_type: "agent",
+        source: "mcp",
+        entry_type: "decision",
+        summary: "Delete me"
+      },
+      { idempotencyKey: "delete-entry" }
+    );
+
+    const result = await storage.deleteProject("alpha", { reason: "cleanup" });
+
+    expect(result.reason).toBe("cleanup");
+    expect(result.deleted_counts.sessions).toBe(1);
+    expect(result.deleted_counts.entries).toBe(1);
+    await expect(storage.getProject("alpha")).resolves.toBeNull();
+  });
+
+  it("resumes an interrupted project delete while keeping the project marker until last", async () => {
+    const client = new FakeOpenSearchClient();
+    const storage = new OpenSearchStorage({ client, indexPrefix: "test" });
+    await storage.createProject({
+      project_id: "alpha",
+      name: "Alpha",
+      repository_url: "https://github.com/example/alpha.git",
+      repository_slug: "example/alpha",
+      root_path: "/repo/alpha",
+      default_branch: "main",
+      description: "Alpha project"
+    });
+    await storage.createSession(
+      {
+        project_id: "alpha",
+        branch: "main",
+        workspace_path: "/repo/alpha",
+        author_id: "agent-alpha",
+        author_type: "agent",
+        source: "mcp",
+        agent_id: "codex",
+        goal: "Retry delete"
+      },
+      { idempotencyKey: "retry-delete-session" }
+    );
+
+    client.failNextDelete("test-sessions");
+    await expect(storage.deleteProject("alpha")).rejects.toThrow("Injected delete failure");
+    await expect(storage.getProject("alpha")).resolves.toMatchObject({ project_id: "alpha" });
+
+    await expect(storage.deleteProject("alpha")).resolves.toMatchObject({ deleted_project_id: "alpha" });
+    await expect(storage.getProject("alpha")).resolves.toBeNull();
+  });
+
+  it("merges project-scoped OpenSearch documents into the target project", async () => {
+    const client = new FakeOpenSearchClient();
+    const storage = new OpenSearchStorage({ client, indexPrefix: "test" });
+    await storage.createProject({
+      project_id: "alpha",
+      name: "Alpha",
+      repository_url: "https://github.com/example/alpha.git",
+      repository_slug: "example/alpha",
+      root_path: "/repo/alpha",
+      default_branch: "main",
+      description: "Alpha project"
+    });
+    await storage.createProject({
+      project_id: "legacy",
+      name: "Legacy",
+      repository_url: "https://github.com/example/legacy.git",
+      repository_slug: "example/legacy",
+      root_path: "/repo/legacy",
+      default_branch: "main",
+      description: "Legacy project",
+      standard_profile_ref: "aws-microservice@v2"
+    });
+    const { session } = await storage.createSession(
+      {
+        project_id: "legacy",
+        branch: "main",
+        workspace_path: "/repo/legacy",
+        author_id: "agent-legacy",
+        author_type: "agent",
+        source: "mcp",
+        agent_id: "codex",
+        goal: "Merge project"
+      },
+      { idempotencyKey: "merge-session" }
+    );
+    await storage.appendEntry(
+      {
+        project_id: "legacy",
+        session_id: session.session_id,
+        branch: "main",
+        author_id: "agent-legacy",
+        author_type: "agent",
+        source: "mcp",
+        entry_type: "decision",
+        summary: "Legacy decision"
+      },
+      { idempotencyKey: "merge-entry" }
+    );
+    await storage.upsertRuleset("legacy", {
+      rules: [
+        {
+          rule_id: "legacy_rule",
+          label: "Legacy rule",
+          description: "Preserve this rule during project merge.",
+          severity: "advisory",
+          check_mode: "manual_confirm"
+        }
+      ]
+    });
+
+    const result = await storage.mergeProjects("legacy", "alpha", {
+      reason: "canonicalize",
+      standardProfileResolution: automaticProfileResolution({
+        source: "aws-microservice@v2",
+        result: "aws-microservice@v2"
+      })
+    });
+    const search = await storage.searchEntries({ project_id: "alpha", query: "Legacy decision" });
+    const ruleset = await storage.getRuleset("alpha");
+
+    expect(result.reason).toBe("canonicalize");
+    expect(result.moved_counts.sessions).toBe(1);
+    expect(result.moved_counts.entries).toBe(1);
+    expect(search.entries).toHaveLength(1);
+    expect(search.entries[0].project_id).toBe("alpha");
+    expect(ruleset.rules.map((rule) => rule.rule_id)).toEqual(["legacy_rule"]);
+    expect(result.target_project.ruleset_id).toBe(ruleset.ruleset_id);
+    expect(result.target_project.standard_profile_ref).toBe("aws-microservice@v2");
+    await expect(storage.getProject("legacy")).resolves.toBeNull();
+  });
+
+  it("preserves merge counts across publication and cleanup retries", async () => {
+    const client = new FakeOpenSearchClient();
+    const storage = new OpenSearchStorage({ client, indexPrefix: "test" });
+    await storage.createProject({
+      project_id: "alpha",
+      name: "Alpha",
+      repository_url: "https://github.com/example/alpha.git",
+      repository_slug: "example/alpha",
+      root_path: "/repo/alpha",
+      default_branch: "main",
+      description: "Alpha project"
+    });
+    await storage.createProject({
+      project_id: "legacy",
+      name: "Legacy",
+      repository_url: "https://github.com/example/legacy.git",
+      repository_slug: "example/legacy",
+      root_path: "/repo/legacy",
+      default_branch: "main",
+      description: "Legacy project",
+      standard_profile_ref: "aws-microservice@v2"
+    });
+    await storage.addFeature("legacy", "Imported");
+    await storage.upsertRuleset("legacy", {
+      rules: [
+        {
+          rule_id: "retry_rule",
+          label: "Retry rule",
+          description: "Preserve rules across an interrupted merge.",
+          severity: "required",
+          check_mode: "manual_confirm"
+        }
+      ]
+    });
+    const { session } = await storage.createSession(
+      {
+        project_id: "legacy",
+        branch: "main",
+        workspace_path: "/repo/legacy",
+        author_id: "agent-legacy",
+        author_type: "agent",
+        source: "mcp",
+        agent_id: "codex",
+        goal: "Retry merge"
+      },
+      { idempotencyKey: "retry-merge-session" }
+    );
+    await storage.appendEntry(
+      {
+        project_id: "legacy",
+        session_id: session.session_id,
+        branch: "main",
+        author_id: "agent-legacy",
+        author_type: "agent",
+        source: "mcp",
+        entry_type: "progress",
+        summary: "Preserve across retry"
+      },
+      { idempotencyKey: "retry-merge-entry" }
+    );
+    const resolution = automaticProfileResolution({
+      source: "aws-microservice@v2",
+      result: "aws-microservice@v2"
+    });
+
+    client.failNextIndexWrite("test-projects", "alpha", 1);
+    await expect(storage.mergeProjects("legacy", "alpha", { standardProfileResolution: resolution })).rejects.toThrow(
+      "Injected index failure"
+    );
+    await expect(storage.getProject("alpha")).resolves.toMatchObject({
+      features: [],
+      standard_profile_ref: null
+    });
+    await expect(storage.getProject("legacy")).resolves.toMatchObject({ project_id: "legacy" });
+    await storage.createProject({
+      project_id: "beta",
+      name: "Beta",
+      repository_url: "https://github.com/example/beta.git",
+      repository_slug: "example/beta",
+      root_path: "/repo/beta",
+      default_branch: "main",
+      description: "Beta project"
+    });
+    await expect(
+      storage.mergeProjects("legacy", "beta", { standardProfileResolution: resolution })
+    ).rejects.toMatchObject({
+      status: 409,
+      code: "PROJECT_MERGE_IN_PROGRESS"
+    });
+    await expect(storage.deleteProject("legacy")).rejects.toMatchObject({
+      status: 409,
+      code: "PROJECT_MERGE_IN_PROGRESS"
+    });
+    await expect(storage.deleteProject("alpha")).rejects.toMatchObject({
+      status: 409,
+      code: "PROJECT_MERGE_IN_PROGRESS"
+    });
+    await expect(
+      storage.mergeProjects("alpha", "beta", { standardProfileResolution: automaticProfileResolution() })
+    ).rejects.toMatchObject({
+      status: 409,
+      code: "PROJECT_MERGE_IN_PROGRESS"
+    });
+
+    await storage.createSession(
+      {
+        project_id: "legacy",
+        branch: "main",
+        workspace_path: "/repo/legacy",
+        author_id: "agent-legacy",
+        author_type: "agent",
+        source: "mcp",
+        agent_id: "codex",
+        goal: "Created after interrupted merge"
+      },
+      { idempotencyKey: "retry-merge-late-session" }
+    );
+
+    client.failNextDelete("test-projects", "legacy");
+    await expect(storage.mergeProjects("legacy", "alpha", { standardProfileResolution: resolution })).rejects.toThrow(
+      "Injected delete failure"
+    );
+    await expect(storage.getProject("legacy")).resolves.toMatchObject({ project_id: "legacy" });
+    await expect(storage.getRuleset("legacy")).resolves.toBeNull();
+    await storage.upsertRuleset("alpha", {
+      rules: [
+        {
+          rule_id: "retry_rule",
+          label: "Retry rule",
+          description: "Preserve rules across an interrupted merge.",
+          severity: "required",
+          check_mode: "manual_confirm"
+        },
+        {
+          rule_id: "target_rule",
+          label: "Target rule",
+          description: "Added after interrupted merge cleanup.",
+          severity: "advisory",
+          check_mode: "manual_confirm"
+        }
+      ]
+    });
+
+    const result = await storage.mergeProjects("legacy", "alpha", { standardProfileResolution: resolution });
+    const entries = await storage.searchEntries({ project_id: "alpha", query: "Preserve across retry" });
+
+    expect(result.target_project).toMatchObject({
+      features: ["Imported"],
+      standard_profile_ref: "aws-microservice@v2"
+    });
+    expect(result.moved_counts.rules).toBe(1);
+    expect(result.moved_counts.sessions).toBe(2);
+    expect(result.moved_counts.entries).toBe(1);
+    expect(result.moved_counts.idempotency_records).toBe(3);
+    expect((await storage.getRuleset("alpha")).rules.map((rule) => rule.rule_id)).toEqual(["retry_rule", "target_rule"]);
+    expect(entries.entries).toHaveLength(1);
+    await expect(storage.getProject("legacy")).resolves.toBeNull();
+    await expect(storage.deleteProject("alpha")).resolves.toMatchObject({ deleted_project_id: "alpha" });
+  });
+
+  it("keeps both OpenSearch projects when merge rules conflict", async () => {
+    const client = new FakeOpenSearchClient();
+    const storage = new OpenSearchStorage({ client, indexPrefix: "test" });
+    for (const projectId of ["alpha", "legacy"]) {
+      await storage.createProject({
+        project_id: projectId,
+        name: projectId,
+        repository_url: `https://github.com/example/${projectId}.git`,
+        repository_slug: `example/${projectId}`,
+        root_path: `/repo/${projectId}`,
+        default_branch: "main",
+        description: `${projectId} project`
+      });
+      await storage.upsertRuleset(projectId, {
+        rules: [
+          {
+            rule_id: "shared_rule",
+            label: "Shared rule",
+            description: `${projectId} definition`,
+            severity: "required",
+            check_mode: "manual_confirm"
+          }
+        ]
+      });
+    }
+
+    await expect(
+      storage.mergeProjects("legacy", "alpha", { standardProfileResolution: automaticProfileResolution() })
+    ).rejects.toMatchObject({
+      status: 409,
+      code: "PROJECT_MERGE_CONFLICT"
+    });
+    await expect(storage.getProject("legacy")).resolves.toMatchObject({ project_id: "legacy" });
+    await expect(storage.getProject("alpha")).resolves.toMatchObject({ project_id: "alpha" });
+  });
+
   it("reads and marks entry lifecycle state", async () => {
     const client = new FakeOpenSearchClient();
     const storage = new OpenSearchStorage({ client, indexPrefix: "test" });
@@ -182,6 +570,8 @@ class FakeOpenSearchClient {
     this.#scrolls = new Map();
     this.#nextScrollId = 1;
     this.#idempotencyConflictFactory = null;
+    this.#failingIndexWrite = null;
+    this.#failingDelete = null;
   }
 
   #documents;
@@ -189,6 +579,8 @@ class FakeOpenSearchClient {
   #scrolls;
   #nextScrollId;
   #idempotencyConflictFactory;
+  #failingIndexWrite;
+  #failingDelete;
 
   putSource(index, id, source) {
     this.#index(index).set(id, source);
@@ -202,6 +594,14 @@ class FakeOpenSearchClient {
     this.#idempotencyConflictFactory = factory;
   }
 
+  failNextIndexWrite(index, id = null, matchingWritesToSkip = 0) {
+    this.#failingIndexWrite = { index, id, matchingWritesToSkip };
+  }
+
+  failNextDelete(index, id = null) {
+    this.#failingDelete = { index, id };
+  }
+
   async get({ index, id }) {
     const source = this.#index(index).get(id);
     if (!source) {
@@ -211,6 +611,14 @@ class FakeOpenSearchClient {
   }
 
   async index({ index, id, body, op_type }) {
+    if (this.#failingIndexWrite?.index === index && (!this.#failingIndexWrite.id || this.#failingIndexWrite.id === id)) {
+      if (this.#failingIndexWrite.matchingWritesToSkip > 0) {
+        this.#failingIndexWrite.matchingWritesToSkip -= 1;
+      } else {
+        this.#failingIndexWrite = null;
+        throw new Error(`Injected index failure for ${index}`);
+      }
+    }
     if (op_type === "create" && index.endsWith("-idempotency") && this.#idempotencyConflictFactory) {
       this.#index(index).set(id, this.#idempotencyConflictFactory(body));
       this.#idempotencyConflictFactory = null;
@@ -222,6 +630,18 @@ class FakeOpenSearchClient {
     this.#index(index).set(id, body);
     this.#writeCounts.set(index, (this.#writeCounts.get(index) ?? 0) + 1);
     return { body: { result: "created" } };
+  }
+
+  async delete({ index, id }) {
+    if (this.#failingDelete?.index === index && (!this.#failingDelete.id || this.#failingDelete.id === id)) {
+      this.#failingDelete = null;
+      throw new Error(`Injected delete failure for ${index}`);
+    }
+    if (!this.#index(index).has(id)) {
+      throw notFound();
+    }
+    this.#index(index).delete(id);
+    return { body: { result: "deleted" } };
   }
 
   async search({ index, size, body }) {
@@ -287,4 +707,13 @@ function conflict() {
   const error = new Error("conflict");
   error.meta = { statusCode: 409 };
   return error;
+}
+
+function automaticProfileResolution({ source = null, target = null, result = source ?? target } = {}) {
+  return {
+    source_profile_ref: source,
+    target_profile_ref: target,
+    strategy: "automatic",
+    result_profile_ref: result
+  };
 }

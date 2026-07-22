@@ -96,7 +96,8 @@ Behavior:
 
 ### `admin_memory_review`
 
-Reviews memory across projects for support/admin use.
+Reviews memory across projects for support/admin use. Over Streamable HTTP it
+requires the configured MCP admin Bearer token.
 
 Input:
 
@@ -112,6 +113,55 @@ Output includes:
 - cross-project recommendations
 
 No mutation.
+
+### `admin_project_delete`
+
+Deletes one project and all project-scoped memory. Requires the configured
+MCP admin Bearer token over Streamable HTTP and the API admin token on the
+MCP-to-API hop. The MCP client sends this destructive request once and does not
+retry transport failures or transient HTTP responses automatically.
+
+Input:
+
+- `project_id`
+- optional `backend_id`
+- optional `reason`
+
+Output includes:
+
+- deleted project metadata
+- deleted record counts
+- summary
+
+### `admin_project_merge`
+
+Moves all project-scoped memory from `source_project_id` into
+`target_project_id`, then deletes the source project. Requires the configured
+MCP admin Bearer token over Streamable HTTP and the API admin token on the
+MCP-to-API hop. The merge fails with a conflict instead of silently renaming
+records when source identifiers would overwrite target identifiers.
+The MCP client sends this destructive request once and does not retry transport
+failures or transient HTTP responses automatically.
+
+Input:
+
+- `source_project_id`
+- `target_project_id`
+- optional `backend_id`
+- conditionally required `standard_profile_resolution` when source and target
+  use different profiles:
+  - `prefer_source`
+  - `prefer_target`
+  - `set` with `standard_profile_ref`
+- optional `reason`
+
+Output includes:
+
+- source and target project ids
+- merged target project metadata
+- applied standard profile resolution
+- moved record counts
+- summary
 
 ## Audit Rules
 

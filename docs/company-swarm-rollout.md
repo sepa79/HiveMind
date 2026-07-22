@@ -20,6 +20,8 @@ STACK_NAME=hivemind
 INDEX_PREFIX=hivemind
 SERVICE_USER=hivemind_api
 HIVEMIND_RULESET_CATALOG_PATH=/opt/hivemind/ai-rulesets
+HIVEMIND_ADMIN_TOKEN_SECRET=hivemind_admin_token
+HIVEMIND_MCP_ADMIN_TOKEN_SECRET=hivemind_mcp_admin_token
 ```
 
 For Swarm, put passwords in Docker secrets and pass only secret names through
@@ -46,6 +48,8 @@ On a Swarm manager:
 ```bash
 printf '%s' '<strong-bootstrap-admin-password>' | docker secret create hivemind_opensearch_admin_password -
 printf '%s' '<strong-service-user-password>' | docker secret create hivemind_opensearch_password -
+printf '%s' '<api-admin-token>' | docker secret create hivemind_admin_token -
+printf '%s' '<distinct-mcp-admin-token>' | docker secret create hivemind_mcp_admin_token -
 
 export HIVEMIND_OPENSEARCH_USERNAME='hivemind_api'
 export HIVEMIND_OPENSEARCH_INDEX_PREFIX='hivemind'
@@ -123,6 +127,20 @@ From an admin workstation:
 curl -fsS https://hivemind.company.example/health
 ```
 
+Admin endpoints require a bearer token. If `HIVEMIND_ADMIN_TOKEN` is not set in
+the API service environment, HiveMind creates `admin-token` under
+`HIVEMIND_DATA_ROOT` on first start and logs only the token source. Retrieve the
+token from the service host/container if needed. Swarm mounts the
+`hivemind_admin_token` secret into both API and MCP for the MCP-to-API hop, and
+mounts the distinct `hivemind_mcp_admin_token` secret only into MCP for the
+client-to-MCP hop. Ordinary HTTP MCP tools remain unauthenticated; admin-capable
+clients send the MCP admin token as a Bearer token.
+
+HiveMind API is intentionally a single-writer service. The rendered stack pins
+`hivemind-api` to one replica and uses `stop-first` updates so two API tasks do
+not write to the same OpenSearch index prefix concurrently. The MCP service and
+MCP clients are not subject to this restriction.
+
 Register the shared project if it does not exist yet:
 
 ```bash
@@ -138,6 +156,9 @@ curl -fsS -X POST https://hivemind.company.example/v1/projects \
     "description": "Shared company HiveMind memory."
   }'
 ```
+
+HiveMind stores the canonical `project_id` as the lowercase Git repository name
+from `repository_slug`; the `name` field remains the display label.
 
 Run a write smoke test:
 
@@ -213,7 +234,7 @@ Users need:
 Published package:
 
 ```bash
-code --add-mcp '{"name":"hivemind","type":"stdio","command":"npx","args":["-y","hivemind-mcp"],"env":{"HIVEMIND_API_BASE_URL":"https://hivemind.company.example"}}'
+code --add-mcp '{"name":"hivemind","type":"stdio","command":"npx","args":["-y","hivemind-mcp"],"env":{"HIVEMIND_API_BASE_URL":"https://hivemind.company.example","HIVEMIND_ADMIN_TOKEN":"<admin-token-if-needed>"}}'
 ```
 
 Company npm registry:

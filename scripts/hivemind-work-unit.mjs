@@ -229,13 +229,16 @@ async function initProject(config, options) {
   });
 
   for (const feature of features) {
-    await api(config, `/v1/projects/${encodeURIComponent(projectId)}/features`, {
+    await api(config, `/v1/projects/${encodeURIComponent(project.project_id)}/features`, {
       method: "POST",
       body: { feature }
     });
   }
 
-  const result = features.length > 0 ? await api(config, `/v1/projects/${encodeURIComponent(projectId)}/features`, { method: "GET" }) : null;
+  const result =
+    features.length > 0
+      ? await api(config, `/v1/projects/${encodeURIComponent(project.project_id)}/features`, { method: "GET" })
+      : null;
   console.log(
     JSON.stringify(
       {

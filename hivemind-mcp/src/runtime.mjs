@@ -570,6 +570,32 @@ export function createHiveMindRuntime({ apiClient, apiClients } = {}) {
       }
     },
 
+    async adminProjectDelete(input) {
+      try {
+        const backend = await resolveBackend(backends, { ...input, project_id: input.project_id });
+        const payload = await backend.apiClient.deleteProject(stripRouting(input));
+        return jsonResult({
+          ...payload,
+          backend_id: backend.backend_id
+        });
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+
+    async adminProjectMerge(input) {
+      try {
+        const backend = await resolveBackend(backends, { ...input, project_id: input.target_project_id });
+        const payload = await backend.apiClient.mergeProjects(stripRouting(input));
+        return jsonResult({
+          ...payload,
+          backend_id: backend.backend_id
+        });
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+
     async ruleCheckSubmit(input) {
       try {
         const backend = await resolveBackend(backends, input, routeCache);

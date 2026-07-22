@@ -11,6 +11,14 @@ export class StorageAdapter {
     throw new Error("Not implemented");
   }
 
+  async deleteProject(_projectId, _options) {
+    throw new Error("Not implemented");
+  }
+
+  async mergeProjects(_sourceProjectId, _targetProjectId, _options) {
+    throw new Error("Not implemented");
+  }
+
   async listFeatures(_projectId) {
     throw new Error("Not implemented");
   }

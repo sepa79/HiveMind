@@ -196,9 +196,19 @@ Important environment variables:
   choose a different API port
 - `HIVEMIND_API_BASE_URL`
   point the MCP server or wrapper at a different API instance
+- `HIVEMIND_ADMIN_TOKEN`
+  bearer token for `/v1/admin/*` API endpoints and the MCP-to-API hop; if unset,
+  the API creates or reuses `admin-token` under `HIVEMIND_DATA_ROOT`
+- `HIVEMIND_MCP_ADMIN_TOKEN`
+  separate bearer token accepted from Streamable HTTP MCP clients only when
+  they invoke `admin_*`; ordinary MCP tools do not require it
+- `HIVEMIND_ADMIN_TOKEN_FILE`, `HIVEMIND_MCP_ADMIN_TOKEN_FILE`
+  explicit token-file alternatives used by Docker secrets; each is mutually
+  exclusive with its matching direct token variable
 - `HIVEMIND_BACKENDS`
   JSON backend profile list for MCP clients that need to route across multiple
-  separate HiveMind deployments; each item has `backend_id` and `api_base_url`
+  separate HiveMind deployments; each item has `backend_id`, `api_base_url`, and
+  optional `admin_token_env` for admin tools
 - `HIVEMIND_RULESET_CATALOG_PATH`
   choose the local filesystem catalog path for AI ruleset profiles
 - `HIVEMIND_RULESET_CATALOG_SOURCE_URL`
@@ -216,11 +226,36 @@ HIVEMIND_API_IMAGE=ghcr.io/<owner>/hivemind-api:0.3.0
 HIVEMIND_RULESET_CATALOG_PATH=/opt/hivemind/ai-rulesets
 ```
 
+Admin endpoints require `Authorization: Bearer <token>`. If
+`HIVEMIND_ADMIN_TOKEN` is not set, the API creates `admin-token` in
+`HIVEMIND_DATA_ROOT` and logs the token source without printing the token value.
+Read that file from the host or container and pass the value to a stdio MCP
+process as `HIVEMIND_ADMIN_TOKEN`, or configure it in the shared HTTP MCP
+service for the MCP-to-API hop.
+The API owns token normalization: surrounding whitespace is ignored consistently
+for environment, file, and bearer-token inputs. Whitespace-only configured
+values and empty token files fail explicitly; an empty environment value is
+treated as unset for Compose compatibility.
+
+The shared Streamable HTTP MCP has a separate admin boundary. Configure
+`HIVEMIND_MCP_ADMIN_TOKEN` in the MCP service and send it in the
+`Authorization: Bearer <token>` header when invoking `admin_*`. Calls to other
+MCP tools remain unauthenticated. Keep this client-to-MCP token distinct from
+`HIVEMIND_ADMIN_TOKEN`, which authorizes the MCP-to-API hop. If the MCP admin
+token is unset, HTTP `admin_*` calls fail with `UNAUTHORIZED`; stdio behavior is
+unchanged.
+
 OpenSearch `9200` is not published by the default stack. The API reaches it
 over the private Docker network. The shared Docker stack runs separate
 `hivemind-api` and `hivemind-mcp` services from the same release image:
 `hivemind-api` serves API/UI on `4010`, and `hivemind-mcp` serves Streamable
 HTTP MCP on `4011`.
+
+One data root or OpenSearch index prefix supports exactly one running
+`hivemind-api` process. MCP and client processes may scale independently, but
+the API is a single writer by design. The supplied Swarm configuration fixes
+the API at one replica and uses `stop-first` updates; do not scale that service
+horizontally without first adding storage-level coordination.
 
 For production environments, provide these passwords through the platform secret
 mechanism instead of plain environment variables. The HiveForge Swarm playbooks
@@ -232,10 +267,18 @@ itself.
 
 HiveMind can track other local repos against the same API. Register them through REST, MCP, or the helper command described in `docs/team-quickstart.md`.
 Project metadata must include repository identity (`repository_url` and
-`repository_slug`). HiveMind allows more than one project record for the same
-repository, for example separate long-lived work streams, so clients should use
-`project_list` or `project_resolve` instead of guessing from the local directory
-name.
+`repository_slug`). HiveMind canonicalizes `project_id` from the Git repository
+name in `repository_slug`, lowercased and without the owner or `.git` suffix.
+For example, `sepa79/HiveMind` becomes `hivemind`. Keep `name` as the display
+label, such as `HiveMind`. Re-registering the same normalized
+`repository_slug` updates that project's metadata. If a different repository
+has the same canonical basename, registration fails with
+`PROJECT_ID_REPOSITORY_CONFLICT` and leaves the existing project unchanged.
+
+One HiveMind deployment should have one project record per Git repository. Use
+features, branches, sessions, or separate HiveMind deployments for work-stream
+separation. Clients should use `project_list` or `project_resolve` instead of
+guessing from the local directory name.
 
 For isolated spaces, run separate HiveMind deployments and configure MCP with
 `HIVEMIND_BACKENDS`. MCP discovery lists projects across configured backends

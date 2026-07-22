@@ -49,6 +49,115 @@ describe("HiveMindApiClient", () => {
     expect(calls).toBe(1);
   });
 
+  it("sends the admin bearer token to admin endpoints", async () => {
+    const client = new HiveMindApiClient({
+      baseUrl: "http://127.0.0.1:4010",
+      adminToken: "  secret-admin-token\n",
+      fetchImpl: async (input, init) => {
+        expect(input.toString()).toBe("http://127.0.0.1:4010/v1/admin/projects/buzz?reason=cleanup");
+        expect(init.method).toBe("DELETE");
+        expect(init.headers.authorization).toBe("Bearer secret-admin-token");
+        return jsonResponse(200, {
+          ok: true,
+          data: {
+            deleted_project_id: "buzz"
+          }
+        });
+      }
+    });
+
+    await expect(client.deleteProject({ project_id: "buzz", reason: "cleanup" })).resolves.toEqual({
+      deleted_project_id: "buzz"
+    });
+  });
+
+  it("forwards explicit standard profile resolution during project merge", async () => {
+    const client = new HiveMindApiClient({
+      baseUrl: "http://127.0.0.1:4010",
+      adminToken: "secret-admin-token",
+      fetchImpl: async (input, init) => {
+        expect(input.toString()).toBe("http://127.0.0.1:4010/v1/admin/projects/merge");
+        expect(init.method).toBe("POST");
+        expect(JSON.parse(init.body)).toEqual({
+          source_project_id: "legacy",
+          target_project_id: "buzz",
+          standard_profile_resolution: {
+            strategy: "set",
+            standard_profile_ref: "base@v1"
+          }
+        });
+        return jsonResponse(200, {
+          ok: true,
+          data: {
+            source_project_id: "legacy",
+            target_project_id: "buzz"
+          }
+        });
+      }
+    });
+
+    await expect(
+      client.mergeProjects({
+        source_project_id: "legacy",
+        target_project_id: "buzz",
+        standard_profile_resolution: {
+          strategy: "set",
+          standard_profile_ref: "base@v1"
+        }
+      })
+    ).resolves.toEqual({ source_project_id: "legacy", target_project_id: "buzz" });
+  });
+
+  it.each([
+    ["delete", (client) => client.deleteProject({ project_id: "buzz" })],
+    ["merge", (client) => client.mergeProjects({ source_project_id: "legacy", target_project_id: "buzz" })]
+  ])("does not retry %s after a transport failure", async (_operation, invoke) => {
+    let calls = 0;
+    const client = new HiveMindApiClient({
+      baseUrl: "http://127.0.0.1:4010",
+      adminToken: "secret-admin-token",
+      fetchImpl: async () => {
+        calls += 1;
+        throw new TypeError("response lost");
+      }
+    });
+
+    await expect(invoke(client)).rejects.toMatchObject({
+      code: "API_TRANSPORT_FAILED",
+      details: { attempts: 1 }
+    });
+    expect(calls).toBe(1);
+  });
+
+  it.each([
+    ["delete", (client) => client.deleteProject({ project_id: "buzz" })],
+    ["merge", (client) => client.mergeProjects({ source_project_id: "legacy", target_project_id: "buzz" })]
+  ])("does not retry %s after a transient HTTP response", async (_operation, invoke) => {
+    let calls = 0;
+    const client = new HiveMindApiClient({
+      baseUrl: "http://127.0.0.1:4010",
+      adminToken: "secret-admin-token",
+      fetchImpl: async () => {
+        calls += 1;
+        return jsonResponse(503, {
+          ok: false,
+          error: {
+            code: "SERVICE_UNAVAILABLE",
+            message: "Service unavailable.",
+            details: {}
+          },
+          meta: {}
+        });
+      }
+    });
+
+    await expect(invoke(client)).rejects.toMatchObject({
+      code: "SERVICE_UNAVAILABLE",
+      details: { attempts: 1 }
+    });
+    expect(calls).toBe(1);
+  });
+
   it("retries one transient transport failure", async () => {
     let calls = 0;
     const client = new HiveMindApiClient({

@@ -30,6 +30,15 @@ const ISSUE_EVENT_TYPE_VALUES = [
 ];
 
 const NonEmptyString = z.string().trim().min(1);
+const SafeProjectId = z
+  .string()
+  .trim()
+  .refine(
+    (value) =>
+      /^[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*$/.test(value) &&
+      value.split("/").every((segment) => segment !== "." && segment !== ".."),
+    "project_id must contain only safe repository-name segments"
+  );
 
 export const LinkSchema = z.object({
   kind: z.enum(LINK_KIND_VALUES),
@@ -95,6 +104,65 @@ export const ProjectResolveResultSchema = z.object({
   project: ProjectRecordSchema.nullable(),
   candidates: z.array(ProjectResolveCandidateSchema),
   resolution_reason: NonEmptyString
+});
+
+const ProjectAdminCountsSchema = z.object({
+  contexts: z.number().int().nonnegative(),
+  entries: z.number().int().nonnegative(),
+  sessions: z.number().int().nonnegative(),
+  issues: z.number().int().nonnegative(),
+  issue_events: z.number().int().nonnegative(),
+  learnings: z.number().int().nonnegative(),
+  learning_feedback: z.number().int().nonnegative(),
+  rule_checks: z.number().int().nonnegative(),
+  idempotency_records: z.number().int().nonnegative(),
+  rules: z.number().int().nonnegative()
+});
+
+export const ProjectDeleteInputSchema = z.object({
+  project_id: SafeProjectId,
+  reason: z.string().trim().min(1).optional()
+});
+
+export const ProjectDeleteResultSchema = z.object({
+  deleted_project_id: NonEmptyString,
+  deleted_project: ProjectRecordSchema,
+  deleted_counts: ProjectAdminCountsSchema,
+  reason: z.string().nullable(),
+  summary: NonEmptyString
+});
+
+export const ProjectMergeInputSchema = z.object({
+  source_project_id: SafeProjectId,
+  target_project_id: SafeProjectId,
+  standard_profile_resolution: z
+    .discriminatedUnion("strategy", [
+      z.object({ strategy: z.literal("prefer_source") }),
+      z.object({ strategy: z.literal("prefer_target") }),
+      z.object({
+        strategy: z.literal("set"),
+        standard_profile_ref: NonEmptyString
+      })
+    ])
+    .optional(),
+  reason: z.string().trim().min(1).optional()
+});
+
+export const ProjectMergeStandardProfileResolutionSchema = z.object({
+  source_profile_ref: z.string().nullable(),
+  target_profile_ref: z.string().nullable(),
+  strategy: z.enum(["automatic", "prefer_source", "prefer_target", "set"]),
+  result_profile_ref: z.string().nullable()
+});
+
+export const ProjectMergeResultSchema = z.object({
+  source_project_id: NonEmptyString,
+  target_project_id: NonEmptyString,
+  target_project: ProjectRecordSchema,
+  standard_profile_resolution: ProjectMergeStandardProfileResolutionSchema,
+  moved_counts: ProjectAdminCountsSchema,
+  reason: z.string().nullable(),
+  summary: NonEmptyString
 });
 
 export const FeatureListResultSchema = z.object({

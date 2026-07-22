@@ -1,7 +1,8 @@
 import { randomUUID, createHash } from "node:crypto";
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync, appendFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync, appendFileSync, rmSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { ApiError, ensure } from "../app/errors.mjs";
+import { ensureMatchingProjectRepository } from "../app/project-identity.mjs";
 import { StorageAdapter } from "./adapter.mjs";
 
 const IMPORTANCE_WEIGHT = {
@@ -47,6 +48,7 @@ export class FsJsonlStorage extends StorageAdapter {
     mkdirSync(join(projectDir, "indexes"), { recursive: true });
 
     const existing = this.#readJsonFile(this.#projectFile(projectInput.project_id), null);
+    ensureMatchingProjectRepository(existing, projectInput);
     const now = isoNow();
     const project = {
       project_id: projectInput.project_id,
@@ -91,6 +93,125 @@ export class FsJsonlStorage extends StorageAdapter {
         .map((projectId) => this.#readJsonFile(this.#projectFile(projectId), null))
         .filter(Boolean)
         .sort((left, right) => left.project_id.localeCompare(right.project_id))
+    };
+  }
+
+  async deleteProject(projectId, { reason = null } = {}) {
+    const project = await this.getProject(projectId);
+    ensure(project, 404, "PROJECT_NOT_FOUND", `No project exists with id '${projectId}'.`, { project_id: projectId });
+    this.#ensureProjectHasNoNestedProjects(projectId);
+
+    const deletedCounts = this.#projectAdminCounts(projectId);
+    rmSync(this.#projectDir(projectId), { recursive: true, force: true });
+    return {
+      deleted_project_id: projectId,
+      deleted_project: project,
+      deleted_counts: deletedCounts,
+      reason,
+      summary: `Deleted project '${projectId}' and its project-scoped data.`
+    };
+  }
+
+  async mergeProjects(sourceProjectId, targetProjectId, { reason = null, standardProfileResolution } = {}) {
+    ensure(sourceProjectId !== targetProjectId, 400, "PROJECT_MERGE_REQUIRES_DISTINCT_PROJECTS", "Source and target projects must differ.", {
+      source_project_id: sourceProjectId,
+      target_project_id: targetProjectId
+    });
+    const sourceProject = await this.getProject(sourceProjectId);
+    ensure(sourceProject, 404, "PROJECT_NOT_FOUND", `No project exists with id '${sourceProjectId}'.`, { project_id: sourceProjectId });
+    const targetProject = await this.getProject(targetProjectId);
+    ensure(targetProject, 404, "PROJECT_NOT_FOUND", `No project exists with id '${targetProjectId}'.`, { project_id: targetProjectId });
+    this.#ensureProjectHasNoNestedProjects(sourceProjectId);
+    ensure(
+      standardProfileResolution,
+      500,
+      "PROJECT_MERGE_PROFILE_RESOLUTION_MISSING",
+      "Project merge requires a service-resolved standard profile result."
+    );
+
+    const conflicts = this.#projectMergeConflicts(sourceProjectId, targetProjectId);
+    ensure(conflicts.length === 0, 409, "PROJECT_MERGE_CONFLICT", "Project merge would overwrite existing target data.", {
+      source_project_id: sourceProjectId,
+      target_project_id: targetProjectId,
+      conflicts
+    });
+
+    const movedCounts = this.#projectAdminCounts(sourceProjectId);
+    const sourceRuleset = await this.getRuleset(sourceProjectId);
+    const targetRuleset = await this.getRuleset(targetProjectId);
+    const targetRuleIds = new Set((targetRuleset?.rules ?? []).map((rule) => rule.rule_id));
+    const rulesToAdd = (sourceRuleset?.rules ?? []).filter((rule) => !targetRuleIds.has(rule.rule_id));
+    movedCounts.rules = sourceRuleset?.rules?.length ?? 0;
+
+    const now = isoNow();
+    const mergedRuleset =
+      rulesToAdd.length > 0
+        ? {
+            project_id: targetProjectId,
+            ruleset_id: `${targetProjectId}:${(targetRuleset?.version ?? 0) + 1}`,
+            version: (targetRuleset?.version ?? 0) + 1,
+            rules: [...(targetRuleset?.rules ?? []), ...rulesToAdd],
+            created_at: targetRuleset?.created_at ?? now,
+            updated_at: now
+          }
+        : targetRuleset;
+    const mergedProject = {
+      ...targetProject,
+      features: [...new Set([...(targetProject.features ?? []), ...(sourceProject.features ?? [])])],
+      categories: [...new Set([...(targetProject.categories ?? []), ...(sourceProject.categories ?? [])])],
+      ruleset_id: mergedRuleset?.ruleset_id ?? targetProject.ruleset_id,
+      standard_profile_ref: standardProfileResolution.result_profile_ref,
+      updated_at: now
+    };
+    for (const context of this.#listProjectContexts(sourceProjectId)) {
+      this.#writeJsonFile(this.#contextFile(targetProjectId, context.context_id), { ...context, project_id: targetProjectId });
+    }
+    for (const session of this.#listProjectSessions(sourceProjectId)) {
+      this.#writeJsonFile(this.#sessionFile(targetProjectId, session.session_id), { ...session, project_id: targetProjectId });
+    }
+    for (const issue of this.#listProjectIssues(sourceProjectId)) {
+      this.#writeJsonFile(this.#issueFile(targetProjectId, issue.issue_id), { ...issue, project_id: targetProjectId });
+    }
+    this.#appendProjectLines(this.#entriesFile(targetProjectId), this.#readJsonLines(this.#entriesFile(sourceProjectId)), targetProjectId, "entry_id");
+    this.#appendProjectLines(
+      this.#issueEventsFile(targetProjectId),
+      this.#readJsonLines(this.#issueEventsFile(sourceProjectId)),
+      targetProjectId,
+      "issue_event_id"
+    );
+    this.#appendProjectLines(
+      this.#learningsFile(targetProjectId),
+      this.#readJsonLines(this.#learningsFile(sourceProjectId)),
+      targetProjectId,
+      "learning_id"
+    );
+    this.#appendProjectLines(
+      this.#learningFeedbackFile(targetProjectId),
+      this.#readJsonLines(this.#learningFeedbackFile(sourceProjectId)),
+      targetProjectId,
+      "feedback_id"
+    );
+    this.#appendProjectLines(
+      this.#ruleChecksFile(targetProjectId),
+      this.#readJsonLines(this.#ruleChecksFile(sourceProjectId)),
+      targetProjectId,
+      "rule_check_id"
+    );
+    this.#appendIdempotencyLines(this.#idempotencyFile(targetProjectId), this.#readJsonLines(this.#idempotencyFile(sourceProjectId)), targetProjectId);
+
+    if (rulesToAdd.length > 0) {
+      this.#writeJsonFile(this.#rulesetFile(targetProjectId), mergedRuleset);
+    }
+    this.#writeJsonFile(this.#projectFile(targetProjectId), mergedProject);
+    rmSync(this.#projectDir(sourceProjectId), { recursive: true, force: true });
+    return {
+      source_project_id: sourceProjectId,
+      target_project_id: targetProjectId,
+      target_project: mergedProject,
+      standard_profile_resolution: standardProfileResolution,
+      moved_counts: movedCounts,
+      reason,
+      summary: `Merged project '${sourceProjectId}' into '${targetProjectId}' and deleted the source project.`
     };
   }
 
@@ -1676,6 +1797,161 @@ export class FsJsonlStorage extends StorageAdapter {
     };
   }
 
+  #projectAdminCounts(projectId) {
+    return {
+      contexts: this.#listProjectContexts(projectId).length,
+      entries: this.#readJsonLines(this.#entriesFile(projectId)).length,
+      sessions: this.#listProjectSessions(projectId).length,
+      issues: this.#listProjectIssues(projectId).length,
+      issue_events: this.#readJsonLines(this.#issueEventsFile(projectId)).length,
+      learnings: this.#readJsonLines(this.#learningsFile(projectId)).length,
+      learning_feedback: this.#readJsonLines(this.#learningFeedbackFile(projectId)).length,
+      rule_checks: this.#readJsonLines(this.#ruleChecksFile(projectId)).length,
+      idempotency_records: this.#readJsonLines(this.#idempotencyFile(projectId)).length,
+      rules: (this.#readJsonFile(this.#rulesetFile(projectId), null)?.rules ?? []).length
+    };
+  }
+
+  #ensureProjectHasNoNestedProjects(projectId) {
+    const nestedProjectIds = this.#nestedProjectIds(projectId);
+    ensure(
+      nestedProjectIds.length === 0,
+      409,
+      "PROJECT_CONTAINS_NESTED_PROJECTS",
+      `Project '${projectId}' contains nested legacy projects and cannot be deleted safely.`,
+      {
+        project_id: projectId,
+        nested_project_ids: nestedProjectIds
+      }
+    );
+  }
+
+  #nestedProjectIds(projectId) {
+    const projectDir = this.#projectDir(projectId);
+    if (!existsSync(projectDir)) {
+      return [];
+    }
+    const nestedProjectIds = [];
+    const visit = (directory, isRoot = false) => {
+      if (!isRoot) {
+        const nestedProject = this.#readJsonFile(join(directory, "project.json"), null);
+        if (nestedProject?.project_id) {
+          nestedProjectIds.push(nestedProject.project_id);
+        }
+      }
+      for (const entry of readdirSync(directory, { withFileTypes: true })) {
+        if (entry.isDirectory()) {
+          visit(join(directory, entry.name));
+        }
+      }
+    };
+    visit(projectDir, true);
+    return [...new Set(nestedProjectIds)].sort();
+  }
+
+  #projectMergeConflicts(sourceProjectId, targetProjectId) {
+    const conflicts = [
+      ...conflictingIds(
+        this.#listProjectContexts(sourceProjectId),
+        this.#listProjectContexts(targetProjectId),
+        "context_id",
+        "contexts",
+        targetProjectId
+      ),
+      ...conflictingIds(
+        this.#listProjectContexts(sourceProjectId),
+        this.#listProjectContexts(targetProjectId),
+        "context_token",
+        "contexts",
+        targetProjectId
+      ),
+      ...conflictingIds(
+        this.#listProjectSessions(sourceProjectId),
+        this.#listProjectSessions(targetProjectId),
+        "session_id",
+        "sessions",
+        targetProjectId
+      ),
+      ...conflictingIds(
+        this.#listProjectIssues(sourceProjectId),
+        this.#listProjectIssues(targetProjectId),
+        "issue_id",
+        "issues",
+        targetProjectId
+      ),
+      ...conflictingIds(
+        this.#readJsonLines(this.#entriesFile(sourceProjectId)),
+        this.#readJsonLines(this.#entriesFile(targetProjectId)),
+        "entry_id",
+        "entries",
+        targetProjectId
+      ),
+      ...conflictingIds(
+        this.#readJsonLines(this.#issueEventsFile(sourceProjectId)),
+        this.#readJsonLines(this.#issueEventsFile(targetProjectId)),
+        "issue_event_id",
+        "issue_events",
+        targetProjectId
+      ),
+      ...conflictingIds(
+        this.#readJsonLines(this.#learningsFile(sourceProjectId)),
+        this.#readJsonLines(this.#learningsFile(targetProjectId)),
+        "learning_id",
+        "learnings",
+        targetProjectId
+      ),
+      ...conflictingIds(
+        this.#readJsonLines(this.#learningFeedbackFile(sourceProjectId)),
+        this.#readJsonLines(this.#learningFeedbackFile(targetProjectId)),
+        "feedback_id",
+        "learning_feedback",
+        targetProjectId
+      ),
+      ...conflictingIds(
+        this.#readJsonLines(this.#ruleChecksFile(sourceProjectId)),
+        this.#readJsonLines(this.#ruleChecksFile(targetProjectId)),
+        "rule_check_id",
+        "rule_checks",
+        targetProjectId
+      ),
+      ...conflictingIdempotency(
+        this.#readJsonLines(this.#idempotencyFile(sourceProjectId)),
+        this.#readJsonLines(this.#idempotencyFile(targetProjectId)),
+        targetProjectId
+      ),
+      ...conflictingRules(
+        this.#readJsonFile(this.#rulesetFile(sourceProjectId), null)?.rules ?? [],
+        this.#readJsonFile(this.#rulesetFile(targetProjectId), null)?.rules ?? []
+      )
+    ];
+    return conflicts;
+  }
+
+  #appendProjectLines(filePath, values, projectId, idField) {
+    const existing = this.#readJsonLines(filePath);
+    const existingIds = new Set(existing.map((value) => value[idField]).filter(Boolean));
+    for (const value of values) {
+      if (existingIds.has(value[idField])) {
+        continue;
+      }
+      this.#appendJsonLine(filePath, { ...value, project_id: projectId });
+      existingIds.add(value[idField]);
+    }
+  }
+
+  #appendIdempotencyLines(filePath, values, projectId) {
+    const existing = this.#readJsonLines(filePath);
+    const existingIds = new Set(existing.map((value) => `${value.operation}:${value.key}`));
+    for (const value of values) {
+      const id = `${value.operation}:${value.key}`;
+      if (existingIds.has(id)) {
+        continue;
+      }
+      this.#appendJsonLine(filePath, { ...value, project_id: projectId });
+      existingIds.add(id);
+    }
+  }
+
   #projectDir(projectId) {
     return resolve(this.dataRoot, "projects", projectId);
   }
@@ -2183,6 +2459,33 @@ function groupBy(values, keyFn) {
     groups.set(key, group);
   }
   return groups;
+}
+
+function conflictingIds(sourceValues, targetValues, idField, collection, targetProjectId) {
+  const targetValuesById = new Map(targetValues.map((value) => [value[idField], value]).filter(([id]) => Boolean(id)));
+  return sourceValues
+    .filter((value) => {
+      const targetValue = targetValuesById.get(value[idField]);
+      return targetValue && stableStringify(targetValue) !== stableStringify({ ...value, project_id: targetProjectId });
+    })
+    .map((value) => ({ collection, id_field: idField, id: value[idField] }));
+}
+
+function conflictingIdempotency(sourceValues, targetValues, targetProjectId) {
+  const targetValuesByKey = new Map(targetValues.map((value) => [`${value.operation}:${value.key}`, value]));
+  return sourceValues
+    .filter((value) => {
+      const targetValue = targetValuesByKey.get(`${value.operation}:${value.key}`);
+      return targetValue && stableStringify(targetValue) !== stableStringify({ ...value, project_id: targetProjectId });
+    })
+    .map((value) => ({ collection: "idempotency", id_field: "operation:key", id: `${value.operation}:${value.key}` }));
+}
+
+function conflictingRules(sourceRules, targetRules) {
+  const targetRulesById = new Map(targetRules.map((rule) => [rule.rule_id, stableStringify(rule)]));
+  return sourceRules
+    .filter((rule) => targetRulesById.has(rule.rule_id) && targetRulesById.get(rule.rule_id) !== stableStringify(rule))
+    .map((rule) => ({ collection: "rules", id_field: "rule_id", id: rule.rule_id }));
 }
 
 function compareBranchMatch(left, right, branch) {

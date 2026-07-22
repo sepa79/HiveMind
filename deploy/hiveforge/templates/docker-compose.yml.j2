@@ -1,5 +1,7 @@
 {% set opensearch_admin_secret_path = '/run/secrets/' ~ hivemind_opensearch_admin_password_secret %}
 {% set hivemind_opensearch_password_secret_path = '/run/secrets/' ~ hivemind_opensearch_password_secret %}
+{% set hivemind_admin_token_secret_path = '/run/secrets/' ~ hivemind_admin_token_secret %}
+{% set hivemind_mcp_admin_token_secret_path = '/run/secrets/' ~ hivemind_mcp_admin_token_secret %}
 services:
   opensearch:
     image: opensearchproject/opensearch:2.17.1
@@ -83,6 +85,12 @@ services:
     restart: on-failure
     environment:
       HIVEMIND_API_PORT: "4010"
+      HIVEMIND_DATA_ROOT: /data
+{% if hivemind_swarm_profile %}
+      HIVEMIND_ADMIN_TOKEN_FILE: "{{ hivemind_admin_token_secret_path }}"
+{% else %}
+      HIVEMIND_ADMIN_TOKEN: "{{ hivemind_admin_token }}"
+{% endif %}
       HIVEMIND_STORAGE_BACKEND: opensearch
       HIVEMIND_OPENSEARCH_NODE: "{{ hivemind_opensearch_node }}"
       HIVEMIND_OPENSEARCH_INDEX_PREFIX: "{{ hivemind_opensearch_index_prefix }}"
@@ -98,7 +106,10 @@ services:
 {% if hivemind_swarm_profile %}
     secrets:
       - "{{ hivemind_opensearch_password_secret }}"
+      - "{{ hivemind_admin_token_secret }}"
 {% endif %}
+    volumes:
+      - hivemind-data:/data
     ports:
 {% if hivemind_swarm_profile %}
       - target: 4010
@@ -109,11 +120,15 @@ services:
 {% endif %}
 {% if hivemind_swarm_profile %}
     deploy:
+      replicas: 1
+      update_config:
+        order: stop-first
       restart_policy:
         condition: on-failure
         delay: 5s
 {% else %}
     deploy:
+      replicas: 1
       restart_policy:
         condition: on-failure
         delay: 5s
@@ -128,6 +143,18 @@ services:
       HIVEMIND_MCP_HOST: 0.0.0.0
       HIVEMIND_MCP_PORT: "4011"
       HIVEMIND_API_BASE_URL: "{{ hivemind_internal_api_base_url }}"
+{% if hivemind_swarm_profile %}
+      HIVEMIND_ADMIN_TOKEN_FILE: "{{ hivemind_admin_token_secret_path }}"
+      HIVEMIND_MCP_ADMIN_TOKEN_FILE: "{{ hivemind_mcp_admin_token_secret_path }}"
+{% else %}
+      HIVEMIND_ADMIN_TOKEN: "{{ hivemind_admin_token }}"
+      HIVEMIND_MCP_ADMIN_TOKEN: "{{ hivemind_mcp_admin_token }}"
+{% endif %}
+{% if hivemind_swarm_profile %}
+    secrets:
+      - "{{ hivemind_admin_token_secret }}"
+      - "{{ hivemind_mcp_admin_token_secret }}"
+{% endif %}
     ports:
 {% if hivemind_swarm_profile %}
       - target: 4011
@@ -152,11 +179,16 @@ services:
 
 volumes:
   opensearch-data:
+  hivemind-data:
 
 {% if hivemind_swarm_profile %}
 secrets:
   "{{ hivemind_opensearch_admin_password_secret }}":
     external: true
   "{{ hivemind_opensearch_password_secret }}":
+    external: true
+  "{{ hivemind_admin_token_secret }}":
+    external: true
+  "{{ hivemind_mcp_admin_token_secret }}":
     external: true
 {% endif %}

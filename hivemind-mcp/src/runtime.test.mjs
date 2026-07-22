@@ -37,10 +37,32 @@ describe("HiveMind MCP runtime", () => {
     expect(toolNames).toContain("project_review");
     expect(toolNames).toContain("hivemind_feedback");
     expect(toolNames).toContain("admin_memory_review");
+    expect(toolNames).toContain("admin_project_delete");
+    expect(toolNames).toContain("admin_project_merge");
     expect(toolNames).toContain("ruleset_catalog_list");
     expect(toolNames).toContain("ruleset_catalog_get");
     expect(toolNames).toContain("guidance_check");
     expect(toolNames).toContain("project_standard_profile_define");
+  });
+
+  it("exposes reason only on admin project deletion, not feature listing", () => {
+    const source = serverSource();
+
+    expect(toolSourceBlock(source, "feature_list")).not.toContain("reason: z.string().optional()");
+    expect(toolSourceBlock(source, "admin_project_delete")).toContain("reason: z.string().optional()");
+    expect(toolSourceBlock(source, "admin_project_merge")).toContain('z.literal("prefer_source")');
+    expect(toolSourceBlock(source, "admin_project_merge")).toContain('z.literal("prefer_target")');
+    expect(toolSourceBlock(source, "admin_project_merge")).toContain('z.literal("set")');
+  });
+
+  it("protects exactly the admin tools with MCP admin authorization", () => {
+    const source = serverSource();
+
+    expect(toolSourceBlock(source, "admin_memory_review")).toContain("protectAdminTool(");
+    expect(toolSourceBlock(source, "admin_project_delete")).toContain("protectAdminTool(");
+    expect(toolSourceBlock(source, "admin_project_merge")).toContain("protectAdminTool(");
+    expect(toolSourceBlock(source, "project_list")).not.toContain("protectAdminTool(");
+    expect(toolSourceBlock(source, "entry_append")).not.toContain("protectAdminTool(");
   });
 
   it("reports the MCP server version from the package manifest", () => {
@@ -54,6 +76,7 @@ describe("HiveMind MCP runtime", () => {
   it("includes backend config in the packed MCP package file list", () => {
     const manifest = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
 
+    expect(manifest.files).toContain("src/admin-auth.mjs");
     expect(manifest.files).toContain("src/backend-config.mjs");
   });
 
@@ -148,6 +171,24 @@ describe("HiveMind MCP runtime", () => {
     expect(result.structuredContent.project.project_id).toBe("buzz");
   });
 
+  it("project.register returns the canonical lowercase repository name as project id", async () => {
+    const runtime = createRuntime();
+
+    const result = await runtime.projectRegister({
+      project_id: "sepa79/SkippyBot",
+      name: "SkippyBot",
+      repository_url: "https://github.com/sepa79/SkippyBot.git",
+      repository_slug: "sepa79/SkippyBot",
+      root_path: "/repo/SkippyBot",
+      default_branch: "main",
+      description: "SkippyBot project"
+    });
+
+    expect(result.isError).toBeUndefined();
+    expect(result.structuredContent.project.project_id).toBe("skippybot");
+    expect(result.structuredContent.project.name).toBe("SkippyBot");
+  });
+
   it("project.list and project.resolve expose registered project discovery", async () => {
     const runtime = createRuntime();
     await runtime.projectRegister({
@@ -220,8 +261,8 @@ describe("HiveMind MCP runtime", () => {
         backend_id,
         project_id: "buzz",
         name: `Buzz ${backend_id}`,
-        repository_url: `https://github.com/example/${backend_id}-buzz.git`,
-        repository_slug: `example/${backend_id}-buzz`,
+        repository_url: "https://github.com/example/buzz.git",
+        repository_slug: "example/buzz",
         root_path: `/repo/${backend_id}/buzz`,
         default_branch: "main",
         description: "Duplicate project"
@@ -1178,14 +1219,22 @@ describe("HiveMind MCP runtime", () => {
   });
 });
 
+function toolSourceBlock(source, toolName) {
+  const start = source.indexOf(`  "${toolName}",`);
+  expect(start).toBeGreaterThanOrEqual(0);
+  const end = source.indexOf("\nserver.registerTool(", start + 1);
+  return source.slice(start, end === -1 ? undefined : end);
+}
+
 function createRuntime() {
   const dataRoot = mkdtempSync(join(tmpdir(), "hivemind-mcp-"));
   roots.push(dataRoot);
   const storage = new FsJsonlStorage({ dataRoot });
   const service = new HiveMindService({ storage });
-  const app = createApp({ service });
+  const app = createApp({ service, adminToken: "test-admin-token" });
   const apiClient = new HiveMindApiClient({
     baseUrl: "http://hivemind.test",
+    adminToken: "test-admin-token",
     fetchImpl: (input, init) => app.request(input, init)
   });
   return createHiveMindRuntime({ apiClient });
@@ -1197,11 +1246,12 @@ function createRuntimeWithBackends(backendIds) {
     roots.push(dataRoot);
     const storage = new FsJsonlStorage({ dataRoot });
     const service = new HiveMindService({ storage });
-    const app = createApp({ service });
+    const app = createApp({ service, adminToken: "test-admin-token" });
     return {
       backend_id: backendId,
       apiClient: new HiveMindApiClient({
         baseUrl: `http://${backendId}.hivemind.test`,
+        adminToken: "test-admin-token",
         fetchImpl: (input, init) => app.request(input, init)
       })
     };

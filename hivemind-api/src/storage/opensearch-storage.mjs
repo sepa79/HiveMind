@@ -1,6 +1,7 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { Client } from "@opensearch-project/opensearch";
 import { ApiError, ensure } from "../app/errors.mjs";
+import { ensureMatchingProjectRepository } from "../app/project-identity.mjs";
 import { StorageAdapter } from "./adapter.mjs";
 
 const IMPORTANCE_WEIGHT = {
@@ -31,7 +32,19 @@ const STARTUP_SUMMARY_LIMITS = {
   open_threads: 3
 };
 
+const PROJECT_DOCUMENT_COLLECTIONS = [
+  { alias: "contexts", idField: "context_id" },
+  { alias: "entries", idField: "entry_id" },
+  { alias: "sessions", idField: "session_id" },
+  { alias: "issues", idField: "issue_id" },
+  { alias: "issue_events", idField: "issue_event_id" },
+  { alias: "learnings", idField: "learning_id" },
+  { alias: "learning_feedback", idField: "feedback_id" },
+  { alias: "rule_checks", idField: "rule_check_id" }
+];
+
 const DEFAULT_INDEX_PREFIX = "hivemind";
+const INTERNAL_MERGE_STATE_FIELD = "hivemind_internal_merge";
 
 const INDEX_DEFINITIONS = {
   projects: {
@@ -266,28 +279,54 @@ export class OpenSearchStorage extends StorageAdapter {
   }
 
   async createProject(projectInput) {
-    const existing = await this.getProject(projectInput.project_id);
     const now = isoNow();
-    const project = {
+    const newProject = {
       project_id: projectInput.project_id,
       name: projectInput.name,
       repository_url: projectInput.repository_url,
       repository_slug: projectInput.repository_slug,
       root_path: projectInput.root_path,
       default_branch: projectInput.default_branch,
-      description: projectInput.description ?? existing?.description ?? "",
-      features: existing?.features ?? [],
-      categories: existing?.categories ?? [],
-      ruleset_id: existing?.ruleset_id ?? `${projectInput.project_id}:0`,
-      standard_profile_ref: projectInput.standard_profile_ref ?? existing?.standard_profile_ref ?? null,
-      created_at: existing?.created_at ?? now,
+      description: projectInput.description ?? "",
+      features: [],
+      categories: [],
+      ruleset_id: `${projectInput.project_id}:0`,
+      standard_profile_ref: projectInput.standard_profile_ref ?? null,
+      created_at: now,
       updated_at: now
     };
+    const created = await this.#create("projects", newProject.project_id, newProject);
+    if (created) {
+      await this.#create("rulesets", newProject.project_id, {
+        project_id: newProject.project_id,
+        ruleset_id: newProject.ruleset_id,
+        version: 0,
+        rules: [],
+        created_at: now,
+        updated_at: now
+      });
+      return newProject;
+    }
 
+    const existing = await this.getProject(projectInput.project_id);
+    ensure(existing, 409, "PROJECT_REGISTRATION_CONFLICT", "Project registration changed concurrently; retry explicitly.", {
+      project_id: projectInput.project_id
+    });
+    ensureMatchingProjectRepository(existing, projectInput);
+    const project = {
+      ...existing,
+      name: projectInput.name,
+      repository_url: projectInput.repository_url,
+      repository_slug: projectInput.repository_slug,
+      root_path: projectInput.root_path,
+      default_branch: projectInput.default_branch,
+      description: projectInput.description ?? existing.description ?? "",
+      standard_profile_ref: projectInput.standard_profile_ref ?? existing.standard_profile_ref ?? null,
+      updated_at: now
+    };
     await this.#put("projects", project.project_id, project);
-
     if (!(await this.getRuleset(project.project_id))) {
-      await this.#put("rulesets", project.project_id, {
+      await this.#create("rulesets", project.project_id, {
         project_id: project.project_id,
         ruleset_id: project.ruleset_id,
         version: 0,
@@ -296,7 +335,6 @@ export class OpenSearchStorage extends StorageAdapter {
         updated_at: now
       });
     }
-
     return project;
   }
 
@@ -307,6 +345,112 @@ export class OpenSearchStorage extends StorageAdapter {
   async listProjects() {
     return {
       projects: (await this.#searchAll("projects")).sort((left, right) => left.project_id.localeCompare(right.project_id))
+    };
+  }
+
+  async deleteProject(projectId, { reason = null } = {}) {
+    const project = await this.getProject(projectId);
+    ensure(project, 404, "PROJECT_NOT_FOUND", `No project exists with id '${projectId}'.`, { project_id: projectId });
+    await this.#ensureProjectHasNoActiveMerge(project);
+
+    const deletedCounts = await this.#projectAdminCounts(projectId);
+    await this.#deleteProjectDocuments(projectId);
+    return {
+      deleted_project_id: projectId,
+      deleted_project: project,
+      deleted_counts: deletedCounts,
+      reason,
+      summary: `Deleted project '${projectId}' and its project-scoped data.`
+    };
+  }
+
+  async mergeProjects(sourceProjectId, targetProjectId, { reason = null, standardProfileResolution } = {}) {
+    ensure(sourceProjectId !== targetProjectId, 400, "PROJECT_MERGE_REQUIRES_DISTINCT_PROJECTS", "Source and target projects must differ.", {
+      source_project_id: sourceProjectId,
+      target_project_id: targetProjectId
+    });
+    const sourceProject = await this.getProject(sourceProjectId);
+    ensure(sourceProject, 404, "PROJECT_NOT_FOUND", `No project exists with id '${sourceProjectId}'.`, { project_id: sourceProjectId });
+    const targetProject = await this.getProject(targetProjectId);
+    ensure(targetProject, 404, "PROJECT_NOT_FOUND", `No project exists with id '${targetProjectId}'.`, { project_id: targetProjectId });
+    ensure(
+      standardProfileResolution,
+      500,
+      "PROJECT_MERGE_PROFILE_RESOLUTION_MISSING",
+      "Project merge requires a service-resolved standard profile result."
+    );
+
+    const conflicts = await this.#projectMergeConflicts(sourceProjectId, targetProjectId);
+    ensure(conflicts.length === 0, 409, "PROJECT_MERGE_CONFLICT", "Project merge would overwrite existing target data.", {
+      source_project_id: sourceProjectId,
+      target_project_id: targetProjectId,
+      conflicts
+    });
+
+    const mergeState = await this.#ensureProjectMergeState(sourceProject, targetProject);
+    const sourceRuleset = await this.getRuleset(sourceProjectId);
+    const targetRuleset = await this.getRuleset(targetProjectId);
+    const movedCounts = await this.#projectMergeCounts({
+      sourceProjectId,
+      targetProjectId,
+      mergeState,
+      sourceRuleset,
+      targetRuleset
+    });
+    const targetRuleIds = new Set((targetRuleset?.rules ?? []).map((rule) => rule.rule_id));
+    const rulesToAdd = (sourceRuleset?.rules ?? []).filter((rule) => !targetRuleIds.has(rule.rule_id));
+
+    const now = isoNow();
+    const mergedRulesetBase =
+      rulesToAdd.length > 0
+        ? {
+            project_id: targetProjectId,
+            ruleset_id: `${targetProjectId}:${(targetRuleset?.version ?? 0) + 1}`,
+            version: (targetRuleset?.version ?? 0) + 1,
+            rules: [...(targetRuleset?.rules ?? []), ...rulesToAdd],
+            created_at: targetRuleset?.created_at ?? now,
+            updated_at: now
+          }
+        : targetRuleset;
+    const priorSourceRuleIds =
+      targetRuleset?.[INTERNAL_MERGE_STATE_FIELD]?.operation_id === mergeState.operation_id
+        ? targetRuleset[INTERNAL_MERGE_STATE_FIELD].source_rule_ids ?? []
+        : [];
+    const mergedRuleset = mergedRulesetBase
+      ? {
+          ...mergedRulesetBase,
+          [INTERNAL_MERGE_STATE_FIELD]: {
+            operation_id: mergeState.operation_id,
+            source_rule_ids: [...new Set([...priorSourceRuleIds, ...(sourceRuleset?.rules ?? []).map((rule) => rule.rule_id)])]
+          }
+        }
+      : null;
+    const mergedProject = {
+      ...targetProject,
+      features: [...new Set([...(targetProject.features ?? []), ...(sourceProject.features ?? [])])],
+      categories: [...new Set([...(targetProject.categories ?? []), ...(sourceProject.categories ?? [])])],
+      ruleset_id: mergedRuleset?.ruleset_id ?? targetProject.ruleset_id,
+      standard_profile_ref: standardProfileResolution.result_profile_ref,
+      updated_at: now,
+      [INTERNAL_MERGE_STATE_FIELD]: {
+        ...mergeState,
+        role: "target"
+      }
+    };
+    await this.#moveProjectDocuments(sourceProjectId, targetProjectId, mergeState);
+    if (mergedRuleset) {
+      await this.#put("rulesets", targetProjectId, mergedRuleset);
+    }
+    await this.#put("projects", targetProjectId, mergedProject);
+    await this.#deleteProjectDocuments(sourceProjectId);
+    return {
+      source_project_id: sourceProjectId,
+      target_project_id: targetProjectId,
+      target_project: mergedProject,
+      standard_profile_resolution: standardProfileResolution,
+      moved_counts: movedCounts,
+      reason,
+      summary: `Merged project '${sourceProjectId}' into '${targetProjectId}' and deleted the source project.`
     };
   }
 
@@ -870,7 +1014,10 @@ export class OpenSearchStorage extends StorageAdapter {
       version,
       rules: incomingRules,
       created_at: existing?.created_at ?? now,
-      updated_at: now
+      updated_at: now,
+      ...(existing?.[INTERNAL_MERGE_STATE_FIELD]
+        ? { [INTERNAL_MERGE_STATE_FIELD]: existing[INTERNAL_MERGE_STATE_FIELD] }
+        : {})
     };
     await this.#put("rulesets", projectId, ruleset);
     await this.#put("projects", projectId, { ...project, ruleset_id: ruleset.ruleset_id, updated_at: now });
@@ -1318,6 +1465,17 @@ export class OpenSearchStorage extends StorageAdapter {
     }
   }
 
+  async #delete(alias, id) {
+    try {
+      await this.client.delete({ index: this.#index(alias), id, refresh: this.refresh });
+    } catch (error) {
+      if (error.meta?.statusCode === 404) {
+        return;
+      }
+      throw error;
+    }
+  }
+
   async #searchAll(alias, query = { match_all: {} }, batchSize = 1000) {
     const index = this.#index(alias);
     const documents = [];
@@ -1351,6 +1509,201 @@ export class OpenSearchStorage extends StorageAdapter {
 
   async #searchByProject(alias, projectId) {
     return this.#searchAll(alias, { term: { project_id: projectId } });
+  }
+
+  async #projectAdminCounts(projectId) {
+    return {
+      contexts: (await this.#searchByProject("contexts", projectId)).length,
+      entries: (await this.#searchByProject("entries", projectId)).length,
+      sessions: (await this.#searchByProject("sessions", projectId)).length,
+      issues: (await this.#searchByProject("issues", projectId)).length,
+      issue_events: (await this.#searchByProject("issue_events", projectId)).length,
+      learnings: (await this.#searchByProject("learnings", projectId)).length,
+      learning_feedback: (await this.#searchByProject("learning_feedback", projectId)).length,
+      rule_checks: (await this.#searchByProject("rule_checks", projectId)).length,
+      idempotency_records: (await this.#searchByProject("idempotency", projectId)).length,
+      rules: ((await this.getRuleset(projectId))?.rules ?? []).length
+    };
+  }
+
+  async #ensureProjectMergeState(sourceProject, targetProject) {
+    const targetProjectId = targetProject.project_id;
+    const existing = sourceProject[INTERNAL_MERGE_STATE_FIELD];
+    const resumable =
+      existing?.role === "source" &&
+      existing.source_project_id === sourceProject.project_id &&
+      existing.target_project_id === targetProjectId;
+    const activeSourceMerge = await this.#activeProjectMergeState(sourceProject);
+    ensure(
+      !activeSourceMerge || resumable,
+      409,
+      "PROJECT_MERGE_IN_PROGRESS",
+      `Project '${sourceProject.project_id}' already participates in another interrupted merge.`,
+      {
+        project_id: sourceProject.project_id,
+        requested_target_project_id: targetProjectId,
+        active_merge: activeSourceMerge
+      }
+    );
+    const operation = resumable
+      ? existing
+      : {
+          operation_id: `merge-${randomUUID()}`,
+          source_project_id: sourceProject.project_id,
+          target_project_id: targetProjectId,
+          started_at: isoNow()
+        };
+    const expectedTargetState = {
+      ...operation,
+      role: "target"
+    };
+    const targetState = targetProject[INTERNAL_MERGE_STATE_FIELD];
+    const targetMatches = matchingMergeState(targetState, expectedTargetState);
+    const activeTargetMerge = await this.#activeProjectMergeState(targetProject);
+    ensure(
+      !activeTargetMerge || targetMatches,
+      409,
+      "PROJECT_MERGE_IN_PROGRESS",
+      `Project '${targetProjectId}' already participates in another interrupted merge.`,
+      {
+        project_id: targetProjectId,
+        requested_source_project_id: sourceProject.project_id,
+        active_merge: activeTargetMerge
+      }
+    );
+    const sourceState = {
+      ...operation,
+      role: "source"
+    };
+    await this.#put("projects", sourceProject.project_id, {
+      ...sourceProject,
+      [INTERNAL_MERGE_STATE_FIELD]: sourceState
+    });
+    await this.#put("projects", targetProjectId, {
+      ...targetProject,
+      [INTERNAL_MERGE_STATE_FIELD]: expectedTargetState
+    });
+    return sourceState;
+  }
+
+  async #ensureProjectHasNoActiveMerge(project) {
+    const activeMerge = await this.#activeProjectMergeState(project);
+    ensure(
+      !activeMerge,
+      409,
+      "PROJECT_MERGE_IN_PROGRESS",
+      `Project '${project.project_id}' participates in an interrupted merge and cannot be deleted.`,
+      {
+        project_id: project.project_id,
+        active_merge: activeMerge
+      }
+    );
+  }
+
+  async #activeProjectMergeState(project) {
+    const state = project?.[INTERNAL_MERGE_STATE_FIELD];
+    if (!validProjectMergeState(state)) {
+      return null;
+    }
+    const counterpartId = state.role === "source" ? state.target_project_id : state.source_project_id;
+    const counterpart = await this.getProject(counterpartId);
+    const counterpartState = counterpart?.[INTERNAL_MERGE_STATE_FIELD];
+    const expectedCounterpart = {
+      operation_id: state.operation_id,
+      source_project_id: state.source_project_id,
+      target_project_id: state.target_project_id,
+      role: state.role === "source" ? "target" : "source"
+    };
+    return matchingMergeState(counterpartState, expectedCounterpart) ? state : null;
+  }
+
+  async #projectMergeCounts({ sourceProjectId, targetProjectId, mergeState, sourceRuleset, targetRuleset }) {
+    const counts = {};
+    for (const { alias, idField } of PROJECT_DOCUMENT_COLLECTIONS) {
+      const sourceDocs = await this.#searchByProject(alias, sourceProjectId);
+      const alreadyMoved = (await this.#searchByProject(alias, targetProjectId)).filter(
+        (doc) => doc[INTERNAL_MERGE_STATE_FIELD]?.operation_id === mergeState.operation_id
+      );
+      counts[alias] = new Set([...sourceDocs, ...alreadyMoved].map((doc) => doc[idField])).size;
+    }
+    const sourceIdempotency = await this.#searchByProject("idempotency", sourceProjectId);
+    const movedIdempotency = (await this.#searchByProject("idempotency", targetProjectId)).filter(
+      (doc) => doc[INTERNAL_MERGE_STATE_FIELD]?.operation_id === mergeState.operation_id
+    );
+    counts.idempotency_records = new Set(
+      [...sourceIdempotency, ...movedIdempotency].map((doc) => `${doc.operation}:${doc.key}`)
+    ).size;
+    const movedRuleIds =
+      targetRuleset?.[INTERNAL_MERGE_STATE_FIELD]?.operation_id === mergeState.operation_id
+        ? targetRuleset[INTERNAL_MERGE_STATE_FIELD].source_rule_ids ?? []
+        : [];
+    counts.rules = new Set([...(sourceRuleset?.rules ?? []).map((rule) => rule.rule_id), ...movedRuleIds]).size;
+    return counts;
+  }
+
+  async #projectMergeConflicts(sourceProjectId, targetProjectId) {
+    const conflicts = [];
+    for (const { alias, idField } of PROJECT_DOCUMENT_COLLECTIONS) {
+      conflicts.push(
+        ...conflictingIds(
+          await this.#searchByProject(alias, sourceProjectId),
+          await this.#searchByProject(alias, targetProjectId),
+          idField,
+          alias,
+          targetProjectId
+        )
+      );
+    }
+    conflicts.push(
+      ...conflictingIds(
+        await this.#searchByProject("contexts", sourceProjectId),
+        await this.#searchByProject("contexts", targetProjectId),
+        "context_token",
+        "contexts",
+        targetProjectId
+      )
+    );
+    conflicts.push(
+      ...conflictingIdempotency(
+        await this.#searchByProject("idempotency", sourceProjectId),
+        await this.#searchByProject("idempotency", targetProjectId),
+        targetProjectId
+      )
+    );
+    conflicts.push(...conflictingRules(((await this.getRuleset(sourceProjectId))?.rules ?? []), ((await this.getRuleset(targetProjectId))?.rules ?? [])));
+    return conflicts;
+  }
+
+  async #moveProjectDocuments(sourceProjectId, targetProjectId, mergeState) {
+    for (const { alias, idField } of PROJECT_DOCUMENT_COLLECTIONS) {
+      for (const doc of await this.#searchByProject(alias, sourceProjectId)) {
+        await this.#put(alias, doc[idField], {
+          ...doc,
+          project_id: targetProjectId,
+          [INTERNAL_MERGE_STATE_FIELD]: mergeState
+        });
+      }
+    }
+    for (const doc of await this.#searchByProject("idempotency", sourceProjectId)) {
+      await this.#put("idempotency", idempotencyDocumentId(targetProjectId, doc.operation, doc.key), {
+        ...doc,
+        project_id: targetProjectId,
+        [INTERNAL_MERGE_STATE_FIELD]: mergeState
+      });
+    }
+  }
+
+  async #deleteProjectDocuments(projectId) {
+    for (const { alias, idField } of PROJECT_DOCUMENT_COLLECTIONS) {
+      for (const doc of await this.#searchByProject(alias, projectId)) {
+        await this.#delete(alias, doc[idField]);
+      }
+    }
+    for (const doc of await this.#searchByProject("idempotency", projectId)) {
+      await this.#delete("idempotency", idempotencyDocumentId(projectId, doc.operation, doc.key));
+    }
+    await this.#delete("rulesets", projectId);
+    await this.#delete("projects", projectId);
   }
 
   async #rewriteProjectDocs(alias, projectId, idField, mapDoc) {
@@ -1885,6 +2238,66 @@ function toCountFacet(values) {
   return [...counts.entries()]
     .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
     .map(([value, count]) => ({ value, count }));
+}
+
+function conflictingIds(sourceValues, targetValues, idField, collection, targetProjectId) {
+  const targetValuesById = new Map(targetValues.map((value) => [value[idField], value]).filter(([id]) => Boolean(id)));
+  return sourceValues
+    .filter((value) => {
+      const targetValue = targetValuesById.get(value[idField]);
+      return (
+        targetValue &&
+        stableStringify(withoutInternalMergeState(targetValue)) !==
+          stableStringify(withoutInternalMergeState({ ...value, project_id: targetProjectId }))
+      );
+    })
+    .map((value) => ({ collection, id_field: idField, id: value[idField] }));
+}
+
+function conflictingIdempotency(sourceValues, targetValues, targetProjectId) {
+  const targetValuesByKey = new Map(targetValues.map((value) => [`${value.operation}:${value.key}`, value]));
+  return sourceValues
+    .filter((value) => {
+      const targetValue = targetValuesByKey.get(`${value.operation}:${value.key}`);
+      return (
+        targetValue &&
+        stableStringify(withoutInternalMergeState(targetValue)) !==
+          stableStringify(withoutInternalMergeState({ ...value, project_id: targetProjectId }))
+      );
+    })
+    .map((value) => ({ collection: "idempotency", id_field: "operation:key", id: `${value.operation}:${value.key}` }));
+}
+
+function validProjectMergeState(value) {
+  return (
+    value &&
+    typeof value.operation_id === "string" &&
+    typeof value.source_project_id === "string" &&
+    typeof value.target_project_id === "string" &&
+    (value.role === "source" || value.role === "target")
+  );
+}
+
+function matchingMergeState(value, expected) {
+  return (
+    validProjectMergeState(value) &&
+    value.operation_id === expected.operation_id &&
+    value.source_project_id === expected.source_project_id &&
+    value.target_project_id === expected.target_project_id &&
+    value.role === expected.role
+  );
+}
+
+function withoutInternalMergeState(value) {
+  const { [INTERNAL_MERGE_STATE_FIELD]: _internalMergeState, ...publicValue } = value;
+  return publicValue;
+}
+
+function conflictingRules(sourceRules, targetRules) {
+  const targetRulesById = new Map(targetRules.map((rule) => [rule.rule_id, stableStringify(rule)]));
+  return sourceRules
+    .filter((rule) => targetRulesById.has(rule.rule_id) && targetRulesById.get(rule.rule_id) !== stableStringify(rule))
+    .map((rule) => ({ collection: "rules", id_field: "rule_id", id: rule.rule_id }));
 }
 
 function toRecallEntrySummary(entry) {

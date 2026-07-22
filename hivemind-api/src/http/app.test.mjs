@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -40,6 +40,52 @@ describe("HiveMind API", () => {
     expect(payload.meta.request_id).toBeTruthy();
   });
 
+  it("canonicalizes project ids from the Git repository name", async () => {
+    const app = createTestApp();
+
+    const response = await app.request("/v1/projects", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        project_id: "sepa79/SkippyBot",
+        name: "SkippyBot",
+        repository_url: "https://github.com/sepa79/SkippyBot.git",
+        repository_slug: "sepa79/SkippyBot.git/",
+        root_path: "/repo/SkippyBot",
+        default_branch: "main",
+        description: "SkippyBot project"
+      })
+    });
+
+    expect(response.status).toBe(201);
+    const payload = await response.json();
+    expect(payload.data.project.project_id).toBe("skippybot");
+    expect(payload.data.project.name).toBe("SkippyBot");
+    expect(payload.data.project.repository_slug).toBe("sepa79/SkippyBot.git/");
+  });
+
+  it("rejects repository slugs that cannot produce a safe canonical project id", async () => {
+    const app = createTestApp();
+
+    const response = await app.request("/v1/projects", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        project_id: "unsafe",
+        name: "Unsafe",
+        repository_url: "https://example.com/org/..",
+        repository_slug: "org/..",
+        root_path: "/repo/unsafe",
+        default_branch: "main",
+        description: "Unsafe project id"
+      })
+    });
+
+    expect(response.status).toBe(400);
+    const payload = await response.json();
+    expect(payload.error.code).toBe("VALIDATION_ERROR");
+  });
+
   it("lists registered projects for the human UI", async () => {
     const app = createTestApp();
     await createProject(app);
@@ -48,6 +94,409 @@ describe("HiveMind API", () => {
     expect(response.status).toBe(200);
     const payload = await response.json();
     expect(payload.data.projects.map((project) => project.project_id)).toEqual(["buzz"]);
+  });
+
+  it("rejects admin project operations without the admin token", async () => {
+    const app = createTestApp();
+    await createProject(app);
+
+    const response = await app.request("/v1/admin/projects/buzz", {
+      method: "DELETE"
+    });
+
+    expect(response.status).toBe(401);
+    const payload = await response.json();
+    expect(payload.error.code).toBe("UNAUTHORIZED");
+  });
+
+  it("rejects unsafe project ids for destructive admin operations", async () => {
+    const app = createTestApp();
+
+    const response = await app.request("/v1/admin/projects/merge", {
+      method: "POST",
+      headers: adminHeaders(),
+      body: JSON.stringify({
+        source_project_id: "../unsafe",
+        target_project_id: "buzz"
+      })
+    });
+
+    expect(response.status).toBe(400);
+    const payload = await response.json();
+    expect(payload.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("deletes a project through the admin API", async () => {
+    const app = createTestApp();
+    await createProject(app);
+
+    const deleteResponse = await app.request("/v1/admin/projects/buzz?reason=cleanup", {
+      method: "DELETE",
+      headers: adminHeaders()
+    });
+    const listResponse = await app.request("/v1/projects");
+
+    expect(deleteResponse.status).toBe(200);
+    const deletePayload = await deleteResponse.json();
+    expect(deletePayload.data.deleted_project_id).toBe("buzz");
+    expect(deletePayload.data.reason).toBe("cleanup");
+    expect(deletePayload.data.deleted_counts.rules).toBe(0);
+    const listPayload = await listResponse.json();
+    expect(listPayload.data.projects).toEqual([]);
+  });
+
+  it("waits for in-flight requests before deleting their project", async () => {
+    const dataRoot = mkdtempSync(join(tmpdir(), "hivemind-api-gate-"));
+    roots.push(dataRoot);
+    const storage = new FsJsonlStorage({ dataRoot });
+    const service = new HiveMindService({ storage, version: "test-version" });
+    const app = createApp({ service, adminToken: "test-admin-token" });
+    await createProject(app);
+    const sessionResponse = await app.request("/v1/sessions", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "Idempotency-Key": "gate-session"
+      },
+      body: JSON.stringify({
+        project_id: "buzz",
+        branch: "main",
+        workspace_path: "/repo/buzz",
+        author_id: "agent-gate",
+        author_type: "agent",
+        source: "mcp",
+        agent_id: "codex",
+        goal: "Exercise request gate"
+      })
+    });
+    const sessionPayload = await sessionResponse.json();
+
+    const originalGetSession = storage.getSession.bind(storage);
+    let signalSessionLookup;
+    let releaseSessionLookup;
+    const sessionLookupStarted = new Promise((resolve) => {
+      signalSessionLookup = resolve;
+    });
+    const sessionLookupGate = new Promise((resolve) => {
+      releaseSessionLookup = resolve;
+    });
+    storage.getSession = async (...args) => {
+      const session = await originalGetSession(...args);
+      signalSessionLookup();
+      await sessionLookupGate;
+      return session;
+    };
+
+    const entryRequest = app.request("/v1/entries", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "Idempotency-Key": "gate-entry"
+      },
+      body: JSON.stringify({
+        project_id: "buzz",
+        session_id: sessionPayload.data.session.session_id,
+        branch: "main",
+        author_id: "agent-gate",
+        author_type: "agent",
+        source: "mcp",
+        entry_type: "progress",
+        summary: "Complete before delete"
+      })
+    });
+    await sessionLookupStarted;
+
+    let deleteFinished = false;
+    const deleteRequest = app
+      .request("/v1/admin/projects/buzz", { method: "DELETE", headers: adminHeaders() })
+      .then((response) => {
+        deleteFinished = true;
+        return response;
+      });
+    await Promise.resolve();
+    expect(deleteFinished).toBe(false);
+
+    releaseSessionLookup();
+    const [entryResponse, deleteResponse] = await Promise.all([entryRequest, deleteRequest]);
+
+    expect(entryResponse.status).toBe(201);
+    expect(deleteResponse.status).toBe(200);
+    expect(await storage.getProject("buzz")).toBeNull();
+    expect(existsSync(join(dataRoot, "projects", "buzz"))).toBe(false);
+  });
+
+  it("merges one project into another through the admin API", async () => {
+    const app = createTestApp();
+    await createProject(app);
+    await createProject(app, {
+      project_id: "legacy",
+      name: "Legacy",
+      repository_url: "https://github.com/example/legacy.git",
+      repository_slug: "example/legacy",
+      root_path: "/repo/legacy",
+      default_branch: "main",
+      description: "Legacy project",
+      standard_profile_ref: "aws-microservice@v2"
+    });
+    const sessionResponse = await app.request("/v1/sessions", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "Idempotency-Key": "legacy-session"
+      },
+      body: JSON.stringify({
+        project_id: "legacy",
+        branch: "main",
+        workspace_path: "/repo/legacy",
+        author_id: "agent-legacy",
+        author_type: "agent",
+        source: "mcp",
+        agent_id: "codex",
+        goal: "Legacy work"
+      })
+    });
+    const sessionPayload = await sessionResponse.json();
+    await app.request("/v1/entries", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "Idempotency-Key": "legacy-entry"
+      },
+      body: JSON.stringify({
+        project_id: "legacy",
+        session_id: sessionPayload.data.session.session_id,
+        branch: "main",
+        author_id: "agent-legacy",
+        author_type: "agent",
+        source: "mcp",
+        entry_type: "decision",
+        summary: "Legacy decision"
+      })
+    });
+    await app.request("/v1/projects/legacy/ruleset", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        rules: [
+          {
+            rule_id: "legacy_rule",
+            label: "Legacy rule",
+            description: "Preserve this rule during project merge.",
+            severity: "advisory",
+            check_mode: "manual_confirm"
+          }
+        ]
+      })
+    });
+
+    const mergeResponse = await app.request("/v1/admin/projects/merge", {
+      method: "POST",
+      headers: adminHeaders(),
+      body: JSON.stringify({
+        source_project_id: "legacy",
+        target_project_id: "buzz",
+        reason: "merge legacy"
+      })
+    });
+    const listResponse = await app.request("/v1/projects");
+    const searchResponse = await app.request("/v1/entries/search", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        project_id: "buzz",
+        query: "Legacy decision"
+      })
+    });
+    const rulesetResponse = await app.request("/v1/projects/buzz/ruleset");
+
+    expect(mergeResponse.status).toBe(200);
+    const mergePayload = await mergeResponse.json();
+    expect(mergePayload.data.reason).toBe("merge legacy");
+    expect(mergePayload.data.moved_counts.entries).toBe(1);
+    expect(mergePayload.data.moved_counts.sessions).toBe(1);
+    const listPayload = await listResponse.json();
+    expect(listPayload.data.projects.map((project) => project.project_id)).toEqual(["buzz"]);
+    const searchPayload = await searchResponse.json();
+    expect(searchPayload.data.entries).toHaveLength(1);
+    expect(searchPayload.data.entries[0].project_id).toBe("buzz");
+    const rulesetPayload = await rulesetResponse.json();
+    expect(rulesetPayload.data.ruleset.rules.map((rule) => rule.rule_id)).toEqual(["legacy_rule"]);
+    expect(mergePayload.data.target_project.ruleset_id).toBe(rulesetPayload.data.ruleset.ruleset_id);
+    expect(mergePayload.data.standard_profile_resolution).toEqual({
+      source_profile_ref: "aws-microservice@v2",
+      target_profile_ref: null,
+      strategy: "automatic",
+      result_profile_ref: "aws-microservice@v2"
+    });
+    expect(mergePayload.data.target_project.standard_profile_ref).toBe("aws-microservice@v2");
+  });
+
+  it.each([
+    ["prefer_source", undefined, "aws-microservice@v2"],
+    ["prefer_target", undefined, "base@v1"],
+    ["set", "base@v1", "base@v1"]
+  ])("resolves different project profiles with %s", async (strategy, standardProfileRef, expectedProfileRef) => {
+    const app = createTestApp();
+    await createProject(app, { standard_profile_ref: "base@v1" });
+    await createProject(app, {
+      project_id: "legacy",
+      name: "Legacy",
+      repository_url: "https://github.com/example/legacy.git",
+      repository_slug: "example/legacy",
+      root_path: "/repo/legacy",
+      default_branch: "main",
+      description: "Legacy project",
+      standard_profile_ref: "aws-microservice@v2"
+    });
+
+    const unresolvedResponse = await app.request("/v1/admin/projects/merge", {
+      method: "POST",
+      headers: adminHeaders(),
+      body: JSON.stringify({ source_project_id: "legacy", target_project_id: "buzz" })
+    });
+    expect(unresolvedResponse.status).toBe(409);
+    const unresolvedPayload = await unresolvedResponse.json();
+    expect(unresolvedPayload.error.code).toBe("PROJECT_STANDARD_PROFILE_RESOLUTION_REQUIRED");
+
+    const mergeResponse = await app.request("/v1/admin/projects/merge", {
+      method: "POST",
+      headers: adminHeaders(),
+      body: JSON.stringify({
+        source_project_id: "legacy",
+        target_project_id: "buzz",
+        standard_profile_resolution: {
+          strategy,
+          ...(standardProfileRef ? { standard_profile_ref: standardProfileRef } : {})
+        }
+      })
+    });
+
+    expect(mergeResponse.status).toBe(200);
+    const mergePayload = await mergeResponse.json();
+    expect(mergePayload.data.target_project.standard_profile_ref).toBe(expectedProfileRef);
+    expect(mergePayload.data.standard_profile_resolution).toEqual({
+      source_profile_ref: "aws-microservice@v2",
+      target_profile_ref: "base@v1",
+      strategy,
+      result_profile_ref: expectedProfileRef
+    });
+  });
+
+  it("accepts a redundant profile resolution when retrying an already published merge", async () => {
+    const app = createTestApp();
+    await createProject(app, { standard_profile_ref: "aws-microservice@v2" });
+    await createProject(app, {
+      project_id: "legacy",
+      name: "Legacy",
+      repository_url: "https://github.com/example/legacy.git",
+      repository_slug: "example/legacy",
+      root_path: "/repo/legacy",
+      default_branch: "main",
+      description: "Legacy project",
+      standard_profile_ref: "aws-microservice@v2"
+    });
+
+    const response = await app.request("/v1/admin/projects/merge", {
+      method: "POST",
+      headers: adminHeaders(),
+      body: JSON.stringify({
+        source_project_id: "legacy",
+        target_project_id: "buzz",
+        standard_profile_resolution: { strategy: "prefer_source" }
+      })
+    });
+
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload.data.standard_profile_resolution).toEqual({
+      source_profile_ref: "aws-microservice@v2",
+      target_profile_ref: "aws-microservice@v2",
+      strategy: "prefer_source",
+      result_profile_ref: "aws-microservice@v2"
+    });
+  });
+
+  it("rejects an explicit merge profile that is absent from the catalog", async () => {
+    const app = createTestApp();
+    await createProject(app, { standard_profile_ref: "base@v1" });
+    await createProject(app, {
+      project_id: "legacy",
+      name: "Legacy",
+      repository_url: "https://github.com/example/legacy.git",
+      repository_slug: "example/legacy",
+      root_path: "/repo/legacy",
+      default_branch: "main",
+      description: "Legacy project",
+      standard_profile_ref: "aws-microservice@v2"
+    });
+
+    const response = await app.request("/v1/admin/projects/merge", {
+      method: "POST",
+      headers: adminHeaders(),
+      body: JSON.stringify({
+        source_project_id: "legacy",
+        target_project_id: "buzz",
+        standard_profile_resolution: {
+          strategy: "set",
+          standard_profile_ref: "missing@v1"
+        }
+      })
+    });
+
+    expect(response.status).toBe(404);
+    const payload = await response.json();
+    expect(payload.error.code).toBe("RULESET_PROFILE_NOT_FOUND");
+    const projectsPayload = await (await app.request("/v1/projects")).json();
+    expect(projectsPayload.data.projects.map((project) => project.project_id)).toEqual(["buzz", "legacy"]);
+  });
+
+  it("rejects a project merge when rules with the same id disagree", async () => {
+    const app = createTestApp();
+    await createProject(app);
+    await createProject(app, {
+      project_id: "legacy",
+      name: "Legacy",
+      repository_url: "https://github.com/example/legacy.git",
+      repository_slug: "example/legacy",
+      root_path: "/repo/legacy",
+      default_branch: "main",
+      description: "Legacy project"
+    });
+    for (const [projectId, description] of [
+      ["buzz", "Target definition."],
+      ["legacy", "Conflicting source definition."]
+    ]) {
+      await app.request(`/v1/projects/${projectId}/ruleset`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          rules: [
+            {
+              rule_id: "shared_rule",
+              label: "Shared rule",
+              description,
+              severity: "required",
+              check_mode: "manual_confirm"
+            }
+          ]
+        })
+      });
+    }
+
+    const mergeResponse = await app.request("/v1/admin/projects/merge", {
+      method: "POST",
+      headers: adminHeaders(),
+      body: JSON.stringify({
+        source_project_id: "legacy",
+        target_project_id: "buzz"
+      })
+    });
+
+    expect(mergeResponse.status).toBe(409);
+    const mergePayload = await mergeResponse.json();
+    expect(mergePayload.error.code).toBe("PROJECT_MERGE_CONFLICT");
+    const projectsPayload = await (await app.request("/v1/projects")).json();
+    expect(projectsPayload.data.projects.map((project) => project.project_id)).toEqual(["buzz", "legacy"]);
   });
 
   it("resolves a registered project from repository metadata", async () => {
@@ -70,7 +519,26 @@ describe("HiveMind API", () => {
     expect(payload.data.resolution_reason).toContain("repository_url");
   });
 
-  it("returns ambiguous project resolution when multiple projects match the same repository", async () => {
+  it("resolves project id hints case-insensitively", async () => {
+    const app = createTestApp();
+    await createProject(app);
+
+    const response = await app.request("/v1/projects/resolve", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        project_id_hint: "Buzz"
+      })
+    });
+
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload.data.status).toBe("matched");
+    expect(payload.data.project.project_id).toBe("buzz");
+    expect(payload.data.resolution_reason).toContain("project_id_hint");
+  });
+
+  it("updates the canonical project when the same repository is registered again", async () => {
     const app = createTestApp();
     await createProject(app);
     await app.request("/v1/projects", {
@@ -80,26 +548,81 @@ describe("HiveMind API", () => {
         project_id: "buzz-feature",
         name: "Buzz Feature",
         repository_url: "https://github.com/example/buzz.git",
-        repository_slug: "example/buzz",
+        repository_slug: "Example/Buzz.git",
         root_path: "/worktrees/buzz-feature",
         default_branch: "main",
         description: "Separate work stream for Buzz"
       })
     });
 
-    const response = await app.request("/v1/projects/resolve", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        repository_slug: "example/buzz"
-      })
-    });
-
+    const response = await app.request("/v1/projects");
     expect(response.status).toBe(200);
     const payload = await response.json();
-    expect(payload.data.status).toBe("ambiguous");
-    expect(payload.data.project).toBeNull();
-    expect(payload.data.candidates.map((candidate) => candidate.project.project_id)).toEqual(["buzz", "buzz-feature"]);
+    expect(payload.data.projects.map((project) => project.project_id)).toEqual(["buzz"]);
+    expect(payload.data.projects[0].name).toBe("Buzz Feature");
+    expect(payload.data.projects[0].root_path).toBe("/worktrees/buzz-feature");
+  });
+
+  it("rejects a different repository that resolves to an existing canonical project id", async () => {
+    const app = createTestApp();
+    await createProject(app, {
+      name: "Shared One",
+      repository_url: "https://github.com/one/shared.git",
+      repository_slug: "one/shared",
+      root_path: "/repo/one/shared"
+    });
+
+    const response = await createProject(app, {
+      name: "Shared Two",
+      repository_url: "https://github.com/two/shared.git",
+      repository_slug: "two/shared",
+      root_path: "/repo/two/shared"
+    });
+
+    expect(response.status).toBe(409);
+    const conflictPayload = await response.json();
+    expect(conflictPayload.error).toMatchObject({
+      code: "PROJECT_ID_REPOSITORY_CONFLICT",
+      details: {
+        project_id: "shared",
+        existing_repository_slug: "one/shared",
+        incoming_repository_slug: "two/shared"
+      }
+    });
+
+    const projectsPayload = await (await app.request("/v1/projects")).json();
+    expect(projectsPayload.data.projects).toHaveLength(1);
+    expect(projectsPayload.data.projects[0]).toMatchObject({
+      project_id: "shared",
+      name: "Shared One",
+      repository_url: "https://github.com/one/shared.git",
+      repository_slug: "one/shared",
+      root_path: "/repo/one/shared"
+    });
+  });
+
+  it("atomically rejects concurrent repositories with the same canonical project id", async () => {
+    const app = createTestApp();
+
+    const responses = await Promise.all([
+      createProject(app, {
+        name: "Shared One",
+        repository_url: "https://github.com/one/shared.git",
+        repository_slug: "one/shared",
+        root_path: "/repo/one/shared"
+      }),
+      createProject(app, {
+        name: "Shared Two",
+        repository_url: "https://github.com/two/shared.git",
+        repository_slug: "two/shared",
+        root_path: "/repo/two/shared"
+      })
+    ]);
+
+    expect(responses.map((response) => response.status).sort()).toEqual([201, 409]);
+    const projectsPayload = await (await app.request("/v1/projects")).json();
+    expect(projectsPayload.data.projects).toHaveLength(1);
+    expect(["one/shared", "two/shared"]).toContain(projectsPayload.data.projects[0].repository_slug);
   });
 
   it("returns health diagnostics", async () => {
@@ -1505,10 +2028,10 @@ function createTestApp({ accessLogger = null } = {}) {
   roots.push(dataRoot);
   const storage = new FsJsonlStorage({ dataRoot });
   const service = new HiveMindService({ storage, version: "test-version" });
-  return createApp({ service, accessLogger });
+  return createApp({ service, accessLogger, adminToken: "test-admin-token" });
 }
 
-async function createProject(app) {
+async function createProject(app, overrides = {}) {
   return app.request("/v1/projects", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -1519,9 +2042,17 @@ async function createProject(app) {
       repository_slug: "example/buzz",
       root_path: "/repo/buzz",
       default_branch: "main",
-      description: "Buzz project"
+      description: "Buzz project",
+      ...overrides
     })
   });
+}
+
+function adminHeaders() {
+  return {
+    "content-type": "application/json",
+    authorization: "Bearer test-admin-token"
+  };
 }
 
 async function openContext(app, { branch, feature }) {

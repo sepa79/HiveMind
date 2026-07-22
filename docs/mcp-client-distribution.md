@@ -32,6 +32,10 @@ Clients that support Streamable HTTP can instead connect to the central
 `hivemind-mcp` endpoint, for example `https://hivemind-mcp.example.com/mcp`.
 
 Clients do not need a HiveMind checkout. They only need Node.js, VS Code, and access to the API URL.
+Ordinary Streamable HTTP tools do not require authentication. Admin tools
+require the client to send `Authorization: Bearer <HIVEMIND_MCP_ADMIN_TOKEN>`.
+The shared MCP service separately uses `HIVEMIND_ADMIN_TOKEN` when calling API
+admin endpoints. Do not reuse one secret for both hops.
 
 ## Package The MCP Client
 

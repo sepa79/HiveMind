@@ -81,6 +81,11 @@ The stack runs:
 - `hivemind-mcp` on `4011`, using HTTP transport and calling `hivemind-api`
 - one private OpenSearch node
 
+One data root or OpenSearch index prefix supports one running `hivemind-api`
+process. The supplied deployment keeps the API at one replica and uses
+`stop-first` Swarm updates. MCP clients and the MCP service may scale
+independently.
+
 OpenSearch `9200` is not published on the host. `docker-compose.yml` uses the image named by `HIVEMIND_API_IMAGE` for both `hivemind-api` and `hivemind-mcp`; CI publishes that image to GHCR. See [docs/plans/opensearch-storage-stack.md](docs/plans/opensearch-storage-stack.md). For a company rollout with shared VS Code MCP clients, use [docs/company-swarm-rollout.md](docs/company-swarm-rollout.md).
 
 ## HiveForge Deployment

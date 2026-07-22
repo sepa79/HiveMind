@@ -67,6 +67,34 @@
       - hivemind_mcp_port | length > 0
     fail_msg: "HIVEMIND_MCP_PORT must be set explicitly."
 
+- name: Require explicit HiveMind API admin token
+  ansible.builtin.assert:
+    that:
+      - hivemind_admin_token | length > 0
+    fail_msg: "HIVEMIND_ADMIN_TOKEN must be set explicitly for the HiveMind docker-single profile."
+  when: hivemind_compose_profile
+
+- name: Require explicit HiveMind MCP admin token
+  ansible.builtin.assert:
+    that:
+      - hivemind_mcp_admin_token | length > 0
+    fail_msg: "HIVEMIND_MCP_ADMIN_TOKEN must be set explicitly for the HiveMind docker-single profile."
+  when: hivemind_compose_profile
+
+- name: Require HiveMind API admin Docker secret name
+  ansible.builtin.assert:
+    that:
+      - hivemind_admin_token_secret | length > 0
+    fail_msg: "HIVEMIND_ADMIN_TOKEN_SECRET must resolve to a Docker secret name for the HiveMind swarm profile."
+  when: hivemind_swarm_profile
+
+- name: Require HiveMind MCP admin Docker secret name
+  ansible.builtin.assert:
+    that:
+      - hivemind_mcp_admin_token_secret | length > 0
+    fail_msg: "HIVEMIND_MCP_ADMIN_TOKEN_SECRET must resolve to a Docker secret name for the HiveMind swarm profile."
+  when: hivemind_swarm_profile
+
 - name: Require explicit HiveMind ruleset catalog path
   ansible.builtin.assert:
     that:

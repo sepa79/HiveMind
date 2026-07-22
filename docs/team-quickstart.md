@@ -91,14 +91,18 @@ Start the API from this repo, then register another repo:
 
 ```bash
 npm run hivemind:init -- \
-  --project my-project \
+  --project MyProject \
   --name "My Project" \
-  --repository-url https://github.com/org/my-project.git \
-  --root /absolute/path/to/my-project \
+  --repository-url https://github.com/org/MyProject.git \
+  --root /absolute/path/to/MyProject \
   --default-branch main \
   --feature UI \
   --feature Backend
 ```
+
+HiveMind stores the canonical `project_id` as the Git repository name in
+lowercase. In the example above, the stored project id is `myproject`; `name`
+remains the human-facing label.
 
 Use features for useful grouping only: feature area, user story, milestone, or plan name. Avoid turning HiveMind into a detailed task tracker.
 

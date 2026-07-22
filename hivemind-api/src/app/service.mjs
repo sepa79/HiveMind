@@ -39,7 +39,11 @@ import {
   LearningRecordSchema,
   LearningGetRecentInputSchema,
   LearningSearchInputSchema,
+  ProjectDeleteInputSchema,
+  ProjectDeleteResultSchema,
   ProjectListResultSchema,
+  ProjectMergeInputSchema,
+  ProjectMergeResultSchema,
   ProjectRegisterInputSchema,
   ProjectResolveInputSchema,
   ProjectResolveResultSchema,
@@ -68,6 +72,7 @@ import {
   SessionStartResultSchema
 } from "../domain/schemas.mjs";
 import { ApiError } from "./errors.mjs";
+import { canonicalProjectIdFromRepositorySlug, normalizeRepositorySlug } from "./project-identity.mjs";
 import { RulesetCatalog, parseProfileRef } from "./ruleset-catalog.mjs";
 
 export class HiveMindService {
@@ -96,7 +101,11 @@ export class HiveMindService {
   }
 
   async registerProject(input) {
-    const payload = parseWithSchema(ProjectRegisterInputSchema, input);
+    const parsed = parseWithSchema(ProjectRegisterInputSchema, input);
+    const payload = {
+      ...parsed,
+      project_id: canonicalProjectIdFromRepositorySlug(parsed.repository_slug)
+    };
     if (payload.standard_profile_ref) {
       this.rulesetCatalog.getByRef(payload.standard_profile_ref);
     }
@@ -107,6 +116,48 @@ export class HiveMindService {
 
   async listProjects() {
     return parseWithSchema(ProjectListResultSchema, await this.storage.listProjects());
+  }
+
+  async deleteProject(input) {
+    const payload = parseWithSchema(ProjectDeleteInputSchema, input);
+    return parseWithSchema(ProjectDeleteResultSchema, await this.storage.deleteProject(payload.project_id, { reason: payload.reason ?? null }));
+  }
+
+  async mergeProjects(input) {
+    const payload = parseWithSchema(ProjectMergeInputSchema, input);
+    if (payload.source_project_id === payload.target_project_id) {
+      throw new ApiError(400, "PROJECT_MERGE_REQUIRES_DISTINCT_PROJECTS", "Source and target projects must differ.", {
+        source_project_id: payload.source_project_id,
+        target_project_id: payload.target_project_id
+      });
+    }
+    const [sourceProject, targetProject] = await Promise.all([
+      this.storage.getProject(payload.source_project_id),
+      this.storage.getProject(payload.target_project_id)
+    ]);
+    if (!sourceProject) {
+      throw new ApiError(404, "PROJECT_NOT_FOUND", `No project exists with id '${payload.source_project_id}'.`, {
+        project_id: payload.source_project_id
+      });
+    }
+    if (!targetProject) {
+      throw new ApiError(404, "PROJECT_NOT_FOUND", `No project exists with id '${payload.target_project_id}'.`, {
+        project_id: payload.target_project_id
+      });
+    }
+    const standardProfileResolution = resolveProjectMergeStandardProfile({
+      sourceProject,
+      targetProject,
+      requestedResolution: payload.standard_profile_resolution,
+      rulesetCatalog: this.rulesetCatalog
+    });
+    return parseWithSchema(
+      ProjectMergeResultSchema,
+      await this.storage.mergeProjects(payload.source_project_id, payload.target_project_id, {
+        reason: payload.reason ?? null,
+        standardProfileResolution
+      })
+    );
   }
 
   async resolveProject(input) {
@@ -717,9 +768,9 @@ function parseWithSchema(schema, input) {
 function scoreProjectResolution(project, input) {
   const reasons = [];
   let score = 0;
-  if (input.project_id_hint && project.project_id === input.project_id_hint) {
+  if (input.project_id_hint && normalizeText(project.project_id) === normalizeText(input.project_id_hint)) {
     score += 100;
-    reasons.push("project_id_hint matched project_id exactly");
+    reasons.push("project_id_hint matched project_id after normalization");
   }
   if (input.repository_url && normalizeRepositoryUrl(project.repository_url) === normalizeRepositoryUrl(input.repository_url)) {
     score += 80;
@@ -751,15 +802,92 @@ function scoreProjectResolution(project, input) {
 }
 
 function normalizeRepositoryUrl(value) {
-  return value.trim().replace(/\.git$/i, "").replace(/\/$/i, "").toLowerCase();
+  return value.trim().replace(/\/+$/i, "").replace(/\.git$/i, "").toLowerCase();
 }
 
-function normalizeRepositorySlug(value) {
-  return value.trim().replace(/\.git$/i, "").replace(/^\/+|\/+$/g, "").toLowerCase();
+function resolveProjectMergeStandardProfile({ sourceProject, targetProject, requestedResolution, rulesetCatalog }) {
+  const sourceProfileRef = sourceProject.standard_profile_ref ?? null;
+  const targetProfileRef = targetProject.standard_profile_ref ?? null;
+  const profilesDiffer = Boolean(sourceProfileRef && targetProfileRef && sourceProfileRef !== targetProfileRef);
+
+  if (!profilesDiffer) {
+    if (requestedResolution) {
+      const automaticProfileRef = sourceProfileRef ?? targetProfileRef;
+      const requestedProfileRef = requestedMergeProfileRef({
+        requestedResolution,
+        sourceProfileRef,
+        targetProfileRef,
+        rulesetCatalog
+      });
+      if (requestedProfileRef !== automaticProfileRef) {
+        throw new ApiError(
+          400,
+          "PROJECT_STANDARD_PROFILE_RESOLUTION_NOT_REQUIRED",
+          "standard_profile_resolution cannot change an unambiguous project profile assignment.",
+          {
+            source_profile_ref: sourceProfileRef,
+            target_profile_ref: targetProfileRef,
+            automatic_profile_ref: automaticProfileRef,
+            requested_profile_ref: requestedProfileRef
+          }
+        );
+      }
+      return {
+        source_profile_ref: sourceProfileRef,
+        target_profile_ref: targetProfileRef,
+        strategy: requestedResolution.strategy,
+        result_profile_ref: automaticProfileRef
+      };
+    }
+    return {
+      source_profile_ref: sourceProfileRef,
+      target_profile_ref: targetProfileRef,
+      strategy: "automatic",
+      result_profile_ref: sourceProfileRef ?? targetProfileRef
+    };
+  }
+
+  if (!requestedResolution) {
+    throw new ApiError(
+      409,
+      "PROJECT_STANDARD_PROFILE_RESOLUTION_REQUIRED",
+      "Source and target projects use different standard profiles; choose prefer_source, prefer_target, or set.",
+      {
+        source_profile_ref: sourceProfileRef,
+        target_profile_ref: targetProfileRef,
+        allowed_strategies: ["prefer_source", "prefer_target", "set"]
+      }
+    );
+  }
+
+  const resultProfileRef = requestedMergeProfileRef({
+    requestedResolution,
+    sourceProfileRef,
+    targetProfileRef,
+    rulesetCatalog
+  });
+
+  return {
+    source_profile_ref: sourceProfileRef,
+    target_profile_ref: targetProfileRef,
+    strategy: requestedResolution.strategy,
+    result_profile_ref: resultProfileRef
+  };
+}
+
+function requestedMergeProfileRef({ requestedResolution, sourceProfileRef, targetProfileRef, rulesetCatalog }) {
+  if (requestedResolution.strategy === "prefer_source") {
+    return sourceProfileRef;
+  }
+  if (requestedResolution.strategy === "prefer_target") {
+    return targetProfileRef;
+  }
+  rulesetCatalog.getByRef(requestedResolution.standard_profile_ref);
+  return requestedResolution.standard_profile_ref;
 }
 
 function repositorySlugFromUrl(value) {
-  const trimmed = value.trim().replace(/\.git$/i, "").replace(/\/$/i, "");
+  const trimmed = value.trim().replace(/\/+$/i, "").replace(/\.git$/i, "");
   const scpStyle = trimmed.match(/^[^@]+@[^:]+:(?<slug>.+)$/);
   if (scpStyle?.groups?.slug) {
     return scpStyle.groups.slug;

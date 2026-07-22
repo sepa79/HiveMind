@@ -2,6 +2,40 @@
 
 All notable HiveMind changes are recorded here.
 
+## Unreleased
+
+- Canonicalize newly registered project ids from the lowercase Git repository
+  name so one deployment has one project record per repository. Reject a
+  registration atomically when a different repository already owns the
+  resulting id, including concurrent registration attempts. Normalize `.git`
+  suffixes consistently even when repository slugs or URLs end with `/`.
+- Protect admin memory review and project maintenance endpoints with a durable
+  bearer token that can be supplied explicitly or generated in
+  `HIVEMIND_DATA_ROOT`; parse the HTTP Bearer authentication scheme
+  case-insensitively.
+- Add admin project delete and merge operations across both storage backends,
+  including conflict detection, project-scoped record migration, and ruleset
+  preservation. Project merge also preserves an unambiguous standard profile
+  or requires an explicit source, target, or catalog-profile selection when
+  assignments differ.
+- Route admin credentials through MCP backend profiles and use the canonical
+  project id returned by registration in the local init helper.
+- Disable automatic MCP retries for destructive project delete and merge
+  operations so a lost response cannot turn a successful mutation into a
+  misleading retry failure.
+- Serialize destructive project delete and merge operations against in-flight
+  API requests so concurrent writes cannot recreate orphaned project data.
+  Refuse unsafe filesystem deletion or merge of legacy parent project ids that
+  still contain nested projects.
+- Declare the API as a single-writer service, pin Swarm deployments to one API
+  replica with `stop-first` updates, and make merge phases monotonic and
+  resumable after an interrupted storage write.
+- Require a separate incoming Bearer token for `admin_*` calls over Streamable
+  HTTP MCP while keeping ordinary MCP tools unauthenticated and stdio behavior
+  unchanged.
+- Wire API and MCP admin credentials into HiveForge deployments, using direct
+  values for `docker-single` and external Docker secrets for `swarm`.
+
 ## 0.5.1 - 2026-06-12
 
 - Render the HiveForge-managed Compose file at `/hf/stacks/compose.yml` so the

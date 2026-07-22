@@ -2,6 +2,7 @@
 
 import { readFileSync } from "node:fs";
 import { serve } from "@hono/node-server";
+import { readConfiguredAdminToken, resolveAdminToken } from "./app/admin-token.mjs";
 import { RulesetCatalog, DEFAULT_RULESET_CATALOG_PATH } from "./app/ruleset-catalog.mjs";
 import { HiveMindService } from "./app/service.mjs";
 import { createApp } from "./http/app.mjs";
@@ -13,6 +14,17 @@ const dataRoot = process.env.HIVEMIND_DATA_ROOT || `${process.cwd()}/.hivemind`;
 const storageBackend = process.env.HIVEMIND_STORAGE_BACKEND || "fs-jsonl";
 const rulesetCatalogPath = process.env.HIVEMIND_RULESET_CATALOG_PATH || DEFAULT_RULESET_CATALOG_PATH;
 const packageJson = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8"));
+const adminAuth = await resolveAdminToken({
+  adminToken: await readConfiguredAdminToken({
+    adminToken: process.env.HIVEMIND_ADMIN_TOKEN,
+    adminTokenFile: process.env.HIVEMIND_ADMIN_TOKEN_FILE
+  }),
+  dataRoot
+});
+console.log(`HiveMind admin token source: ${adminAuth.source}`);
+if (adminAuth.source === "environment" && adminAuth.ignoredTokenPath) {
+  console.log(`Warning: HiveMind admin token file ignored because HIVEMIND_ADMIN_TOKEN is set: ${adminAuth.ignoredTokenPath}`);
+}
 
 const storage = createStorage({ storageBackend, dataRoot });
 if (typeof storage.initialize === "function") {
@@ -29,7 +41,7 @@ const service = new HiveMindService({
     hivemindApiUrl: process.env.HIVEMIND_API_BASE_URL || `http://127.0.0.1:${port}`
   })
 });
-const app = createApp({ service, accessLogger: console });
+const app = createApp({ service, accessLogger: console, adminToken: adminAuth.adminToken });
 
 serve(
   {

@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -67,6 +67,81 @@ describe("FsJsonlStorage", () => {
 
     const betaSearch = await storage.searchEntries({ project_id: "beta" });
     expect(betaSearch.entries).toHaveLength(0);
+  });
+
+  it("refuses to delete a project that contains a nested legacy project", async () => {
+    const storage = createStorage();
+    await createProject(storage, "org");
+    await createProject(storage, "org/legacy");
+
+    await expect(storage.deleteProject("org")).rejects.toMatchObject({
+      status: 409,
+      code: "PROJECT_CONTAINS_NESTED_PROJECTS",
+      details: {
+        project_id: "org",
+        nested_project_ids: ["org/legacy"]
+      }
+    });
+    await expect(storage.getProject("org")).resolves.toMatchObject({ project_id: "org" });
+    await expect(storage.getProject("org/legacy")).resolves.toMatchObject({ project_id: "org/legacy" });
+  });
+
+  it("refuses to merge a project into its nested legacy project", async () => {
+    const storage = createStorage();
+    await createProject(storage, "org");
+    await createProject(storage, "org/legacy");
+
+    await expect(
+      storage.mergeProjects("org", "org/legacy", {
+        standardProfileResolution: {
+          source_profile_ref: null,
+          target_profile_ref: null,
+          strategy: "automatic",
+          result_profile_ref: null
+        }
+      })
+    ).rejects.toMatchObject({
+      status: 409,
+      code: "PROJECT_CONTAINS_NESTED_PROJECTS"
+    });
+    await expect(storage.getProject("org")).resolves.toMatchObject({ project_id: "org" });
+    await expect(storage.getProject("org/legacy")).resolves.toMatchObject({ project_id: "org/legacy" });
+  });
+
+  it("publishes target metadata only after project records are copied and can resume", async () => {
+    const storage = createStorage();
+    await createProject(storage, "alpha");
+    await createProject(storage, "legacy");
+    await storage.addFeature("legacy", "Imported");
+    await storage.createSession(
+      {
+        project_id: "legacy",
+        branch: "main",
+        workspace_path: "/repo/legacy",
+        author_id: "agent-legacy",
+        author_type: "agent",
+        source: "mcp",
+        agent_id: "codex",
+        goal: "Retry filesystem merge"
+      },
+      { idempotencyKey: "retry-fs-merge-session" }
+    );
+    const targetSessionsPath = join(storage.dataRoot, "projects", "alpha", "sessions");
+    rmSync(targetSessionsPath, { recursive: true, force: true });
+    writeFileSync(targetSessionsPath, "block session copies", "utf8");
+    const resolution = automaticProfileResolution();
+
+    await expect(storage.mergeProjects("legacy", "alpha", { standardProfileResolution: resolution })).rejects.toThrow();
+    await expect(storage.getProject("alpha")).resolves.toMatchObject({ features: [] });
+    await expect(storage.getProject("legacy")).resolves.toMatchObject({ project_id: "legacy" });
+
+    rmSync(targetSessionsPath, { force: true });
+    mkdirSync(targetSessionsPath, { recursive: true });
+    const result = await storage.mergeProjects("legacy", "alpha", { standardProfileResolution: resolution });
+
+    expect(result.target_project.features).toEqual(["Imported"]);
+    expect(result.moved_counts.sessions).toBe(1);
+    await expect(storage.getProject("legacy")).resolves.toBeNull();
   });
 
   it("reads and marks entry lifecycle state without rewriting entry content", async () => {
@@ -1386,4 +1461,25 @@ function createStorage() {
   const dataRoot = mkdtempSync(join(tmpdir(), "hivemind-storage-"));
   roots.push(dataRoot);
   return new FsJsonlStorage({ dataRoot });
+}
+
+function createProject(storage, projectId) {
+  return storage.createProject({
+    project_id: projectId,
+    name: projectId,
+    repository_url: `https://github.com/example/${projectId}.git`,
+    repository_slug: `example/${projectId}`,
+    root_path: `/repo/${projectId}`,
+    default_branch: "main",
+    description: `${projectId} project`
+  });
+}
+
+function automaticProfileResolution({ source = null, target = null, result = source ?? target } = {}) {
+  return {
+    source_profile_ref: source,
+    target_profile_ref: target,
+    strategy: "automatic",
+    result_profile_ref: result
+  };
 }

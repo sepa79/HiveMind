@@ -131,7 +131,7 @@ Notes:
 - `features[]` are product/domain areas like `billing`, `auth`, `editor`.
 - `categories[]` are generic work buckets like `backend`, `frontend`, `infra`, `testing`, `docs`.
 - both should be extendable by the project.
-- `project_id` should be unique within one `hivemind-api` instance.
+- `project_id` should be unique within one `hivemind-api` instance and canonicalized from the Git repository name lowercased.
 - `root_path` is the canonical default repository root for the project; actual per-session checkout paths belong in `workspace_path`.
 
 ### 5.2 Session
@@ -531,9 +531,15 @@ Input:
 
 - `project_id`
 - `name`
+- `repository_url`
+- `repository_slug`
 - `root_path`
 - `default_branch`
 - `description?`
+
+`project_id` is accepted for client compatibility but stored canonically as the
+lowercase Git repository name from `repository_slug`, without owner or `.git`
+suffix.
 
 Output:
 
@@ -1574,7 +1580,7 @@ These are the decisions I would lock early:
 - REST between MCP and backend,
 - storage adapter behind API,
 - `fs-jsonl` as first backend, not as MCP-local persistence,
-- `project_id` unique within one HiveMind instance,
+- `project_id` unique within one HiveMind instance and derived from the lowercase Git repository name,
 - `session_id`, `entry_id`, and `rule_check_id` globally unique within one HiveMind instance,
 - `branch` scoped to project, not globally unique,
 - append-only JSONL for journal records,

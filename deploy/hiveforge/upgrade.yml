@@ -18,6 +18,10 @@
     hivemind_ruleset_catalog_source_url: "{{ lookup('ansible.builtin.env', 'HIVEMIND_RULESET_CATALOG_SOURCE_URL') }}"
     hivemind_api_port: "{{ lookup('ansible.builtin.env', 'HIVEMIND_API_PORT') }}"
     hivemind_mcp_port: "{{ lookup('ansible.builtin.env', 'HIVEMIND_MCP_PORT') }}"
+    hivemind_admin_token: "{{ lookup('ansible.builtin.env', 'HIVEMIND_ADMIN_TOKEN') }}"
+    hivemind_mcp_admin_token: "{{ lookup('ansible.builtin.env', 'HIVEMIND_MCP_ADMIN_TOKEN') }}"
+    hivemind_admin_token_secret: "{{ lookup('ansible.builtin.env', 'HIVEMIND_ADMIN_TOKEN_SECRET') | default('hivemind_admin_token', true) }}"
+    hivemind_mcp_admin_token_secret: "{{ lookup('ansible.builtin.env', 'HIVEMIND_MCP_ADMIN_TOKEN_SECRET') | default('hivemind_mcp_admin_token', true) }}"
     hivemind_opensearch_admin_password_secret: "{{ lookup('ansible.builtin.env', 'OPENSEARCH_INITIAL_ADMIN_PASSWORD_SECRET') | default('hivemind_opensearch_admin_password', true) }}"
     hivemind_opensearch_password_secret: "{{ lookup('ansible.builtin.env', 'HIVEMIND_OPENSEARCH_PASSWORD_SECRET') | default('hivemind_opensearch_password', true) }}"
   tasks:

@@ -6,13 +6,18 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { z } from "zod";
+import {
+  authenticateMcpAdminAuthorization,
+  protectAdminTool,
+  resolveMcpAdminToken
+} from "./admin-auth.mjs";
 import { HiveMindApiClient } from "./api-client.mjs";
 import { parseBackendProfiles } from "./backend-config.mjs";
 import { createHiveMindRuntime } from "./runtime.mjs";
 
 const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
 
-function createHiveMindMcpServer() {
+function createHiveMindMcpServer({ requireAdminAuthorization = false } = {}) {
 const server = new McpServer({
   name: "hivemind",
   version: packageJson.version
@@ -23,7 +28,7 @@ const runtime = createHiveMindRuntime({
   apiClients: backendProfiles.map((profile) => ({
     backend_id: profile.backend_id,
     label: profile.label,
-    apiClient: new HiveMindApiClient({ baseUrl: profile.api_base_url })
+    apiClient: new HiveMindApiClient({ baseUrl: profile.api_base_url, adminToken: profile.admin_token })
   }))
 });
 
@@ -777,7 +782,8 @@ server.registerTool(
   "admin_memory_review",
   {
     title: "Review HiveMind memory across projects",
-    description: "Summarize memory health and recommended actions across selected registered projects.",
+    description:
+      "Summarize memory health and recommended actions across selected registered projects. Requires admin authorization over Streamable HTTP.",
     inputSchema: {
       project_ids: z.array(z.string()).optional(),
       backend_id: z.string().optional(),
@@ -786,7 +792,48 @@ server.registerTool(
       limit: z.number().int().positive().max(20).optional()
     }
   },
-  runtime.adminMemoryReview
+  protectAdminTool(runtime.adminMemoryReview, { authorizationRequired: requireAdminAuthorization })
+);
+
+server.registerTool(
+  "admin_project_delete",
+  {
+    title: "Delete one HiveMind project",
+    description:
+      "Delete one HiveMind project and all project-scoped memory. Requires admin authorization over Streamable HTTP.",
+    inputSchema: {
+      project_id: z.string(),
+      backend_id: z.string().optional(),
+      reason: z.string().optional()
+    }
+  },
+  protectAdminTool(runtime.adminProjectDelete, { authorizationRequired: requireAdminAuthorization })
+);
+
+server.registerTool(
+  "admin_project_merge",
+  {
+    title: "Merge two HiveMind projects",
+    description:
+      "Move all project-scoped memory from source_project_id into target_project_id, then delete the source project. Requires admin authorization over Streamable HTTP.",
+    inputSchema: {
+      source_project_id: z.string(),
+      target_project_id: z.string(),
+      backend_id: z.string().optional(),
+      standard_profile_resolution: z
+        .discriminatedUnion("strategy", [
+          z.object({ strategy: z.literal("prefer_source") }),
+          z.object({ strategy: z.literal("prefer_target") }),
+          z.object({
+            strategy: z.literal("set"),
+            standard_profile_ref: z.string()
+          })
+        ])
+        .optional(),
+      reason: z.string().optional()
+    }
+  },
+  protectAdminTool(runtime.adminProjectMerge, { authorizationRequired: requireAdminAuthorization })
 );
 
 server.registerTool(
@@ -884,6 +931,7 @@ async function startHttpServer() {
   const host = process.env.HIVEMIND_MCP_HOST || "127.0.0.1";
   const port = Number(process.env.HIVEMIND_MCP_PORT || "4011");
   const path = process.env.HIVEMIND_MCP_PATH || "/mcp";
+  const adminToken = resolveMcpAdminToken();
 
   const httpServer = createServer(async (req, res) => {
     try {
@@ -912,7 +960,11 @@ async function startHttpServer() {
       }
 
       const body = await readJsonBody(req);
-      const mcpServer = createHiveMindMcpServer();
+      const authInfo = authenticateMcpAdminAuthorization(req.headers.authorization, adminToken);
+      if (authInfo) {
+        req.auth = authInfo;
+      }
+      const mcpServer = createHiveMindMcpServer({ requireAdminAuthorization: true });
       const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
       await mcpServer.connect(transport);
       await transport.handleRequest(req, res, body);

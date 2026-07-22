@@ -3,7 +3,9 @@ import { readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Hono } from "hono";
+import { adminAuthorizationMatches } from "../app/admin-token.mjs";
 import { ApiError } from "../app/errors.mjs";
+import { isExclusiveProjectOperation, RequestOperationGate } from "./request-operation-gate.mjs";
 import { renderHumanUi } from "./ui.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -13,8 +15,9 @@ const allowedSvgAssets = new Set([
   "hivemind-radial-grid-mark.svg"
 ]);
 
-export function createApp({ service, accessLogger = null }) {
+export function createApp({ service, accessLogger = null, adminToken = null }) {
   const app = new Hono();
+  const operationGate = new RequestOperationGate();
 
   app.use("*", async (c, next) => {
     const requestId = c.req.header("x-request-id") || randomUUID();
@@ -59,6 +62,24 @@ export function createApp({ service, accessLogger = null }) {
     return c.body(await readFile(join(assetsDir, assetName), "utf8"), 200, {
       "content-type": "image/svg+xml; charset=utf-8"
     });
+  });
+
+  app.use("/v1/admin/*", async (c, next) => {
+    if (!adminToken) {
+      throw new ApiError(503, "ADMIN_TOKEN_NOT_CONFIGURED", "Admin token is not configured for this HiveMind API instance.", {});
+    }
+    if (!adminAuthorizationMatches(c.req.header("authorization"), adminToken)) {
+      throw new ApiError(401, "UNAUTHORIZED", "Admin token is required for this operation.", {});
+    }
+    await next();
+  });
+
+  app.use("/v1/*", async (c, next) => {
+    const run = () => next();
+    if (isExclusiveProjectOperation(c.req.method, c.req.path)) {
+      return operationGate.runExclusive(run);
+    }
+    return operationGate.runShared(run);
   });
 
   app.onError((error, c) => {
@@ -414,6 +435,20 @@ export function createApp({ service, accessLogger = null }) {
   app.post("/v1/admin/memory-review", async (c) => {
     const payload = await readJsonBody(c);
     const data = await service.reviewAdminMemory(payload);
+    return success(c, data);
+  });
+
+  app.delete("/v1/admin/projects/:projectId", async (c) => {
+    const data = await service.deleteProject({
+      project_id: c.req.param("projectId"),
+      reason: c.req.query("reason") || undefined
+    });
+    return success(c, data);
+  });
+
+  app.post("/v1/admin/projects/merge", async (c) => {
+    const payload = await readJsonBody(c);
+    const data = await service.mergeProjects(payload);
     return success(c, data);
   });
 
