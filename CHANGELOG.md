@@ -2,7 +2,7 @@
 
 All notable HiveMind changes are recorded here.
 
-## Unreleased
+## 0.5.2 - 2026-07-22
 
 - Canonicalize newly registered project ids from the lowercase Git repository
   name so one deployment has one project record per repository. Reject a
@@ -35,6 +35,9 @@ All notable HiveMind changes are recorded here.
   unchanged.
 - Wire API and MCP admin credentials into HiveForge deployments, using direct
   values for `docker-single` and external Docker secrets for `swarm`.
+- Prevent OpenSearch startup failures from serializing request metadata and
+  authorization headers into container logs. API and provisioning failures now
+  emit a bounded error summary with credentials redacted.
 
 ## 0.5.1 - 2026-06-12
 

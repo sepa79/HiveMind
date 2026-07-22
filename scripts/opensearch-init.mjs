@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { logFatalError } from "../hivemind-api/src/app/safe-error-log.mjs";
 
 const DEFAULT_ENDPOINT = "https://opensearch:9200";
 const DEFAULT_INDEX_PREFIX = "hivemind";
@@ -134,7 +135,7 @@ function defaultSleep(ms) {
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   provisionOpenSearch().catch((error) => {
-    console.error(error);
+    logFatalError(console, "OpenSearch provisioning failed", error);
     process.exit(1);
   });
 }
