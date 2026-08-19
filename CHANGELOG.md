@@ -2,6 +2,14 @@
 
 All notable HiveMind changes are recorded here.
 
+## 0.5.3 - 2026-08-19
+
+- Refresh the resolved Node dependency set after the August 19, 2026 security
+  audit, including patched `hono`, `@hono/node-server`, `vitest`, and related
+  transitive packages in `package-lock.json`.
+- Clear the npm audit report to zero known vulnerabilities without changing the
+  public API, MCP tool contracts, or deployment shape.
+
 ## 0.5.2 - 2026-07-22
 
 - Canonicalize newly registered project ids from the lowercase Git repository
