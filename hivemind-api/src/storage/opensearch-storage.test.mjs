@@ -141,6 +141,60 @@ describe("OpenSearchStorage", () => {
     expect((await storage.getProject("alpha")).standard_marker).toEqual(marker);
   });
 
+  it("clears the stored marker when the assigned profile changes directly or through merge", async () => {
+    const client = new FakeOpenSearchClient();
+    const storage = new OpenSearchStorage({ client, indexPrefix: "test" });
+
+    await storage.createProject({
+      project_id: "alpha",
+      name: "Alpha",
+      repository_url: "https://github.com/example/alpha.git",
+      repository_slug: "example/alpha",
+      root_path: "/repo/alpha",
+      default_branch: "main",
+      description: "Alpha project",
+      standard_profile_ref: "base@v1"
+    });
+    await storage.updateProjectStandardMarker("alpha", {
+      project_id: "alpha",
+      profile_ref: "base@v1",
+      applied_at: "2026-08-20T00:00:00.000Z",
+      files: [{ target: "AGENTS.md", sha256: "alpha-base" }]
+    });
+
+    const reassigned = await storage.updateProjectStandardProfile("alpha", "aws-microservice@v2");
+    expect(reassigned.standard_marker).toBeNull();
+
+    await storage.updateProjectStandardMarker("alpha", {
+      project_id: "alpha",
+      profile_ref: "aws-microservice@v2",
+      applied_at: "2026-08-20T00:00:00.000Z",
+      files: [{ target: "AGENTS.md", sha256: "alpha-aws" }]
+    });
+    await storage.createProject({
+      project_id: "legacy",
+      name: "Legacy",
+      repository_url: "https://github.com/example/legacy.git",
+      repository_slug: "example/legacy",
+      root_path: "/repo/legacy",
+      default_branch: "main",
+      description: "Legacy project",
+      standard_profile_ref: "base@v1"
+    });
+
+    const merged = await storage.mergeProjects("legacy", "alpha", {
+      standardProfileResolution: {
+        source_profile_ref: "base@v1",
+        target_profile_ref: "aws-microservice@v2",
+        strategy: "prefer_source",
+        result_profile_ref: "base@v1"
+      }
+    });
+
+    expect(merged.target_project.standard_profile_ref).toBe("base@v1");
+    expect(merged.target_project.standard_marker).toBeNull();
+  });
+
   it("atomically rejects concurrent repository identities for one project id", async () => {
     const client = new FakeOpenSearchClient();
     const storage = new OpenSearchStorage({ client, indexPrefix: "test" });

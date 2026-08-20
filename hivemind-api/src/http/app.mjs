@@ -49,7 +49,7 @@ export function createApp({ service, accessLogger = null, adminToken = null }) {
     }
   });
 
-  app.get("/", (c) => c.html(renderHumanUi()));
+  app.get("/", (c) => c.html(renderHumanUi({ version: service.version })));
   app.get("/favicon.ico", (c) => c.body(null, 204));
   app.get("/assets/:assetName", async (c) => {
     const assetName = c.req.param("assetName");

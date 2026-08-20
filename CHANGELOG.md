@@ -2,6 +2,21 @@
 
 All notable HiveMind changes are recorded here.
 
+## 0.5.4 - 2026-08-20
+
+- Add the canonical stored standard-marker workflow for repository standards:
+  `guidance_check` now reads the persisted marker only, and MCP/CLI can refresh
+  it explicitly through `project_standard_marker_update` and
+  `npm run hivemind:standard -- marker update`.
+- Add `base@v3` and `aws-microservice@v3` ruleset bundles, upgrade guidance,
+  and refreshed onboarding/demo documentation for standards rollout.
+- Reject invalid stored standard-marker payloads against the assigned ruleset
+  bundle SSOT, including duplicate targets, unknown targets, and incomplete
+  tracked-file snapshots. Invalidate persisted markers when a project's
+  assigned `standard_profile_ref` changes directly or through project merge.
+- Show the running HiveMind version in the Human UI top bar, matching the
+  lightweight version display pattern already used in HiveForge.
+
 ## 0.5.3 - 2026-08-19
 
 - Refresh the resolved Node dependency set after the August 19, 2026 security

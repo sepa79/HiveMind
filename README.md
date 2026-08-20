@@ -58,14 +58,18 @@ Standardization flow for a real repo:
 ```bash
 npm run hivemind:standard -- catalog list
 npm run hivemind:standard -- apply --project my-service --profile aws-microservice@v3 --target /path/to/repo --write
+curl -X PUT http://127.0.0.1:4010/v1/projects/my-service/standard-profile -H 'content-type: application/json' -d '{"standard_profile_ref":"aws-microservice@v3"}'
 npm run hivemind:standard -- marker update --project my-service --target /path/to/repo
 npm run hivemind:standard -- guidance check --project my-service
 ```
 
+`marker update` requires the project to have the same `standard_profile_ref`
+assigned first, whether through the Human UI, REST, or MCP.
+
 Upgrade from an older standard profile:
 
 - `base@v2 -> base@v3`: follow [docs/ai-ruleset-catalog.md](docs/ai-ruleset-catalog.md) and the bundled upgrade guide at [ai-rulesets/base/v3/files/docs/ai/STANDARD_PROFILE_UPGRADE.md](ai-rulesets/base/v3/files/docs/ai/STANDARD_PROFILE_UPGRADE.md).
-- `aws-microservice@v2 -> aws-microservice@v3`: apply the `v3` bundle, refresh the stored marker, then rerun `guidance_check`.
+- `aws-microservice@v2 -> aws-microservice@v3`: apply the `v3` bundle, assign `standard_profile_ref` to `aws-microservice@v3`, refresh the stored marker, then rerun `guidance_check`.
 
 For the full local onboarding flow, use [docs/team-quickstart.md](docs/team-quickstart.md).
 For runtime concepts and workflow, use [docs/user-guide.md](docs/user-guide.md).

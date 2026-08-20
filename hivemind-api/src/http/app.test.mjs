@@ -807,6 +807,137 @@ describe("HiveMind API", () => {
     expect(currentGuidancePayload.data.drift.some((file) => file.status === "customized")).toBe(true);
   });
 
+  it("clears the stored marker when the assigned profile changes", async () => {
+    const app = createTestApp();
+    await createProject(app);
+
+    const assignBaseResponse = await app.request("/v1/projects/buzz/standard-profile", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ standard_profile_ref: "base@v3" })
+    });
+    expect(assignBaseResponse.status).toBe(200);
+
+    const bundleResponse = await app.request("/v1/ruleset-catalog/profiles/base/versions/v3/bundle");
+    expect(bundleResponse.status).toBe(200);
+    const bundlePayload = await bundleResponse.json();
+    const marker = {
+      project_id: "buzz",
+      profile_ref: "base@v3",
+      applied_at: "2026-08-20T00:00:00.000Z",
+      files: bundlePayload.data.files.map((file) => ({ target: file.target, sha256: file.sha256 }))
+    };
+    const updateMarkerResponse = await app.request("/v1/projects/buzz/standard-marker", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ standard_marker: marker })
+    });
+    expect(updateMarkerResponse.status).toBe(200);
+
+    const assignAwsResponse = await app.request("/v1/projects/buzz/standard-profile", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ standard_profile_ref: "aws-microservice@v3" })
+    });
+    expect(assignAwsResponse.status).toBe(200);
+
+    const guidanceResponse = await app.request("/v1/guidance/check", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ project_id: "buzz" })
+    });
+    expect(guidanceResponse.status).toBe(200);
+    const guidancePayload = await guidanceResponse.json();
+    expect(guidancePayload.data.marker_source).toBe("none");
+    expect(guidancePayload.data.recommended_action).toBe("apply");
+  });
+
+  it("rejects duplicate tracked-file targets in a stored standard marker", async () => {
+    const app = createTestApp();
+    await createProject(app, { standard_profile_ref: "base@v3" });
+
+    const bundleResponse = await app.request("/v1/ruleset-catalog/profiles/base/versions/v3/bundle");
+    expect(bundleResponse.status).toBe(200);
+    const bundlePayload = await bundleResponse.json();
+    const duplicateTarget = bundlePayload.data.files[0].target;
+    const marker = {
+      project_id: "buzz",
+      profile_ref: "base@v3",
+      applied_at: "2026-08-20T00:00:00.000Z",
+      files: [
+        ...bundlePayload.data.files.map((file) => ({ target: file.target, sha256: file.sha256 })),
+        { target: duplicateTarget, sha256: "duplicate" }
+      ]
+    };
+
+    const response = await app.request("/v1/projects/buzz/standard-marker", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ standard_marker: marker })
+    });
+
+    expect(response.status).toBe(400);
+    const payload = await response.json();
+    expect(payload.error.code).toBe("STANDARD_MARKER_TARGET_DUPLICATE");
+    expect(payload.error.details.duplicate_targets).toEqual([duplicateTarget]);
+  });
+
+  it("rejects unknown tracked-file targets in a stored standard marker", async () => {
+    const app = createTestApp();
+    await createProject(app, { standard_profile_ref: "base@v3" });
+
+    const bundleResponse = await app.request("/v1/ruleset-catalog/profiles/base/versions/v3/bundle");
+    expect(bundleResponse.status).toBe(200);
+    const bundlePayload = await bundleResponse.json();
+    const marker = {
+      project_id: "buzz",
+      profile_ref: "base@v3",
+      applied_at: "2026-08-20T00:00:00.000Z",
+      files: [
+        ...bundlePayload.data.files.map((file) => ({ target: file.target, sha256: file.sha256 })),
+        { target: "docs/ai/UNTRACKED.md", sha256: "extra" }
+      ]
+    };
+
+    const response = await app.request("/v1/projects/buzz/standard-marker", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ standard_marker: marker })
+    });
+
+    expect(response.status).toBe(400);
+    const payload = await response.json();
+    expect(payload.error.code).toBe("STANDARD_MARKER_TARGET_UNKNOWN");
+    expect(payload.error.details.unknown_targets).toEqual(["docs/ai/UNTRACKED.md"]);
+  });
+
+  it("rejects incomplete tracked-file snapshots in a stored standard marker", async () => {
+    const app = createTestApp();
+    await createProject(app, { standard_profile_ref: "base@v3" });
+
+    const bundleResponse = await app.request("/v1/ruleset-catalog/profiles/base/versions/v3/bundle");
+    expect(bundleResponse.status).toBe(200);
+    const bundlePayload = await bundleResponse.json();
+    const omittedTarget = bundlePayload.data.files.at(-1).target;
+    const marker = {
+      project_id: "buzz",
+      profile_ref: "base@v3",
+      applied_at: "2026-08-20T00:00:00.000Z",
+      files: bundlePayload.data.files.slice(0, -1).map((file) => ({ target: file.target, sha256: file.sha256 }))
+    };
+
+    const response = await app.request("/v1/projects/buzz/standard-marker", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ standard_marker: marker })
+    });
+
+    expect(response.status).toBe(400);
+    const payload = await response.json();
+    expect(payload.error.code).toBe("STANDARD_MARKER_TARGET_MISSING");
+    expect(payload.error.details.missing_targets).toEqual([omittedTarget]);
+  });
+
   it("returns unregistered guidance for unknown projects", async () => {
     const app = createTestApp();
 
@@ -1726,6 +1857,7 @@ describe("HiveMind API", () => {
     expect(html).toContain('select id="projectId"');
     expect(html).toContain('select id="branch"');
     expect(html).toContain('id="themeToggle"');
+    expect(html).toContain("vtest-version");
     expect(html).toContain('id="detailsPanel"');
     expect(html).toContain('id="entryResults"');
     expect(html).toContain('id="entryFeature"');

@@ -250,6 +250,17 @@ export class HiveMindService {
         }
       );
     }
+    const { profileId, version } = parseProfileRef(project.standard_profile_ref);
+    const bundle = this.rulesetCatalog.getBundle(profileId, version, {
+      project_id: project.project_id,
+      project_name: project.name
+    });
+    validateStandardMarkerSnapshot({
+      projectId: payload.project_id,
+      profileRef: project.standard_profile_ref,
+      standardMarker: payload.standard_marker,
+      bundleFiles: bundle.files
+    });
     const updatedProject = await this.storage.updateProjectStandardMarker(payload.project_id, payload.standard_marker);
     return parseWithSchema(ProjectStandardMarkerUpdateResultSchema, {
       project: updatedProject,
@@ -952,6 +963,69 @@ function requestedMergeProfileRef({ requestedResolution, sourceProfileRef, targe
   }
   rulesetCatalog.getByRef(requestedResolution.standard_profile_ref);
   return requestedResolution.standard_profile_ref;
+}
+
+function validateStandardMarkerSnapshot({ projectId, profileRef, standardMarker, bundleFiles }) {
+  const expectedTargets = new Set(bundleFiles.map((file) => file.target));
+  const requiredTargets = new Set(bundleFiles.filter((file) => file.required).map((file) => file.target));
+  const seenTargets = new Set();
+  const duplicateTargets = [];
+  const unknownTargets = [];
+
+  for (const file of standardMarker.files) {
+    if (seenTargets.has(file.target)) {
+      duplicateTargets.push(file.target);
+      continue;
+    }
+    seenTargets.add(file.target);
+    if (!expectedTargets.has(file.target)) {
+      unknownTargets.push(file.target);
+    }
+  }
+
+  if (duplicateTargets.length > 0) {
+    throw new ApiError(
+      400,
+      "STANDARD_MARKER_TARGET_DUPLICATE",
+      "Stored standard marker cannot contain duplicate tracked-file targets.",
+      {
+        project_id: projectId,
+        profile_ref: profileRef,
+        duplicate_targets: [...new Set(duplicateTargets)].sort()
+      }
+    );
+  }
+
+  if (unknownTargets.length > 0) {
+    throw new ApiError(
+      400,
+      "STANDARD_MARKER_TARGET_UNKNOWN",
+      "Stored standard marker contains targets that are not tracked by the assigned profile.",
+      {
+        project_id: projectId,
+        profile_ref: profileRef,
+        unknown_targets: [...new Set(unknownTargets)].sort()
+      }
+    );
+  }
+
+  const missingTargets = bundleFiles.map((file) => file.target).filter((target) => !seenTargets.has(target));
+  if (missingTargets.length > 0) {
+    throw new ApiError(
+      400,
+      "STANDARD_MARKER_TARGET_MISSING",
+      "Stored standard marker must include the full tracked-file snapshot for the assigned profile.",
+      {
+        project_id: projectId,
+        profile_ref: profileRef,
+        expected_target_count: bundleFiles.length,
+        actual_target_count: seenTargets.size,
+        missing_targets: missingTargets,
+        missing_required_targets: missingTargets.filter((target) => requiredTargets.has(target)),
+        missing_recommended_targets: missingTargets.filter((target) => !requiredTargets.has(target))
+      }
+    );
+  }
 }
 
 function repositorySlugFromUrl(value) {

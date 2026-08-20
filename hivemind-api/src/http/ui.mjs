@@ -1,4 +1,4 @@
-export function renderHumanUi() {
+export function renderHumanUi({ version = "0.0.0" } = {}) {
   return `<!doctype html>
 <html lang="en" data-theme="dark">
 <head>
@@ -127,6 +127,13 @@ export function renderHumanUi() {
       align-items: center;
       gap: 8px;
       margin-left: auto;
+    }
+
+    .topBarVersion {
+      color: var(--muted);
+      font-size: 12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      white-space: nowrap;
     }
 
     .logoLink {
@@ -938,6 +945,7 @@ export function renderHumanUi() {
           <div id="statusLine" class="topBarStatus">Loading projects...</div>
         </div>
         <div class="topBarRight">
+          <span class="topBarVersion">v${escapeHtml(version)}</span>
           <button id="themeToggle" type="button" title="Toggle theme">Light</button>
           <button id="refresh" class="primary" type="button" title="Refresh work units">Refresh</button>
         </div>
@@ -2011,4 +2019,13 @@ export function renderHumanUi() {
   </script>
 </body>
 </html>`;
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }

@@ -140,13 +140,16 @@ Typical flow:
 ```bash
 npm run hivemind:standard -- apply --project my-service --profile aws-microservice@v3 --target /repo
 npm run hivemind:standard -- apply --project my-service --profile aws-microservice@v3 --target /repo --write
+curl -X PUT http://127.0.0.1:4010/v1/projects/my-service/standard-profile -H 'content-type: application/json' -d '{"standard_profile_ref":"aws-microservice@v3"}'
 npm run hivemind:standard -- marker update --project my-service --target /repo
 ```
 
 The first command is a dry-run and writes nothing. `--write` creates missing
 files; customized files are skipped unless `--conflict overwrite` is passed.
-`marker update` hashes the tracked files in the target repo and stores the
-canonical marker in HiveMind for later `guidance_check` and UI drift views.
+Assign the same `standard_profile_ref` to the HiveMind project before
+`marker update`. Then `marker update` hashes the tracked files in the target
+repo and stores the canonical marker in HiveMind for later `guidance_check`
+and UI drift views.
 
 ## Human UI
 

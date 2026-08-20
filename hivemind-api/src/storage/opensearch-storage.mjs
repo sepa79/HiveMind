@@ -324,7 +324,11 @@ export class OpenSearchStorage extends StorageAdapter {
       default_branch: projectInput.default_branch,
       description: projectInput.description ?? existing.description ?? "",
       standard_profile_ref: projectInput.standard_profile_ref ?? existing.standard_profile_ref ?? null,
-      standard_marker: existing.standard_marker ?? null,
+      standard_marker: nextStandardMarker({
+        previousProfileRef: existing.standard_profile_ref ?? null,
+        nextProfileRef: projectInput.standard_profile_ref ?? existing.standard_profile_ref ?? null,
+        previousMarker: existing.standard_marker ?? null
+      }),
       updated_at: now
     };
     await this.#put("projects", project.project_id, project);
@@ -434,6 +438,11 @@ export class OpenSearchStorage extends StorageAdapter {
       categories: [...new Set([...(targetProject.categories ?? []), ...(sourceProject.categories ?? [])])],
       ruleset_id: mergedRuleset?.ruleset_id ?? targetProject.ruleset_id,
       standard_profile_ref: standardProfileResolution.result_profile_ref,
+      standard_marker: nextStandardMarker({
+        previousProfileRef: targetProject.standard_profile_ref ?? null,
+        nextProfileRef: standardProfileResolution.result_profile_ref,
+        previousMarker: targetProject.standard_marker ?? null
+      }),
       updated_at: now,
       [INTERNAL_MERGE_STATE_FIELD]: {
         ...mergeState,
@@ -550,6 +559,11 @@ export class OpenSearchStorage extends StorageAdapter {
     const updated = {
       ...project,
       standard_profile_ref: standardProfileRef,
+      standard_marker: nextStandardMarker({
+        previousProfileRef: project.standard_profile_ref ?? null,
+        nextProfileRef: standardProfileRef,
+        previousMarker: project.standard_marker ?? null
+      }),
       updated_at: isoNow()
     };
     await this.#put("projects", projectId, updated);
@@ -2343,6 +2357,10 @@ function compareIssueBranchMatch(left, right, branch) {
 function compareBoolean(left, right) {
   if (left === right) return 0;
   return left ? -1 : 1;
+}
+
+function nextStandardMarker({ previousProfileRef, nextProfileRef, previousMarker }) {
+  return previousProfileRef === nextProfileRef ? previousMarker : null;
 }
 
 function issueSeverityToImportance(severity) {

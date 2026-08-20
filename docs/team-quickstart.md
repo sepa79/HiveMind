@@ -159,9 +159,13 @@ Apply a profile to a repository, then store the canonical marker in HiveMind:
 
 ```bash
 npm run hivemind:standard -- apply --project my-service --profile aws-microservice@v3 --target /absolute/path/to/MyProject --write
+curl -X PUT http://127.0.0.1:4010/v1/projects/my-service/standard-profile -H 'content-type: application/json' -d '{"standard_profile_ref":"aws-microservice@v3"}'
 npm run hivemind:standard -- marker update --project my-service --target /absolute/path/to/MyProject
 npm run hivemind:standard -- guidance check --project my-service
 ```
+
+`marker update` only succeeds after the same profile is assigned to the
+HiveMind project.
 
 For upgrades from older profiles such as `base@v2` or `aws-microservice@v2`,
 use [ai-ruleset-catalog.md](ai-ruleset-catalog.md) and the upgrade
