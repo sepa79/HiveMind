@@ -108,6 +108,42 @@ describe("HiveMindApiClient", () => {
     ).resolves.toEqual({ source_project_id: "legacy", target_project_id: "buzz" });
   });
 
+  it("updates the canonical standard marker through the project endpoint", async () => {
+    const client = new HiveMindApiClient({
+      baseUrl: "http://127.0.0.1:4010",
+      fetchImpl: async (input, init) => {
+        expect(input.toString()).toBe("http://127.0.0.1:4010/v1/projects/buzz/standard-marker");
+        expect(init.method).toBe("PUT");
+        expect(JSON.parse(init.body)).toEqual({
+          standard_marker: {
+            project_id: "buzz",
+            profile_ref: "base@v1",
+            applied_at: "2026-08-20T00:00:00.000Z",
+            files: [{ target: "AGENTS.md", sha256: "abc123" }]
+          }
+        });
+        return jsonResponse(200, {
+          ok: true,
+          data: {
+            summary: "Updated stored standard marker."
+          }
+        });
+      }
+    });
+
+    await expect(
+      client.updateProjectStandardMarker({
+        project_id: "buzz",
+        standard_marker: {
+          project_id: "buzz",
+          profile_ref: "base@v1",
+          applied_at: "2026-08-20T00:00:00.000Z",
+          files: [{ target: "AGENTS.md", sha256: "abc123" }]
+        }
+      })
+    ).resolves.toEqual({ summary: "Updated stored standard marker." });
+  });
+
   it.each([
     ["delete", (client) => client.deleteProject({ project_id: "buzz" })],
     ["merge", (client) => client.mergeProjects({ source_project_id: "legacy", target_project_id: "buzz" })]

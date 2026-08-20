@@ -15,12 +15,12 @@ afterEach(() => {
 
 describe("hivemind standard CLI", () => {
   it("parses apply options without a subcommand", () => {
-    expect(parseCli(["apply", "--project", "buzz", "--profile", "aws-microservice@v2"])).toEqual({
+    expect(parseCli(["apply", "--project", "buzz", "--profile", "aws-microservice@v3"])).toEqual({
       command: "apply",
       subcommand: null,
       options: {
         project: "buzz",
-        profile: "aws-microservice@v2"
+        profile: "aws-microservice@v3"
       }
     });
   });
@@ -30,7 +30,7 @@ describe("hivemind standard CLI", () => {
 
     const result = applyStandard(config(), {
       projectId: "buzz",
-      profileRef: "aws-microservice@v2",
+      profileRef: "aws-microservice@v3",
       target,
       projectName: "Buzz"
     });
@@ -40,12 +40,12 @@ describe("hivemind standard CLI", () => {
     expect(existsSync(join(target, ".hivemind-standard.json"))).toBe(false);
   });
 
-  it("write mode creates missing files and a marker", () => {
+  it("write mode creates missing files without a local marker artifact", () => {
     const target = tempDir();
 
     const result = applyStandard(config(), {
       projectId: "buzz",
-      profileRef: "aws-microservice@v2",
+      profileRef: "aws-microservice@v3",
       target,
       projectName: "Buzz",
       write: true
@@ -53,16 +53,14 @@ describe("hivemind standard CLI", () => {
 
     expect(result.summary.written).toBeGreaterThan(0);
     expect(readFileSync(join(target, "AGENTS.md"), "utf8")).toContain("Buzz");
-    const marker = JSON.parse(readFileSync(join(target, ".hivemind-standard.json"), "utf8"));
-    expect(marker.profile_ref).toBe("aws-microservice@v2");
-    expect(marker.files.some((file) => file.target === "AGENTS.md")).toBe(true);
+    expect(existsSync(join(target, ".hivemind-standard.json"))).toBe(false);
   });
 
   it("skips changed files unless overwrite is requested", () => {
     const target = tempDir();
     applyStandard(config(), {
       projectId: "buzz",
-      profileRef: "aws-microservice@v2",
+      profileRef: "aws-microservice@v3",
       target,
       projectName: "Buzz",
       write: true
@@ -71,7 +69,7 @@ describe("hivemind standard CLI", () => {
 
     const skipped = applyStandard(config(), {
       projectId: "buzz",
-      profileRef: "aws-microservice@v2",
+      profileRef: "aws-microservice@v3",
       target,
       projectName: "Buzz",
       write: true
@@ -81,7 +79,7 @@ describe("hivemind standard CLI", () => {
 
     const overwritten = applyStandard(config(), {
       projectId: "buzz",
-      profileRef: "aws-microservice@v2",
+      profileRef: "aws-microservice@v3",
       target,
       projectName: "Buzz",
       write: true,

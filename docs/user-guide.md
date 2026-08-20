@@ -34,8 +34,8 @@ Default local pieces:
 - `bootstrap/`
   Committed seed/demo assets for local onboarding.
 - `ai-rulesets/`
-  Example repository-standardization profiles such as `base@v2` and
-  `aws-microservice@v2`.
+  Example repository-standardization profiles such as `base@v3` and
+  `aws-microservice@v3`.
 
 Default endpoints:
 
@@ -124,23 +124,29 @@ Assign a project to a profile during registration or later through the standard
 profile endpoint/MCP tool. Example profile ref:
 
 ```text
-aws-microservice@v2
+aws-microservice@v3
 ```
 
-Clients can call `guidance_check` with the local `.hivemind-standard.json`
-marker to learn whether required starter files are present or the project is
-assigned to a newer profile. The starter files are templates: teams are expected
-to customize them after applying a profile. Customized content is not drift.
-The marker is produced by the standardization CLI:
+`guidance_check` reads the canonical stored marker for the project to learn
+whether required starter files are present or the project is assigned to a newer
+profile. The starter files are templates: teams are expected to customize them
+after applying a profile. Customized content is not drift. The Human UI can show
+real drift only after a client refreshes that stored marker from a repository
+workspace. A central API or dashboard does not have direct access to a
+contributor's local repository files.
+
+Typical flow:
 
 ```bash
-npm run hivemind:standard -- apply --project my-service --profile aws-microservice@v2 --target /repo
-npm run hivemind:standard -- apply --project my-service --profile aws-microservice@v2 --target /repo --write
+npm run hivemind:standard -- apply --project my-service --profile aws-microservice@v3 --target /repo
+npm run hivemind:standard -- apply --project my-service --profile aws-microservice@v3 --target /repo --write
+npm run hivemind:standard -- marker update --project my-service --target /repo
 ```
 
 The first command is a dry-run and writes nothing. `--write` creates missing
-files and `.hivemind-standard.json`; customized files are skipped unless
-`--conflict overwrite` is passed.
+files; customized files are skipped unless `--conflict overwrite` is passed.
+`marker update` hashes the tracked files in the target repo and stores the
+canonical marker in HiveMind for later `guidance_check` and UI drift views.
 
 ## Human UI
 

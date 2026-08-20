@@ -59,6 +59,7 @@ const INDEX_DEFINITIONS = {
       categories: { type: "keyword" },
       ruleset_id: { type: "keyword" },
       standard_profile_ref: { type: "keyword" },
+      standard_marker: { type: "object", enabled: false },
       created_at: { type: "date" },
       updated_at: { type: "date" }
     }
@@ -292,6 +293,7 @@ export class OpenSearchStorage extends StorageAdapter {
       categories: [],
       ruleset_id: `${projectInput.project_id}:0`,
       standard_profile_ref: projectInput.standard_profile_ref ?? null,
+      standard_marker: null,
       created_at: now,
       updated_at: now
     };
@@ -322,6 +324,7 @@ export class OpenSearchStorage extends StorageAdapter {
       default_branch: projectInput.default_branch,
       description: projectInput.description ?? existing.description ?? "",
       standard_profile_ref: projectInput.standard_profile_ref ?? existing.standard_profile_ref ?? null,
+      standard_marker: existing.standard_marker ?? null,
       updated_at: now
     };
     await this.#put("projects", project.project_id, project);
@@ -547,6 +550,18 @@ export class OpenSearchStorage extends StorageAdapter {
     const updated = {
       ...project,
       standard_profile_ref: standardProfileRef,
+      updated_at: isoNow()
+    };
+    await this.#put("projects", projectId, updated);
+    return updated;
+  }
+
+  async updateProjectStandardMarker(projectId, standardMarker) {
+    const project = await this.getProject(projectId);
+    ensure(project, 404, "PROJECT_NOT_FOUND", `No project exists with id '${projectId}'.`, { project_id: projectId });
+    const updated = {
+      ...project,
+      standard_marker: standardMarker,
       updated_at: isoNow()
     };
     await this.#put("projects", projectId, updated);

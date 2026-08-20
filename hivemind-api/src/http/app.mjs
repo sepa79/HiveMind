@@ -330,6 +330,15 @@ export function createApp({ service, accessLogger = null, adminToken = null }) {
     return success(c, data);
   });
 
+  app.put("/v1/projects/:projectId/standard-marker", async (c) => {
+    const payload = await readJsonBody(c);
+    const data = await service.updateProjectStandardMarker({
+      project_id: c.req.param("projectId"),
+      ...payload
+    });
+    return success(c, data);
+  });
+
   app.get("/v1/ruleset-catalog/profiles", async (c) => {
     const data = await service.listRulesetCatalogProfiles();
     return success(c, data);

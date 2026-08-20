@@ -1,11 +1,10 @@
 #!/usr/bin/env node
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { resolve } from "node:path";
 import { HiveMindApiClient } from "../hivemind-mcp/src/api-client.mjs";
-import { DEFAULT_RULESET_CATALOG_PATH, RulesetCatalog, parseProfileRef, sha256 } from "../hivemind-api/src/app/ruleset-catalog.mjs";
+import { DEFAULT_RULESET_CATALOG_PATH, RulesetCatalog, parseProfileRef } from "../hivemind-api/src/app/ruleset-catalog.mjs";
+import { buildStandardMarker, compareStandardBundle, summarizeStandardActions, writeTargetFile } from "../hivemind-mcp/src/standard-marker.mjs";
 
 const DEFAULT_API_BASE_URL = "http://127.0.0.1:4010";
-const MARKER_FILE = ".hivemind-standard.json";
 
 export async function main(argv = process.argv.slice(2), env = process.env, cwd = process.cwd()) {
   const { command, subcommand, options } = parseCli(argv);
@@ -28,12 +27,33 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
 
   if (command === "guidance" && subcommand === "check") {
     const projectId = requiredOption(options, "project");
-    const target = resolve(options.target || cwd);
-    const standardMarker = readMarker(target);
     const apiClient = new HiveMindApiClient({ baseUrl: config.apiBaseUrl });
-    const result = await apiClient.guidanceCheck({
+    const result = await apiClient.guidanceCheck({ project_id: projectId });
+    console.log(JSON.stringify(result, null, 2));
+    return 0;
+  }
+
+  if (command === "marker" && subcommand === "update") {
+    const projectId = requiredOption(options, "project");
+    const target = resolve(options.target || cwd);
+    const apiClient = new HiveMindApiClient({ baseUrl: config.apiBaseUrl });
+    const project = await getRegisteredProject(apiClient, projectId);
+    const profileRef = options.profile || project.standard_profile_ref;
+    if (!profileRef) {
+      throw new Error(`Project '${projectId}' has no assigned standard profile.`);
+    }
+    const { profileId, version } = parseProfileRef(profileRef);
+    const bundle = await apiClient.getRulesetCatalogBundle({ profile_id: profileId, version });
+    const standardMarker = buildStandardMarker({
+      projectId,
+      profileRef,
+      catalogSourceUrl: bundle.catalog_source_url ?? null,
+      bundleFiles: bundle.files,
+      targetRoot: target
+    });
+    const result = await apiClient.updateProjectStandardMarker({
       project_id: projectId,
-      ...(standardMarker ? { standard_marker: standardMarker } : {})
+      standard_marker: standardMarker
     });
     console.log(JSON.stringify(result, null, 2));
     return 0;
@@ -58,7 +78,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
 
 export function parseCli(argv) {
   const [command] = argv;
-  const hasSubcommand = ["catalog", "guidance"].includes(command);
+  const hasSubcommand = ["catalog", "guidance", "marker"].includes(command);
   const subcommand = hasSubcommand ? argv[1] : null;
   const rest = hasSubcommand ? argv.slice(2) : argv.slice(1);
   const options = {};
@@ -90,7 +110,7 @@ export function applyStandard(config, { projectId, profileRef, target, projectNa
     hivemind_api_url: config.apiBaseUrl
   });
 
-  const files = bundle.files.map((file) => compareFile(target, file));
+  const files = compareStandardBundle(target, bundle.files);
   const actions = [];
   for (const file of files) {
     if (!write) {
@@ -114,99 +134,14 @@ export function applyStandard(config, { projectId, profileRef, target, projectNa
     actions.push({ ...file, action: "skipped" });
   }
 
-  if (write) {
-    const markerFiles = bundle.files.map((file) => {
-      const targetPath = join(target, file.target);
-      const content = existsSync(targetPath) ? readFileSync(targetPath, "utf8") : "";
-      return {
-        target: file.target,
-        sha256: sha256(content)
-      };
-    });
-    writeTargetFile(
-      target,
-      MARKER_FILE,
-      `${JSON.stringify(
-        {
-          project_id: projectId,
-          profile_ref: profileRef,
-          catalog_source_url: config.catalogSourceUrl,
-          applied_at: new Date().toISOString(),
-          files: markerFiles
-        },
-        null,
-        2
-      )}\n`
-    );
-  }
-
   return {
     profile_ref: profileRef,
     target,
     write,
     conflict,
     files: actions.map(({ expected_content, ...action }) => action),
-    summary: summarize(actions)
+    summary: summarizeStandardActions(actions)
   };
-}
-
-function compareFile(targetRoot, file) {
-  const targetPath = join(targetRoot, file.target);
-  if (!existsSync(targetPath)) {
-    return {
-      source: file.source,
-      target: file.target,
-      required: file.required,
-      expected_sha256: file.sha256,
-      actual_sha256: null,
-      status: "missing",
-      expected_content: file.content
-    };
-  }
-  const content = readFileSync(targetPath, "utf8");
-  const actualSha = sha256(content);
-  return {
-    source: file.source,
-    target: file.target,
-    required: file.required,
-    expected_sha256: file.sha256,
-    actual_sha256: actualSha,
-    status: actualSha === file.sha256 ? "template_unmodified" : "customized",
-    expected_content: file.content
-  };
-}
-
-function summarize(actions) {
-  return {
-    missing: actions.filter((file) => file.status === "missing").length,
-    template_unmodified: actions.filter((file) => file.status === "template_unmodified").length,
-    customized: actions.filter((file) => file.status === "customized").length,
-    conflicting: actions.filter((file) => file.status === "customized" && file.action !== "overwritten").length,
-    written: actions.filter((file) => ["created", "overwritten"].includes(file.action)).length
-  };
-}
-
-function writeTargetFile(targetRoot, relativePath, content) {
-  const targetPath = join(targetRoot, relativePath);
-  ensureInsideTarget(targetRoot, targetPath, relativePath);
-  mkdirSync(dirname(targetPath), { recursive: true });
-  writeFileSync(targetPath, content, "utf8");
-}
-
-function ensureInsideTarget(targetRoot, targetPath, relativePath) {
-  const resolvedRoot = resolve(targetRoot);
-  const resolvedTarget = resolve(targetPath);
-  if (resolvedTarget !== resolvedRoot && !resolvedTarget.startsWith(`${resolvedRoot}/`)) {
-    throw new Error(`Refusing to write outside target: ${relativePath}`);
-  }
-}
-
-function readMarker(target) {
-  const markerPath = join(target, MARKER_FILE);
-  if (!existsSync(markerPath)) {
-    return null;
-  }
-  return JSON.parse(readFileSync(markerPath, "utf8"));
 }
 
 function buildConfig({ options, env, cwd }) {
@@ -240,9 +175,19 @@ function trimTrailingSlash(value) {
 function usage() {
   console.log(`Usage:
   node scripts/hivemind-standard.mjs catalog list
-  node scripts/hivemind-standard.mjs catalog show --profile aws-microservice@v2 [--include-files]
-  node scripts/hivemind-standard.mjs guidance check --project my-service --target /repo
-  node scripts/hivemind-standard.mjs apply --project my-service --profile aws-microservice@v2 --target /repo [--write] [--conflict skip|overwrite]`);
+  node scripts/hivemind-standard.mjs catalog show --profile aws-microservice@v3 [--include-files]
+  node scripts/hivemind-standard.mjs guidance check --project my-service
+  node scripts/hivemind-standard.mjs marker update --project my-service --target /repo
+  node scripts/hivemind-standard.mjs apply --project my-service --profile aws-microservice@v3 --target /repo [--write] [--conflict skip|overwrite]`);
+}
+
+async function getRegisteredProject(apiClient, projectId) {
+  const payload = await apiClient.listProjects();
+  const project = payload.projects.find((candidate) => candidate.project_id === projectId);
+  if (!project) {
+    throw new Error(`Project '${projectId}' is not registered.`);
+  }
+  return project;
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

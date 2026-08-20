@@ -39,6 +39,10 @@ export class StorageAdapter {
     throw new Error("Not implemented");
   }
 
+  async updateProjectStandardMarker(_projectId, _standardMarker) {
+    throw new Error("Not implemented");
+  }
+
   async openContext(_contextInput, _options) {
     throw new Error("Not implemented");
   }

@@ -239,6 +239,16 @@ export class HiveMindApiClient {
     });
   }
 
+  async updateProjectStandardMarker(input) {
+    return this.#request({
+      method: "PUT",
+      path: `/v1/projects/${encodeURIComponent(input.project_id)}/standard-marker`,
+      body: {
+        standard_marker: input.standard_marker
+      }
+    });
+  }
+
   async listRulesetCatalogProfiles() {
     return this.#request({
       method: "GET",

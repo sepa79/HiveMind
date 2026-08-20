@@ -19,6 +19,18 @@ npm install
 `bootstrap.sh` restores demo state when `bootstrap/demo-hivemind-state.tar.gz`
 is present.
 
+Refresh the committed anonymized demo snapshot:
+
+```bash
+npm run hivemind:refresh-demo
+```
+
+Pack the current local data root without sanitizing:
+
+```bash
+npm run hivemind:save-demo
+```
+
 ## Build
 
 There is no separate compile step. Runtime files are plain ESM JavaScript.
@@ -88,7 +100,8 @@ docker compose up
 ```bash
 npm run doctor
 npm run hivemind:standard -- catalog list
-npm run hivemind:standard -- guidance check --project hivemind --target /home/sepa/HiveMind
+npm run hivemind:standard -- guidance check --project hivemind
+npm run hivemind:standard -- marker update --project hivemind --target /home/sepa/HiveMind
 ```
 
 MCP clients should use the `health_check` tool first when diagnosing backend
@@ -99,13 +112,13 @@ reachability.
 Dry run:
 
 ```bash
-npm run hivemind:standard -- apply --project hivemind --profile base@v2 --target /home/sepa/HiveMind
+npm run hivemind:standard -- apply --project hivemind --profile base@v3 --target /home/sepa/HiveMind
 ```
 
 Write missing standard files while preserving customized files:
 
 ```bash
-npm run hivemind:standard -- apply --project hivemind --profile base@v2 --target /home/sepa/HiveMind --write
+npm run hivemind:standard -- apply --project hivemind --profile base@v3 --target /home/sepa/HiveMind --write
 ```
 
 ## Package / Release

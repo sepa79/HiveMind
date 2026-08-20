@@ -12,7 +12,7 @@ work-unit closeouts.
 HiveMind provides an HTTP API, a thin MCP client/server layer, a human inspection
 UI, and storage adapters for local JSONL files or OpenSearch. It also ships an
 AI ruleset catalog so teams can apply starter project standards such as
-`base@v2` or `aws-microservice@v2` to repositories. The main product goal is to
+`base@v3` or `aws-microservice@v3` to repositories. The main product goal is to
 make project memory searchable, auditable, and reusable across agent runs.
 
 ## What This Project Does Not Do

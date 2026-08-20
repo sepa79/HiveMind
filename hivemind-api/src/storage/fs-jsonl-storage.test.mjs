@@ -215,6 +215,32 @@ describe("FsJsonlStorage", () => {
     expect((await storage.getProject("alpha")).standard_profile_ref).toBe("aws-microservice@v2");
   });
 
+  it("stores a canonical project standard marker", async () => {
+    const storage = createStorage();
+
+    await storage.createProject({
+      project_id: "alpha",
+      name: "Alpha",
+      repository_url: "https://github.com/example/alpha.git",
+      repository_slug: "example/alpha",
+      root_path: "/repo/alpha",
+      default_branch: "main",
+      description: "Alpha project",
+      standard_profile_ref: "base@v1"
+    });
+    const marker = {
+      project_id: "alpha",
+      profile_ref: "base@v1",
+      catalog_source_url: "https://git.example/ai-rulesets",
+      applied_at: "2026-08-20T00:00:00.000Z",
+      files: [{ target: "AGENTS.md", sha256: "abc123" }]
+    };
+
+    await storage.updateProjectStandardMarker("alpha", marker);
+
+    expect((await storage.getProject("alpha")).standard_marker).toEqual(marker);
+  });
+
   it("returns the same session when the same idempotency key is retried", async () => {
     const storage = createStorage();
     await storage.createProject({

@@ -45,7 +45,7 @@ storage adapter
 | `hivemind-mcp/src/api-client.mjs` | REST client for MCP runtime | Handles transport/API errors |
 | `hivemind-mcp/src/runtime.mjs` | MCP-friendly result mapping | No storage access |
 | `hivemind-mcp/src/server.mjs` | MCP tool registration/transports | stdio and Streamable HTTP |
-| `scripts/hivemind-standard.mjs` | Apply/check AI ruleset starter files | Writes `.hivemind-standard.json` markers |
+| `scripts/hivemind-standard.mjs` | Apply/check AI ruleset starter files | Refreshes the canonical stored standard marker |
 | `deploy/hiveforge` | Deployment lifecycle playbooks | Docker Compose/Swarm profiles |
 
 ## Boundaries

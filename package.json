@@ -9,6 +9,7 @@
     "bootstrap:demo": "./bootstrap.sh",
     "doctor": "node scripts/hivemind-work-unit.mjs doctor",
     "hivemind:init": "node scripts/hivemind-work-unit.mjs init",
+    "hivemind:refresh-demo": "node scripts/refresh-demo-state.mjs",
     "hivemind:standard": "node scripts/hivemind-standard.mjs",
     "hivemind:save-demo": "./scripts/save-demo-state.sh",
     "hivemind:work": "node scripts/hivemind-work-unit.mjs",

@@ -12,6 +12,7 @@
     "src/backend-config.mjs",
     "src/runtime.mjs",
     "src/server.mjs",
+    "src/standard-marker.mjs",
     "README.md"
   ],
   "dependencies": {

@@ -4,7 +4,7 @@
 
 HiveMind is a local-first project memory service for AI-assisted software work. It gives agents and teammates a shared, structured record of what happened across coding sessions: decisions, progress, feedback, rule checks, learnings, issues, and the work-unit context that produced them.
 
-As of 0.2.0, HiveMind also includes an AI ruleset catalog for onboarding repositories to company standards. A project can be assigned a standard profile such as `aws-microservice@v2`, clients can call `guidance_check`, and `scripts/hivemind-standard.mjs` can dry-run or apply the expected starter files into a target repo.
+As of 0.2.0, HiveMind also includes an AI ruleset catalog for onboarding repositories to company standards. A project can be assigned a standard profile such as `aws-microservice@v3`, clients can call `guidance_check` against the canonical stored marker, and `scripts/hivemind-standard.mjs` can dry-run, apply, or refresh the expected starter-file marker for a target repo.
 
 The problem it solves: chat history is fragile, private, and hard to audit. HiveMind turns the useful parts of development work into durable project memory that the next agent or teammate can search, inspect, and reuse.
 
@@ -15,6 +15,7 @@ The problem it solves: chat history is fragile, private, and hard to audit. Hive
 - `.hivemind/` is the default local filesystem data root.
 - `bootstrap/` contains committed seed/demo state for local onboarding.
 - `ai-rulesets/` contains example standardization profiles and starter files.
+- `hiveforge.yaml` and `deploy/hiveforge/` make the repo deployable through HiveForge.
 
 ## Quick Start
 
@@ -49,12 +50,27 @@ npm run hivemind:standard -- catalog list
 Dry-run applying the AWS microservice starter into a repo:
 
 ```bash
-npm run hivemind:standard -- apply --project my-service --profile aws-microservice@v2 --target /path/to/repo
+npm run hivemind:standard -- apply --project my-service --profile aws-microservice@v3 --target /path/to/repo
 ```
+
+Standardization flow for a real repo:
+
+```bash
+npm run hivemind:standard -- catalog list
+npm run hivemind:standard -- apply --project my-service --profile aws-microservice@v3 --target /path/to/repo --write
+npm run hivemind:standard -- marker update --project my-service --target /path/to/repo
+npm run hivemind:standard -- guidance check --project my-service
+```
+
+Upgrade from an older standard profile:
+
+- `base@v2 -> base@v3`: follow [docs/ai-ruleset-catalog.md](docs/ai-ruleset-catalog.md) and the bundled upgrade guide at [ai-rulesets/base/v3/files/docs/ai/STANDARD_PROFILE_UPGRADE.md](ai-rulesets/base/v3/files/docs/ai/STANDARD_PROFILE_UPGRADE.md).
+- `aws-microservice@v2 -> aws-microservice@v3`: apply the `v3` bundle, refresh the stored marker, then rerun `guidance_check`.
 
 For the full local onboarding flow, use [docs/team-quickstart.md](docs/team-quickstart.md).
 For runtime concepts and workflow, use [docs/user-guide.md](docs/user-guide.md).
 For AI ruleset catalog usage, use [docs/ai-ruleset-catalog.md](docs/ai-ruleset-catalog.md).
+For HiveForge deployment, use [HiveForge Deployment](#hiveforge-deployment), [hiveforge.yaml](hiveforge.yaml), and the HiveForge repo docs at [github.com/sepa79/HiveForge](https://github.com/sepa79/HiveForge).
 
 ## Shared Docker Stack
 
@@ -97,8 +113,15 @@ OpenSearch `9200` is not published on the host. `docker-compose.yml` uses the im
 
 HiveForge manages this repo through `hiveforge.yaml`.
 
+Repo-local HiveForge manifests:
+
+- [hiveforge.yaml](hiveforge.yaml)
+- [hivemind-service.hiveforge.yaml](hivemind-service.hiveforge.yaml)
+- [deploy/hiveforge/](deploy/hiveforge/)
+
 Use the current HiveForge operator flow from the HiveForge project docs:
 
+- [HiveForge repository](https://github.com/sepa79/HiveForge)
 - [HiveForge README](https://github.com/sepa79/HiveForge#how-to-use)
 - [First Swarm quickstart](https://github.com/sepa79/HiveForge/blob/main/docs/quickstart/first-swarm.md)
 
@@ -206,13 +229,22 @@ For team installs where the API runs centrally and developers install only the M
 
 ## Demo State
 
-`./bootstrap.sh` restores `bootstrap/demo-hivemind-state.tar.gz` when present, so a fresh clone can show useful demo history immediately.
+`./bootstrap.sh` restores `bootstrap/demo-hivemind-state.tar.gz` when present, so a fresh clone shows useful demo history immediately. The committed snapshot currently restores four sanitized projects with real project names and scrubbed sensitive data:
 
-Refresh that snapshot intentionally:
+- `hivemind`
+- `hivemap`
+- `hiveforge`
+- `bootstrap`
+
+Refresh the committed, sanitized snapshot intentionally:
 
 ```bash
-npm run hivemind:save-demo
+npm run hivemind:refresh-demo
 ```
+
+`npm run hivemind:save-demo` is still available for ad-hoc local packing of your
+current `HIVEMIND_DATA_ROOT`, but it does not fetch or sanitize shared demo
+data.
 
 ## Tests
 

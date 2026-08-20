@@ -730,23 +730,23 @@ describe("HiveMind API", () => {
     const listResponse = await app.request("/v1/ruleset-catalog/profiles");
     expect(listResponse.status).toBe(200);
     const listPayload = await listResponse.json();
-    expect(listPayload.data.profiles.map((profile) => profile.profile_ref)).toContain("aws-microservice@v2");
+    expect(listPayload.data.profiles.map((profile) => profile.profile_ref)).toContain("aws-microservice@v3");
 
-    const bundleResponse = await app.request("/v1/ruleset-catalog/profiles/aws-microservice/versions/v2/bundle");
+    const bundleResponse = await app.request("/v1/ruleset-catalog/profiles/aws-microservice/versions/v3/bundle");
     expect(bundleResponse.status).toBe(200);
     const bundlePayload = await bundleResponse.json();
-    expect(bundlePayload.data.manifest.profile_ref).toBe("aws-microservice@v2");
+    expect(bundlePayload.data.manifest.profile_ref).toBe("aws-microservice@v3");
     expect(bundlePayload.data.files.some((file) => file.target === "AGENTS.md")).toBe(true);
 
-    const baseV2Response = await app.request("/v1/ruleset-catalog/profiles/base/versions/v2/bundle");
-    expect(baseV2Response.status).toBe(200);
-    const baseV2Payload = await baseV2Response.json();
-    expect(baseV2Payload.data.manifest.profile_ref).toBe("base@v2");
-    expect(baseV2Payload.data.files.find((file) => file.target === "AGENTS.md")?.content).toContain(
+    const baseV3Response = await app.request("/v1/ruleset-catalog/profiles/base/versions/v3/bundle");
+    expect(baseV3Response.status).toBe(200);
+    const baseV3Payload = await baseV3Response.json();
+    expect(baseV3Payload.data.manifest.profile_ref).toBe("base@v3");
+    expect(baseV3Payload.data.files.find((file) => file.target === "AGENTS.md")?.content).toContain(
       "SSOT for contracts, state, configuration, and behavior"
     );
     expect(
-      baseV2Payload.data.files.some((file) => file.target === "docs/ai/STANDARD_PROFILE_UPGRADE.md")
+      baseV3Payload.data.files.some((file) => file.target === "docs/ai/STANDARD_PROFILE_UPGRADE.md")
     ).toBe(true);
   });
 
@@ -757,11 +757,11 @@ describe("HiveMind API", () => {
     const assignResponse = await app.request("/v1/projects/buzz/standard-profile", {
       method: "PUT",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ standard_profile_ref: "aws-microservice@v2" })
+      body: JSON.stringify({ standard_profile_ref: "aws-microservice@v3" })
     });
     expect(assignResponse.status).toBe(200);
     const assignPayload = await assignResponse.json();
-    expect(assignPayload.data.project.standard_profile_ref).toBe("aws-microservice@v2");
+    expect(assignPayload.data.project.standard_profile_ref).toBe("aws-microservice@v3");
 
     const firstGuidanceResponse = await app.request("/v1/guidance/check", {
       method: "POST",
@@ -771,24 +771,39 @@ describe("HiveMind API", () => {
     expect(firstGuidanceResponse.status).toBe(200);
     const firstGuidancePayload = await firstGuidanceResponse.json();
     expect(firstGuidancePayload.data.recommended_action).toBe("apply");
-    expect(firstGuidancePayload.data.drift.every((file) => file.status === "missing")).toBe(true);
+    expect(firstGuidancePayload.data.drift).toEqual([]);
+    expect(firstGuidancePayload.data.marker_source).toBe("none");
+    expect(firstGuidancePayload.data.summary).toContain("no stored standard marker exists yet");
+
+    const bundleResponse = await app.request("/v1/ruleset-catalog/profiles/aws-microservice/versions/v3/bundle");
+    expect(bundleResponse.status).toBe(200);
+    const bundlePayload = await bundleResponse.json();
 
     const marker = {
       project_id: "buzz",
-      profile_ref: "aws-microservice@v2",
-      files: firstGuidancePayload.data.drift.map((file) => ({
+      profile_ref: "aws-microservice@v3",
+      applied_at: "2026-08-20T00:00:00.000Z",
+      files: bundlePayload.data.files.map((file) => ({
         target: file.target,
-        sha256: file.required ? `custom-${file.expected_sha256}` : file.expected_sha256
+        sha256: file.required ? `custom-${file.sha256}` : file.sha256
       }))
     };
+    const updateMarkerResponse = await app.request("/v1/projects/buzz/standard-marker", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ standard_marker: marker })
+    });
+    expect(updateMarkerResponse.status).toBe(200);
+
     const currentGuidanceResponse = await app.request("/v1/guidance/check", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ project_id: "buzz", standard_marker: marker })
+      body: JSON.stringify({ project_id: "buzz" })
     });
     expect(currentGuidanceResponse.status).toBe(200);
     const currentGuidancePayload = await currentGuidanceResponse.json();
     expect(currentGuidancePayload.data.recommended_action).toBe("current");
+    expect(currentGuidancePayload.data.marker_source).toBe("stored");
     expect(currentGuidancePayload.data.drift.some((file) => file.status === "customized")).toBe(true);
   });
 

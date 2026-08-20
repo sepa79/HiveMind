@@ -18,7 +18,13 @@ describe("RulesetCatalog", () => {
 
     const result = catalog.listProfiles();
 
-    expect(result.profiles.map((profile) => profile.profile_ref)).toEqual(["aws-microservice@v2", "base@v1", "base@v2"]);
+    expect(result.profiles.map((profile) => profile.profile_ref)).toEqual([
+      "aws-microservice@v2",
+      "aws-microservice@v3",
+      "base@v1",
+      "base@v2",
+      "base@v3"
+    ]);
   });
 
   it("serves base v2 with repository-wide authority guidance", () => {

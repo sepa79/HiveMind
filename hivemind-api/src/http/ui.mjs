@@ -24,6 +24,10 @@ export function renderHumanUi() {
       --danger: #ff7575;
       --shadow: rgba(0, 0, 0, 0.32);
       --nav-header-height: 40px;
+      --field-bg: rgba(255, 255, 255, 0.04);
+      --field-text: rgba(255, 255, 255, 0.94);
+      --menu-bg: #0f141c;
+      --menu-text: rgba(255, 255, 255, 0.94);
     }
 
     :root[data-theme="light"] {
@@ -42,6 +46,10 @@ export function renderHumanUi() {
       --ok: #197d50;
       --danger: #c43838;
       --shadow: rgba(20, 30, 45, 0.11);
+      --field-bg: rgba(255, 255, 255, 0.92);
+      --field-text: rgba(10, 20, 30, 0.92);
+      --menu-bg: #ffffff;
+      --menu-text: rgba(10, 20, 30, 0.92);
     }
 
     * {
@@ -305,10 +313,21 @@ export function renderHumanUi() {
       min-height: 34px;
       border: 1px solid var(--border);
       border-radius: 10px;
-      background: var(--panel);
-      color: var(--text);
+      background: var(--field-bg);
+      color: var(--field-text);
       padding: 6px 10px;
       outline: none;
+    }
+
+    select {
+      color-scheme: light dark;
+    }
+
+    select,
+    option,
+    optgroup {
+      background-color: var(--menu-bg);
+      color: var(--menu-text);
     }
 
     input:focus,
@@ -1362,7 +1381,7 @@ export function renderHumanUi() {
       replaceList(
         el.driftFiles,
         guidance.drift,
-        "No drift data. Assign a standard profile or run the client check.",
+        "No drift data. This dashboard cannot inspect repository files directly; refresh the canonical marker through project_standard_marker_update or the marker update CLI first.",
         (file) => detailItem(file.target + ": " + file.status, "expected:" + file.expected_sha256 + " / actual:" + (file.actual_sha256 || "none"))
       );
       el.standardStatus.textContent = guidance.recommended_action + " / " + (guidance.selected_profile_ref || "no profile");

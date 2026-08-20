@@ -835,9 +835,24 @@ export const StandardMarkerSchema = z.object({
   files: z.array(StandardFileMarkerSchema).optional()
 });
 
-export const GuidanceCheckInputSchema = z.object({
+export const PersistedStandardMarkerSchema = StandardMarkerSchema.extend({
+  applied_at: NonEmptyString,
+  files: z.array(StandardFileMarkerSchema)
+});
+
+export const ProjectStandardMarkerUpdateInputSchema = z.object({
   project_id: NonEmptyString,
-  standard_marker: StandardMarkerSchema.optional()
+  standard_marker: PersistedStandardMarkerSchema
+});
+
+export const ProjectStandardMarkerUpdateResultSchema = z.object({
+  project: ProjectRecordSchema,
+  standard_marker: PersistedStandardMarkerSchema,
+  summary: NonEmptyString
+});
+
+export const GuidanceCheckInputSchema = z.object({
+  project_id: NonEmptyString
 });
 
 export const GuidanceFileStatusSchema = z.object({
@@ -852,6 +867,7 @@ export const GuidanceCheckResultSchema = z.object({
   project: ProjectRecordSchema.nullable(),
   selected_profile_ref: z.string().nullable(),
   recommended_action: z.enum(["apply", "update", "current", "unregistered"]),
+  marker_source: z.enum(["stored", "none"]),
   guidance_version: z.object({
     profile_ref: z.string().nullable(),
     catalog_source_url: z.string().nullable()

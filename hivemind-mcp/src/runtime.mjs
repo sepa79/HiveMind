@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { HiveMindApiClientError } from "./api-client.mjs";
+import { buildStandardMarker } from "./standard-marker.mjs";
 
 export function createHiveMindRuntime({ apiClient, apiClients } = {}) {
   const backends = normalizeBackends({ apiClient, apiClients });
@@ -381,6 +382,39 @@ export function createHiveMindRuntime({ apiClient, apiClients } = {}) {
       try {
         const backend = await resolveBackend(backends, input);
         const payload = await backend.apiClient.defineProjectStandardProfile(stripRouting(input));
+        return jsonResult(payload);
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+
+    async projectStandardMarkerUpdate(input) {
+      try {
+        const backend = await resolveBackend(backends, input);
+        const project = await getRegisteredProject(backend, input.project_id);
+        if (!project.standard_profile_ref) {
+          throw new HiveMindRoutingError(
+            "PROJECT_STANDARD_PROFILE_NOT_ASSIGNED",
+            `Project '${input.project_id}' has no assigned standard profile.`,
+            { project_id: input.project_id }
+          );
+        }
+        const profile = await getCatalogProfileByRef(backend, project.standard_profile_ref);
+        const bundle = await backend.apiClient.getRulesetCatalogBundle({
+          profile_id: profile.profile_id,
+          version: profile.version
+        });
+        const standardMarker = buildStandardMarker({
+          projectId: project.project_id,
+          profileRef: project.standard_profile_ref,
+          catalogSourceUrl: bundle.catalog_source_url ?? null,
+          bundleFiles: bundle.files,
+          targetRoot: input.workspace_path
+        });
+        const payload = await backend.apiClient.updateProjectStandardMarker({
+          project_id: input.project_id,
+          standard_marker: standardMarker
+        });
         return jsonResult(payload);
       } catch (error) {
         return errorResult(error);
@@ -858,6 +892,32 @@ function annotateAdminMemoryReview(payload, backend) {
     backend_id: backend.backend_id,
     api_base_url: backend.apiClient.baseUrl
   };
+}
+
+async function getRegisteredProject(backend, projectId) {
+  const payload = await backend.apiClient.listProjects();
+  const project = payload.projects.find((candidate) => candidate.project_id === projectId);
+  if (!project) {
+    throw new HiveMindRoutingError("MCP_BACKEND_PROJECT_NOT_FOUND", `Project '${projectId}' was not found in backend '${backend.backend_id}'.`, {
+      project_id: projectId,
+      backend_id: backend.backend_id,
+      api_base_url: backend.apiClient.baseUrl
+    });
+  }
+  return project;
+}
+
+async function getCatalogProfileByRef(backend, profileRef) {
+  const payload = await backend.apiClient.listRulesetCatalogProfiles();
+  const profile = payload.profiles.find((candidate) => candidate.profile_ref === profileRef);
+  if (!profile) {
+    throw new HiveMindRoutingError("RULESET_PROFILE_NOT_FOUND", `No ruleset profile '${profileRef}' is available in backend '${backend.backend_id}'.`, {
+      profile_ref: profileRef,
+      backend_id: backend.backend_id,
+      api_base_url: backend.apiClient.baseUrl
+    });
+  }
+  return profile;
 }
 
 function stripRouting(input) {

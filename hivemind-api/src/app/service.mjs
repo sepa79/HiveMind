@@ -49,6 +49,8 @@ import {
   ProjectResolveResultSchema,
   ProjectReviewInputSchema,
   ProjectReviewResultSchema,
+  ProjectStandardMarkerUpdateInputSchema,
+  ProjectStandardMarkerUpdateResultSchema,
   ProjectStandardProfileDefineInputSchema,
   ProjectStandardProfileDefineResultSchema,
   RuleCheckCreateInputSchema,
@@ -213,6 +215,49 @@ export class HiveMindService {
     });
   }
 
+  async updateProjectStandardMarker(input) {
+    const payload = parseWithSchema(ProjectStandardMarkerUpdateInputSchema, input);
+    const project = await this.storage.getProject(payload.project_id);
+    if (!project) {
+      throw new ApiError(404, "PROJECT_NOT_FOUND", `No project exists with id '${payload.project_id}'.`, {
+        project_id: payload.project_id
+      });
+    }
+    if (!project.standard_profile_ref) {
+      throw new ApiError(
+        409,
+        "PROJECT_STANDARD_PROFILE_NOT_ASSIGNED",
+        `Project '${payload.project_id}' has no assigned standard profile.`,
+        { project_id: payload.project_id }
+      );
+    }
+    if (payload.standard_marker.project_id !== payload.project_id) {
+      throw new ApiError(400, "STANDARD_MARKER_PROJECT_MISMATCH", "Stored standard marker project_id must match the target project.", {
+        project_id: payload.project_id,
+        standard_marker_project_id: payload.standard_marker.project_id
+      });
+    }
+    this.rulesetCatalog.getByRef(payload.standard_marker.profile_ref);
+    if (payload.standard_marker.profile_ref !== project.standard_profile_ref) {
+      throw new ApiError(
+        409,
+        "STANDARD_MARKER_PROFILE_MISMATCH",
+        `Stored standard marker profile '${payload.standard_marker.profile_ref}' does not match assigned profile '${project.standard_profile_ref}'.`,
+        {
+          project_id: payload.project_id,
+          assigned_profile_ref: project.standard_profile_ref,
+          standard_marker_profile_ref: payload.standard_marker.profile_ref
+        }
+      );
+    }
+    const updatedProject = await this.storage.updateProjectStandardMarker(payload.project_id, payload.standard_marker);
+    return parseWithSchema(ProjectStandardMarkerUpdateResultSchema, {
+      project: updatedProject,
+      standard_marker: payload.standard_marker,
+      summary: `Updated stored standard marker for project '${payload.project_id}' on '${payload.standard_marker.profile_ref}'.`
+    });
+  }
+
   async listRulesetCatalogProfiles() {
     return parseWithSchema(RulesetCatalogListResultSchema, this.rulesetCatalog.listProfiles());
   }
@@ -233,6 +278,7 @@ export class HiveMindService {
         project: null,
         selected_profile_ref: null,
         recommended_action: "unregistered",
+        marker_source: "none",
         guidance_version: {
           profile_ref: null,
           catalog_source_url: this.rulesetCatalog.catalogSourceUrl
@@ -251,6 +297,7 @@ export class HiveMindService {
         project,
         selected_profile_ref: null,
         recommended_action: "apply",
+        marker_source: "none",
         guidance_version: {
           profile_ref: null,
           catalog_source_url: this.rulesetCatalog.catalogSourceUrl
@@ -268,25 +315,8 @@ export class HiveMindService {
       project_id: project.project_id,
       project_name: project.name
     });
-    const markerFiles = new Map((payload.standard_marker?.files ?? []).map((file) => [file.target, file.sha256]));
-    const drift = bundle.files.map((file) => {
-      const actualSha = markerFiles.get(file.target) ?? null;
-      return {
-        target: file.target,
-        required: file.required,
-        expected_sha256: file.sha256,
-        actual_sha256: actualSha,
-        status: actualSha === null ? "missing" : actualSha === file.sha256 ? "template_unmodified" : "customized"
-      };
-    });
-    const markerProfileMatches = payload.standard_marker?.profile_ref === selectedProfileRef;
-    const missingRequiredFiles = drift.filter((file) => file.required && file.status === "missing");
-    const allRequiredPresent = markerProfileMatches && missingRequiredFiles.length === 0;
-    const recommendedAction = allRequiredPresent
-      ? "current"
-      : payload.standard_marker?.profile_ref && !markerProfileMatches
-        ? "update"
-        : "apply";
+    const standardMarker = project.standard_marker ?? null;
+    const markerSource = project.standard_marker ? "stored" : "none";
     const profile = {
       profile_id: bundle.manifest.profile_id,
       version: bundle.manifest.version,
@@ -298,10 +328,48 @@ export class HiveMindService {
       rule_count: bundle.manifest.rules.length
     };
 
+    if (!standardMarker) {
+      return parseWithSchema(GuidanceCheckResultSchema, {
+        project,
+        selected_profile_ref: selectedProfileRef,
+        recommended_action: "apply",
+        marker_source: "none",
+        guidance_version: {
+          profile_ref: selectedProfileRef,
+          catalog_source_url: this.rulesetCatalog.catalogSourceUrl
+        },
+        profile,
+        required_files: bundle.manifest.files.filter((file) => file.required),
+        recommended_files: bundle.manifest.files.filter((file) => !file.required),
+        drift: [],
+        summary: `Project '${payload.project_id}' is assigned to '${selectedProfileRef}', but no stored standard marker exists yet, so file drift is unavailable.`
+      });
+    }
+
+    const markerFiles = new Map((standardMarker?.files ?? []).map((file) => [file.target, file.sha256]));
+    const drift = bundle.files.map((file) => {
+      const actualSha = markerFiles.get(file.target) ?? null;
+      return {
+        target: file.target,
+        required: file.required,
+        expected_sha256: file.sha256,
+        actual_sha256: actualSha,
+        status: actualSha === null ? "missing" : actualSha === file.sha256 ? "template_unmodified" : "customized"
+      };
+    });
+    const markerProfileMatches = standardMarker?.profile_ref === selectedProfileRef;
+    const missingRequiredFiles = drift.filter((file) => file.required && file.status === "missing");
+    const allRequiredPresent = markerProfileMatches && missingRequiredFiles.length === 0;
+    const recommendedAction = allRequiredPresent
+      ? "current"
+      : standardMarker?.profile_ref && !markerProfileMatches
+        ? "update"
+        : "apply";
     return parseWithSchema(GuidanceCheckResultSchema, {
       project,
       selected_profile_ref: selectedProfileRef,
       recommended_action: recommendedAction,
+      marker_source: markerSource,
       guidance_version: {
         profile_ref: selectedProfileRef,
         catalog_source_url: this.rulesetCatalog.catalogSourceUrl

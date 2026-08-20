@@ -1,6 +1,6 @@
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { HiveMindService } from "../../hivemind-api/src/app/service.mjs";
 import { createApp } from "../../hivemind-api/src/http/app.mjs";
@@ -43,6 +43,7 @@ describe("HiveMind MCP runtime", () => {
     expect(toolNames).toContain("ruleset_catalog_get");
     expect(toolNames).toContain("guidance_check");
     expect(toolNames).toContain("project_standard_profile_define");
+    expect(toolNames).toContain("project_standard_marker_update");
   });
 
   it("exposes reason only on admin project deletion, not feature listing", () => {
@@ -396,8 +397,10 @@ describe("HiveMind MCP runtime", () => {
     ]);
   });
 
-  it("lists catalog profiles and checks standardization guidance", async () => {
+  it("lists catalog profiles, stores a standard marker, and checks standardization guidance", async () => {
     const runtime = createRuntime();
+    const workspacePath = mkdtempSync(join(tmpdir(), "hivemind-standard-workspace-"));
+    roots.push(workspacePath);
     await runtime.projectRegister({
       project_id: "buzz",
       name: "Buzz",
@@ -406,23 +409,35 @@ describe("HiveMind MCP runtime", () => {
       root_path: "/repo/buzz",
       default_branch: "main",
       description: "Buzz project",
-      standard_profile_ref: "aws-microservice@v2"
+      standard_profile_ref: "aws-microservice@v3"
     });
 
     const catalog = await runtime.rulesetCatalogList({});
     const profile = await runtime.rulesetCatalogGet({
       profile_id: "aws-microservice",
-      version: "v2",
+      version: "v3",
       include_files: true
+    });
+    for (const file of profile.structuredContent.files) {
+      const targetPath = join(workspacePath, file.target);
+      mkdirSync(dirname(targetPath), { recursive: true });
+      writeFileSync(targetPath, file.required ? `custom-${file.sha256}` : file.content, "utf8");
+    }
+    const updatedMarker = await runtime.projectStandardMarkerUpdate({
+      project_id: "buzz",
+      workspace_path: workspacePath
     });
     const guidance = await runtime.guidanceCheck({
       project_id: "buzz"
     });
 
     expect(catalog.isError).toBeUndefined();
-    expect(catalog.structuredContent.profiles.map((item) => item.profile_ref)).toContain("aws-microservice@v2");
+    expect(catalog.structuredContent.profiles.map((item) => item.profile_ref)).toContain("aws-microservice@v3");
     expect(profile.structuredContent.files.some((file) => file.target === "AGENTS.md")).toBe(true);
-    expect(guidance.structuredContent.recommended_action).toBe("apply");
+    expect(updatedMarker.isError).toBeUndefined();
+    expect(updatedMarker.structuredContent.standard_marker.profile_ref).toBe("aws-microservice@v3");
+    expect(guidance.structuredContent.recommended_action).toBe("current");
+    expect(guidance.structuredContent.marker_source).toBe("stored");
   });
 
   it("feature.list/add/remove/rename manages the project feature vocabulary", async () => {

@@ -530,6 +530,20 @@ server.registerTool(
 );
 
 server.registerTool(
+  "project_standard_marker_update",
+  {
+    title: "Refresh a project's stored standard marker",
+    description: "Compute tracked-file hashes from the local workspace and store the canonical standard marker in HiveMind.",
+    inputSchema: {
+      project_id: z.string(),
+      workspace_path: z.string(),
+      backend_id: z.string().optional()
+    }
+  },
+  runtime.projectStandardMarkerUpdate
+);
+
+server.registerTool(
   "ruleset_catalog_list",
   {
     title: "List ruleset catalog profiles",
@@ -560,26 +574,10 @@ server.registerTool(
   "guidance_check",
   {
     title: "Check project standardization guidance",
-    description: "Compare a project's assigned standard profile against an optional local .hivemind-standard.json marker.",
+    description: "Compare a project's assigned standard profile against the canonical standard marker stored in HiveMind.",
     inputSchema: {
       project_id: z.string(),
-      backend_id: z.string().optional(),
-      standard_marker: z
-        .object({
-          project_id: z.string(),
-          profile_ref: z.string(),
-          catalog_source_url: z.string().nullable().optional(),
-          applied_at: z.string().optional(),
-          files: z
-            .array(
-              z.object({
-                target: z.string(),
-                sha256: z.string()
-              })
-            )
-            .optional()
-        })
-        .optional()
+      backend_id: z.string().optional()
     }
   },
   runtime.guidanceCheck

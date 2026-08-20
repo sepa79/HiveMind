@@ -15,6 +15,13 @@ Requirements:
 
 The bootstrap installs dependencies, seeds the base HiveMind project, and restores the committed demo snapshot when `bootstrap/demo-hivemind-state.tar.gz` exists.
 
+The current committed snapshot restores four sanitized projects for onboarding:
+
+- `hivemind`
+- `hivemap`
+- `hiveforge`
+- `bootstrap`
+
 It creates local runtime state under:
 
 ```text
@@ -23,11 +30,13 @@ It creates local runtime state under:
 
 That directory is local runtime data. Do not commit it directly.
 
-The committed demo snapshot is only for onboarding and demos. Refresh it intentionally with:
+The committed demo snapshot is only for onboarding and demos. Refresh it intentionally with the sanitized export workflow:
 
 ```bash
-npm run hivemind:save-demo
+npm run hivemind:refresh-demo
 ```
+
+`npm run hivemind:save-demo` only packs the current local data root as-is.
 
 ## 2. Start the API and UI
 
@@ -133,6 +142,27 @@ This removes local sessions and entries stored in that data root. It does not af
 Before handing the repo to someone else, run:
 
 ```bash
+./bootstrap.sh
 npm run doctor
 npm run test:hivemind
 ```
+
+## 8. Standard Profiles
+
+List available starter profiles:
+
+```bash
+npm run hivemind:standard -- catalog list
+```
+
+Apply a profile to a repository, then store the canonical marker in HiveMind:
+
+```bash
+npm run hivemind:standard -- apply --project my-service --profile aws-microservice@v3 --target /absolute/path/to/MyProject --write
+npm run hivemind:standard -- marker update --project my-service --target /absolute/path/to/MyProject
+npm run hivemind:standard -- guidance check --project my-service
+```
+
+For upgrades from older profiles such as `base@v2` or `aws-microservice@v2`,
+use [ai-ruleset-catalog.md](ai-ruleset-catalog.md) and the upgrade
+guide bundled in [ai-rulesets/base/v3/files/docs/ai/STANDARD_PROFILE_UPGRADE.md](../ai-rulesets/base/v3/files/docs/ai/STANDARD_PROFILE_UPGRADE.md).
