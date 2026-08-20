@@ -13,12 +13,29 @@ afterEach(() => {
 });
 
 describe("RulesetCatalog", () => {
-  it("lists the bundled base and AWS microservice profiles", () => {
+  it("lists versioned base and AWS microservice profiles", () => {
     const catalog = new RulesetCatalog({ catalogPath: DEFAULT_RULESET_CATALOG_PATH });
 
     const result = catalog.listProfiles();
 
-    expect(result.profiles.map((profile) => profile.profile_ref)).toEqual(["aws-microservice@v2", "base@v1"]);
+    expect(result.profiles.map((profile) => profile.profile_ref)).toEqual(["aws-microservice@v2", "base@v1", "base@v2"]);
+  });
+
+  it("serves base v2 with repository-wide authority guidance", () => {
+    const catalog = new RulesetCatalog({ catalogPath: DEFAULT_RULESET_CATALOG_PATH });
+
+    const bundle = catalog.getBundle("base", "v2", { project_name: "Example", project_id: "example" });
+
+    expect(bundle.manifest.profile_ref).toBe("base@v2");
+    expect(bundle.manifest.rules.find((rule) => rule.rule_id === "ssot_contracts")?.description).toContain(
+      "one authoritative owner"
+    );
+    expect(bundle.files.find((file) => file.target === "AGENTS.md")?.content).toContain(
+      "SSOT for contracts, state, configuration, and behavior"
+    );
+    expect(bundle.files.find((file) => file.target === "docs/ai/STANDARD_PROFILE_UPGRADE.md")?.content).toContain(
+      "Do not start with `--write` or `--conflict overwrite`"
+    );
   });
 
   it("resolves an externally configured catalog path", () => {

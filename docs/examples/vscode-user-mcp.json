@@ -3,7 +3,7 @@
     "hivemind": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "hivemind-mcp"],
+      "args": ["-y", "/path/to/hivemind-mcp-<version>.tgz"],
       "env": {
         "HIVEMIND_API_BASE_URL": "https://hivemind.example.com"
       }

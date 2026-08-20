@@ -99,13 +99,13 @@ reachability.
 Dry run:
 
 ```bash
-npm run hivemind:standard -- apply --project hivemind --profile base@v1 --target /home/sepa/HiveMind
+npm run hivemind:standard -- apply --project hivemind --profile base@v2 --target /home/sepa/HiveMind
 ```
 
 Write missing standard files while preserving customized files:
 
 ```bash
-npm run hivemind:standard -- apply --project hivemind --profile base@v1 --target /home/sepa/HiveMind --write
+npm run hivemind:standard -- apply --project hivemind --profile base@v2 --target /home/sepa/HiveMind --write
 ```
 
 ## Package / Release

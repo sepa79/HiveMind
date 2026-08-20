@@ -15,7 +15,7 @@ Choose these values before deployment:
 
 ```text
 HIVEMIND_PUBLIC_URL=https://hivemind.company.example
-REGISTRY_IMAGE=ghcr.io/<owner>/hivemind-api:0.3.0
+REGISTRY_IMAGE=ghcr.io/<owner>/hivemind-api:<release-tag>
 STACK_NAME=hivemind
 INDEX_PREFIX=hivemind
 SERVICE_USER=hivemind_api
@@ -29,13 +29,13 @@ operator configuration when they differ from the defaults.
 
 ## 2. Build And Publish The API Image
 
-CI publishes the API image to GHCR only from version tags such as `v0.3.0`.
+CI publishes the API image to GHCR only from version tags such as `vX.Y.Z`.
 For a private company registry, mirror or rebuild the tagged image from a
 trusted build machine:
 
 ```bash
-docker build -t registry.company.example/hivemind-api:0.3.0 .
-docker push registry.company.example/hivemind-api:0.3.0
+docker build -t registry.company.example/hivemind-api:<release-tag> .
+docker push registry.company.example/hivemind-api:<release-tag>
 ```
 
 Swarm does not build images during `docker stack deploy`, so the image must
@@ -53,7 +53,7 @@ printf '%s' '<distinct-mcp-admin-token>' | docker secret create hivemind_mcp_adm
 
 export HIVEMIND_OPENSEARCH_USERNAME='hivemind_api'
 export HIVEMIND_OPENSEARCH_INDEX_PREFIX='hivemind'
-export HIVEMIND_API_IMAGE='ghcr.io/<owner>/hivemind-api:0.3.0'
+export HIVEMIND_API_IMAGE='ghcr.io/<owner>/hivemind-api:<release-tag>'
 export HIVEMIND_RULESET_CATALOG_PATH='/opt/hivemind/ai-rulesets'
 export HIVEMIND_RULESET_CATALOG_SOURCE_URL='https://git.company.example/eng/ai-rulesets'
 ```
@@ -218,10 +218,12 @@ npm run pack:mcp
 This creates:
 
 ```text
-dist/hivemind-mcp-0.3.0.tgz
+dist/hivemind-mcp-<version>.tgz
 ```
 
 The MCP package is thin. It does not include the API or OpenSearch.
+Prefer this tarball or a private registry package you control instead of
+assuming public `npx -y hivemind-mcp` resolves to this project.
 
 ## 7. Install In VS Code
 
@@ -231,10 +233,10 @@ Users need:
 - Node.js available in `PATH`
 - network access to `https://hivemind.company.example`
 
-Published package:
+Private registry package you control:
 
 ```bash
-code --add-mcp '{"name":"hivemind","type":"stdio","command":"npx","args":["-y","hivemind-mcp"],"env":{"HIVEMIND_API_BASE_URL":"https://hivemind.company.example","HIVEMIND_ADMIN_TOKEN":"<admin-token-if-needed>"}}'
+code --add-mcp '{"name":"hivemind","type":"stdio","command":"npx","args":["-y","<private-package-spec>"],"env":{"HIVEMIND_API_BASE_URL":"https://hivemind.company.example","HIVEMIND_ADMIN_TOKEN":"<admin-token-if-needed>"}}'
 ```
 
 Company npm registry:
@@ -246,7 +248,7 @@ code --add-mcp '{"name":"hivemind","type":"stdio","command":"npx","args":["-y","
 Tarball:
 
 ```bash
-code --add-mcp '{"name":"hivemind","type":"stdio","command":"npx","args":["-y","/path/to/hivemind-mcp-0.3.0.tgz"],"env":{"HIVEMIND_API_BASE_URL":"https://hivemind.company.example"}}'
+code --add-mcp '{"name":"hivemind","type":"stdio","command":"npx","args":["-y","/path/to/hivemind-mcp-<version>.tgz"],"env":{"HIVEMIND_API_BASE_URL":"https://hivemind.company.example"}}'
 ```
 
 After changing MCP config, reload VS Code or restart the `hivemind` MCP server.
@@ -260,7 +262,7 @@ one MCP server with explicit backend profiles:
     "hivemind": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "hivemind-mcp"],
+      "args": ["-y", "/path/to/hivemind-mcp-<version>.tgz"],
       "env": {
         "HIVEMIND_BACKENDS": "[{\"backend_id\":\"default\",\"api_base_url\":\"https://hivemind.company.example\"},{\"backend_id\":\"skippybot\",\"api_base_url\":\"https://skippybot-hivemind.company.example\"}]"
       }
@@ -282,7 +284,7 @@ Expected user-level config shape:
     "hivemind": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "hivemind-mcp"],
+      "args": ["-y", "/path/to/hivemind-mcp-<version>.tgz"],
       "env": {
         "HIVEMIND_API_BASE_URL": "https://hivemind.company.example"
       }
@@ -342,10 +344,10 @@ Client:
 ```bash
 node --version
 code --version
-npm view hivemind-mcp version
+ls /path/to/hivemind-mcp-<version>.tgz
 ```
 
-For tarball installs, verify that the tarball path used in VS Code exists
-instead. If `npm view` cannot reach the package, fix npm registry access or
-distribute the tarball. If the MCP server starts but tools fail, verify
-`HIVEMIND_API_BASE_URL` and network access to the shared API.
+For private-registry installs, replace the `ls` check with whatever command
+your registry flow uses to verify `<private-package-spec>`. If the MCP server
+starts but tools fail, verify `HIVEMIND_API_BASE_URL` and network access to the
+shared API.

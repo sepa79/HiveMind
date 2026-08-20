@@ -14,7 +14,7 @@ Set `HIVEMIND_API_IMAGE` to the published API image first. GitHub Actions
 publishes versioned API images to GHCR from `v*.*.*` tags:
 
 ```bash
-HIVEMIND_API_IMAGE=ghcr.io/<owner>/hivemind-api:0.3.0
+HIVEMIND_API_IMAGE=ghcr.io/<owner>/hivemind-api:<release-tag>
 ```
 
 The shared Compose stack now runs both:
@@ -48,32 +48,35 @@ npm run pack:mcp
 This creates:
 
 ```text
-dist/hivemind-mcp-0.3.0.tgz
+dist/hivemind-mcp-<version>.tgz
 ```
 
 For a company registry, publish `hivemind-mcp/` as the package instead of distributing the tarball.
 CI also uploads the packed MCP tarball as a workflow artifact, and attaches it
 to GitHub Releases created from `v*.*.*` tags.
 
+Because the public npm package name `hivemind-mcp` is not a safe onboarding
+assumption, prefer the tarball or a private registry package you control.
+
 ## Install In VS Code
 
-From a published package:
+From a private registry package you control:
 
 ```bash
-code --add-mcp '{"name":"hivemind","type":"stdio","command":"npx","args":["-y","hivemind-mcp"],"env":{"HIVEMIND_API_BASE_URL":"https://hivemind.example.com"}}'
+code --add-mcp '{"name":"hivemind","type":"stdio","command":"npx","args":["-y","<private-package-spec>"],"env":{"HIVEMIND_API_BASE_URL":"https://hivemind.example.com"}}'
 ```
 
 From a tarball:
 
 ```bash
-code --add-mcp '{"name":"hivemind","type":"stdio","command":"npx","args":["-y","/path/to/hivemind-mcp-0.3.0.tgz"],"env":{"HIVEMIND_API_BASE_URL":"https://hivemind.example.com"}}'
+code --add-mcp '{"name":"hivemind","type":"stdio","command":"npx","args":["-y","/path/to/hivemind-mcp-<version>.tgz"],"env":{"HIVEMIND_API_BASE_URL":"https://hivemind.example.com"}}'
 ```
 
 Or use the installer helper:
 
 ```bash
-scripts/install-vscode-hivemind-mcp.sh https://hivemind.example.com hivemind-mcp
-scripts/install-vscode-hivemind-mcp.sh https://hivemind.example.com /path/to/hivemind-mcp-0.3.0.tgz
+scripts/install-vscode-hivemind-mcp.sh https://hivemind.example.com <private-package-spec>
+scripts/install-vscode-hivemind-mcp.sh https://hivemind.example.com /path/to/hivemind-mcp-<version>.tgz
 ```
 
 The installer writes a user-level VS Code MCP server. It is not tied to any workspace checkout.
@@ -82,7 +85,7 @@ For multiple separate HiveMind deployments, configure explicit backend
 profiles instead of mixing tenants into one API:
 
 ```bash
-code --add-mcp '{"name":"hivemind","type":"stdio","command":"npx","args":["-y","hivemind-mcp"],"env":{"HIVEMIND_BACKENDS":"[{\"backend_id\":\"default\",\"api_base_url\":\"https://hivemind.example.com\"},{\"backend_id\":\"skippybot\",\"api_base_url\":\"https://skippybot-hivemind.example.com\"}]"}}'
+code --add-mcp '{"name":"hivemind","type":"stdio","command":"npx","args":["-y","/path/to/hivemind-mcp-<version>.tgz"],"env":{"HIVEMIND_BACKENDS":"[{\"backend_id\":\"default\",\"api_base_url\":\"https://hivemind.example.com\"},{\"backend_id\":\"skippybot\",\"api_base_url\":\"https://skippybot-hivemind.example.com\"}]"}}'
 ```
 
 ## User Configuration Shape
@@ -95,7 +98,7 @@ VS Code user-level `mcp.json` should look like this:
     "hivemind": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "hivemind-mcp"],
+      "args": ["-y", "/path/to/hivemind-mcp-<version>.tgz"],
       "env": {
         "HIVEMIND_API_BASE_URL": "https://hivemind.example.com"
       }
@@ -112,7 +115,7 @@ Multi-backend user-level config:
     "hivemind": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "hivemind-mcp"],
+      "args": ["-y", "/path/to/hivemind-mcp-<version>.tgz"],
       "env": {
         "HIVEMIND_BACKENDS": "[{\"backend_id\":\"default\",\"api_base_url\":\"https://hivemind.example.com\"},{\"backend_id\":\"skippybot\",\"api_base_url\":\"https://skippybot-hivemind.example.com\"}]"
       }
@@ -127,7 +130,7 @@ Clients that support Streamable HTTP can share one local MCP process instead of
 starting one stdio process per VS Code window:
 
 ```bash
-HIVEMIND_MCP_TRANSPORT=http HIVEMIND_MCP_PORT=4011 HIVEMIND_API_BASE_URL=https://hivemind.example.com npx -y hivemind-mcp
+HIVEMIND_MCP_TRANSPORT=http HIVEMIND_MCP_PORT=4011 HIVEMIND_API_BASE_URL=https://hivemind.example.com npx -y /path/to/hivemind-mcp-<version>.tgz
 ```
 
 Then configure the client to use:

@@ -2,6 +2,11 @@
 
 Goal: get a teammate from a fresh clone to a working local HiveMind API, UI, and MCP connection in about 10 minutes.
 
+Requirements:
+
+- Node.js `22+`
+- npm
+
 ## 1. Install and Seed
 
 ```bash

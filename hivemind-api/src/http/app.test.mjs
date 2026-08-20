@@ -737,6 +737,17 @@ describe("HiveMind API", () => {
     const bundlePayload = await bundleResponse.json();
     expect(bundlePayload.data.manifest.profile_ref).toBe("aws-microservice@v2");
     expect(bundlePayload.data.files.some((file) => file.target === "AGENTS.md")).toBe(true);
+
+    const baseV2Response = await app.request("/v1/ruleset-catalog/profiles/base/versions/v2/bundle");
+    expect(baseV2Response.status).toBe(200);
+    const baseV2Payload = await baseV2Response.json();
+    expect(baseV2Payload.data.manifest.profile_ref).toBe("base@v2");
+    expect(baseV2Payload.data.files.find((file) => file.target === "AGENTS.md")?.content).toContain(
+      "SSOT for contracts, state, configuration, and behavior"
+    );
+    expect(
+      baseV2Payload.data.files.some((file) => file.target === "docs/ai/STANDARD_PROFILE_UPGRADE.md")
+    ).toBe(true);
   });
 
   it("assigns a project standard profile and treats customized starter files as current", async () => {

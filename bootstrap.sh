@@ -58,6 +58,6 @@ cat <<EOF
 
 Next:
   npm run start:api
-  open http://127.0.0.1:4010/
+  open http://127.0.0.1:4010/ in your browser
   npm run doctor
 EOF

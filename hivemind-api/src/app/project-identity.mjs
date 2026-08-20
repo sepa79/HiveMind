@@ -22,6 +22,9 @@ export function canonicalProjectIdFromRepositorySlug(value) {
 }
 
 export function ensureMatchingProjectRepository(existingProject, incomingProject) {
+  if (!existingProject?.repository_slug) {
+    return;
+  }
   if (
     existingProject &&
     normalizeRepositorySlug(existingProject.repository_slug) !== normalizeRepositorySlug(incomingProject.repository_slug)

@@ -5,14 +5,18 @@ Thin stdio MCP server for a shared HiveMind API.
 ## Run
 
 ```bash
-HIVEMIND_API_BASE_URL=https://hivemind.example.com npx -y hivemind-mcp
+HIVEMIND_API_BASE_URL=https://hivemind.example.com npx -y /path/to/hivemind-mcp-<version>.tgz
 ```
 
 Shared local Streamable HTTP transport:
 
 ```bash
-HIVEMIND_MCP_TRANSPORT=http HIVEMIND_MCP_PORT=4011 HIVEMIND_API_BASE_URL=https://hivemind.example.com npx -y hivemind-mcp
+HIVEMIND_MCP_TRANSPORT=http HIVEMIND_MCP_PORT=4011 HIVEMIND_API_BASE_URL=https://hivemind.example.com npx -y /path/to/hivemind-mcp-<version>.tgz
 ```
+
+If you publish the client to a private registry you control, replace the tarball
+path with that package spec. Do not assume public `npx -y hivemind-mcp`
+resolves to this project.
 
 ## VS Code
 
@@ -24,7 +28,7 @@ Use this server configuration in user-level `mcp.json`:
     "hivemind": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "hivemind-mcp"],
+      "args": ["-y", "/path/to/hivemind-mcp-<version>.tgz"],
       "env": {
         "HIVEMIND_API_BASE_URL": "https://hivemind.example.com"
       }

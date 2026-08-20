@@ -18,6 +18,11 @@ The problem it solves: chat history is fragile, private, and hard to audit. Hive
 
 ## Quick Start
 
+Requirements:
+
+- Node.js `22+`
+- npm
+
 ```bash
 ./bootstrap.sh
 npm run start:api
@@ -65,7 +70,7 @@ Create a local `.env` file first:
 OPENSEARCH_INITIAL_ADMIN_PASSWORD=<strong-bootstrap-admin-password>
 HIVEMIND_OPENSEARCH_USERNAME=hivemind_api
 HIVEMIND_OPENSEARCH_PASSWORD=<strong-service-user-password>
-HIVEMIND_API_IMAGE=ghcr.io/<owner>/hivemind-api:0.3.0
+HIVEMIND_API_IMAGE=ghcr.io/<owner>/hivemind-api:<release-tag>
 HIVEMIND_RULESET_CATALOG_PATH=/opt/hivemind/ai-rulesets
 ```
 
@@ -119,7 +124,7 @@ project environment requirement.
 All HiveMind actions require these explicit project inputs:
 
 ```bash
-HIVEMIND_API_IMAGE=ghcr.io/sepa79/hivemind-api:0.5.1
+HIVEMIND_API_IMAGE=ghcr.io/sepa79/hivemind-api:<release-tag>
 HIVEMIND_OPENSEARCH_USERNAME=hivemind_api
 HIVEMIND_OPENSEARCH_INDEX_PREFIX=hivemind
 HIVEMIND_OPENSEARCH_TLS_REJECT_UNAUTHORIZED=false
@@ -192,6 +197,10 @@ Example client configs:
 - [docs/examples/codex-mcp.json](docs/examples/codex-mcp.json)
 - [docs/examples/claude-desktop-mcp.json](docs/examples/claude-desktop-mcp.json)
 - [docs/examples/vscode-user-mcp.json](docs/examples/vscode-user-mcp.json)
+
+For shared user-level installs, prefer the packed tarball from `npm run pack:mcp`
+or a private registry package you control. Do not assume public
+`npx -y hivemind-mcp` resolves to this project.
 
 For team installs where the API runs centrally and developers install only the MCP client, see [docs/mcp-client-distribution.md](docs/mcp-client-distribution.md).
 

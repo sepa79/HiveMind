@@ -3,12 +3,17 @@
 HiveMind 0.2.0 includes a read-only catalog of repository standardization
 profiles. The bundled examples live in `ai-rulesets/`:
 
-- `base@v1`
+- `base@v1` (retained for reproducible existing installations)
+- `base@v2` (recommended; expands SSOT to contracts, state, configuration, transformations, and operation postconditions)
 - `aws-microservice@v2`
 
 Each profile has a `manifest.json` and a `files/` tree. The manifest names the
 profile, lists files to apply, and stores guidance rules using the same rule
 shape as project rulesets.
+
+`base@v2` includes `docs/ai/STANDARD_PROFILE_UPGRADE.md` in its downloadable
+bundle. Established repositories must follow that migration workflow instead
+of copying starter files over existing project authorities.
 
 ## Instance Configuration
 

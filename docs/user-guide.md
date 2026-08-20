@@ -34,7 +34,7 @@ Default local pieces:
 - `bootstrap/`
   Committed seed/demo assets for local onboarding.
 - `ai-rulesets/`
-  Example repository-standardization profiles such as `base@v1` and
+  Example repository-standardization profiles such as `base@v2` and
   `aws-microservice@v2`.
 
 Default endpoints:
@@ -222,7 +222,7 @@ For the Docker OpenSearch stack, create a local `.env` file next to `docker-comp
 OPENSEARCH_INITIAL_ADMIN_PASSWORD=<strong-bootstrap-admin-password>
 HIVEMIND_OPENSEARCH_USERNAME=hivemind_api
 HIVEMIND_OPENSEARCH_PASSWORD=<strong-service-user-password>
-HIVEMIND_API_IMAGE=ghcr.io/<owner>/hivemind-api:0.3.0
+HIVEMIND_API_IMAGE=ghcr.io/<owner>/hivemind-api:<release-tag>
 HIVEMIND_RULESET_CATALOG_PATH=/opt/hivemind/ai-rulesets
 ```
 

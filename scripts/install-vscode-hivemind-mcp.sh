@@ -2,11 +2,18 @@
 set -euo pipefail
 
 API_BASE_URL="${1:-${HIVEMIND_API_BASE_URL:-}}"
-PACKAGE_SPEC="${2:-${HIVEMIND_MCP_PACKAGE:-hivemind-mcp}}"
+PACKAGE_SPEC="${2:-${HIVEMIND_MCP_PACKAGE:-}}"
 
 if [[ -z "$API_BASE_URL" ]]; then
-  echo "Usage: $0 <HIVEMIND_API_BASE_URL> [npm-package-or-tarball]" >&2
-  echo "Example: $0 https://hivemind.example.com hivemind-mcp" >&2
+  echo "Usage: $0 <HIVEMIND_API_BASE_URL> <npm-package-or-tarball>" >&2
+  echo "Example: $0 https://hivemind.example.com /path/to/hivemind-mcp-<version>.tgz" >&2
+  echo "Example: $0 https://hivemind.example.com @company/hivemind-mcp" >&2
+  exit 1
+fi
+
+if [[ -z "$PACKAGE_SPEC" ]]; then
+  echo "Missing MCP package spec." >&2
+  echo "Pass a tarball path or a package name from a registry you control." >&2
   exit 1
 fi
 
