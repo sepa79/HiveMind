@@ -1,5 +1,11 @@
 # HiveMind Team Quickstart
 
+This quickstart is for contributors who are developing this repository locally.
+If you only need to connect a client such as Codex, VS Code, or Claude Desktop
+to an existing shared HiveMind service, skip this document and use the packaged
+MCP client flow in [README.md](../README.md#mcp-client-install-for-users) and
+[mcp-client-distribution.md](mcp-client-distribution.md).
+
 Goal: get a teammate from a fresh clone to a working local HiveMind API, UI, and MCP connection in about 10 minutes.
 
 Requirements:
@@ -68,8 +74,8 @@ npm run start:mcp
 
 Point your MCP client at that command. Example client configs live in:
 
-- `docs/examples/codex-mcp.json`
-- `docs/examples/claude-desktop-mcp.json`
+- `docs/examples/codex-local-repo-mcp.json`
+- `docs/examples/claude-desktop-local-repo-mcp.json`
 
 Replace the example `cwd` value with your local repo path when your MCP client requires it.
 

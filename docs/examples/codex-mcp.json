@@ -1,11 +1,10 @@
 {
   "mcpServers": {
     "hivemind": {
-      "command": "npm",
-      "args": ["run", "start:mcp"],
-      "cwd": "/absolute/path/to/HiveMind",
+      "command": "npx",
+      "args": ["-y", "/path/to/hivemind-mcp-<version>.tgz"],
       "env": {
-        "HIVEMIND_API_BASE_URL": "http://127.0.0.1:4010"
+        "HIVEMIND_API_BASE_URL": "https://hivemind.example.com"
       }
     }
   }

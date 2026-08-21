@@ -19,6 +19,11 @@ The problem it solves: chat history is fragile, private, and hard to audit. Hive
 
 ## Quick Start
 
+Choose the right path first:
+
+- Using an existing shared HiveMind service as a client: do not clone this repo just to run MCP. Install the packaged `hivemind-mcp` client from a `.tgz` artifact or from a private registry package you control. Start with [MCP Client Install For Users](#mcp-client-install-for-users) and [docs/mcp-client-distribution.md](docs/mcp-client-distribution.md).
+- Developing or operating this HiveMind repository itself: use the local bootstrap and `npm run start:*` flow below.
+
 Requirements:
 
 - Node.js `22+`
@@ -213,6 +218,40 @@ On pushes to `main`, CI runs tests and uploads the packed MCP tarball as a workf
 
 ## MCP
 
+If you are a normal user connecting Codex, VS Code, or Claude Desktop to an
+existing HiveMind API, do not clone this repo and do not run `npm run
+start:mcp`. Use the packaged client from a `.tgz` artifact or a private
+registry package instead.
+
+## MCP Client Install For Users
+
+Use the packaged MCP client with your shared API URL:
+
+```bash
+HIVEMIND_API_BASE_URL=https://hivemind.example.com npx -y /path/to/hivemind-mcp-<version>.tgz
+```
+
+Or install it into VS Code:
+
+```bash
+code --add-mcp '{"name":"hivemind","type":"stdio","command":"npx","args":["-y","/path/to/hivemind-mcp-<version>.tgz"],"env":{"HIVEMIND_API_BASE_URL":"https://hivemind.example.com"}}'
+```
+
+If you publish the client to a private registry you control, replace the
+tarball path with that package spec. Do not assume public `npx -y hivemind-mcp`
+resolves to this project.
+
+User-level example configs:
+
+- [docs/examples/codex-mcp.json](docs/examples/codex-mcp.json)
+- [docs/examples/claude-desktop-mcp.json](docs/examples/claude-desktop-mcp.json)
+- [docs/examples/vscode-user-mcp.json](docs/examples/vscode-user-mcp.json)
+
+For team installs where the API runs centrally and developers install only the
+MCP client, see [docs/mcp-client-distribution.md](docs/mcp-client-distribution.md).
+
+## MCP For Local Repository Development
+
 Start the MCP server in another terminal:
 
 ```bash
@@ -221,15 +260,12 @@ npm run start:mcp
 
 Example client configs:
 
-- [docs/examples/codex-mcp.json](docs/examples/codex-mcp.json)
-- [docs/examples/claude-desktop-mcp.json](docs/examples/claude-desktop-mcp.json)
-- [docs/examples/vscode-user-mcp.json](docs/examples/vscode-user-mcp.json)
+- [docs/examples/codex-local-repo-mcp.json](docs/examples/codex-local-repo-mcp.json)
+- [docs/examples/claude-desktop-local-repo-mcp.json](docs/examples/claude-desktop-local-repo-mcp.json)
 
 For shared user-level installs, prefer the packed tarball from `npm run pack:mcp`
 or a private registry package you control. Do not assume public
 `npx -y hivemind-mcp` resolves to this project.
-
-For team installs where the API runs centrally and developers install only the MCP client, see [docs/mcp-client-distribution.md](docs/mcp-client-distribution.md).
 
 ## Demo State
 
