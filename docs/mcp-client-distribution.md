@@ -81,6 +81,31 @@ scripts/install-vscode-hivemind-mcp.sh https://hivemind.example.com /path/to/hiv
 
 The installer writes a user-level VS Code MCP server. It is not tied to any workspace checkout.
 
+## Install In Codex
+
+Add the server to `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.hivemind]
+command = "npx"
+args = ["-y", "/path/to/hivemind-mcp-<version>.tgz"]
+
+[mcp_servers.hivemind.env]
+HIVEMIND_API_BASE_URL = "https://hivemind.example.com"
+```
+
+If you publish the client to a private registry you control, replace the
+tarball path with that package spec.
+
+Verify the server after editing the config:
+
+```bash
+codex mcp list
+```
+
+An already-running Codex chat/session may need a restart or a fresh session
+before a newly added `hivemind` MCP server appears in the tool list.
+
 For multiple separate HiveMind deployments, configure explicit backend
 profiles instead of mixing tenants into one API:
 
@@ -122,6 +147,28 @@ Multi-backend user-level config:
     }
   }
 }
+```
+
+Codex user-level `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.hivemind]
+command = "npx"
+args = ["-y", "/path/to/hivemind-mcp-<version>.tgz"]
+
+[mcp_servers.hivemind.env]
+HIVEMIND_API_BASE_URL = "https://hivemind.example.com"
+```
+
+Multi-backend Codex config:
+
+```toml
+[mcp_servers.hivemind]
+command = "npx"
+args = ["-y", "/path/to/hivemind-mcp-<version>.tgz"]
+
+[mcp_servers.hivemind.env]
+HIVEMIND_BACKENDS = "[{\"backend_id\":\"default\",\"api_base_url\":\"https://hivemind.example.com\"},{\"backend_id\":\"skippybot\",\"api_base_url\":\"https://skippybot-hivemind.example.com\"}]"
 ```
 
 ## Shared Local HTTP MCP

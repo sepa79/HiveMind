@@ -241,9 +241,24 @@ If you publish the client to a private registry you control, replace the
 tarball path with that package spec. Do not assume public `npx -y hivemind-mcp`
 resolves to this project.
 
+Codex user-level `~/.codex/config.toml` example:
+
+```toml
+[mcp_servers.hivemind]
+command = "npx"
+args = ["-y", "/path/to/hivemind-mcp-<version>.tgz"]
+
+[mcp_servers.hivemind.env]
+HIVEMIND_API_BASE_URL = "https://hivemind.example.com"
+```
+
+After adding or changing a Codex MCP server, verify it with `codex mcp list`.
+An already-running Codex chat/session may need a restart or a fresh session
+before the new `hivemind` tools appear.
+
 User-level example configs:
 
-- [docs/examples/codex-mcp.json](docs/examples/codex-mcp.json)
+- [docs/examples/codex-config.toml](docs/examples/codex-config.toml)
 - [docs/examples/claude-desktop-mcp.json](docs/examples/claude-desktop-mcp.json)
 - [docs/examples/vscode-user-mcp.json](docs/examples/vscode-user-mcp.json)
 
@@ -260,7 +275,7 @@ npm run start:mcp
 
 Example client configs:
 
-- [docs/examples/codex-local-repo-mcp.json](docs/examples/codex-local-repo-mcp.json)
+- [docs/examples/codex-local-repo-config.toml](docs/examples/codex-local-repo-config.toml)
 - [docs/examples/claude-desktop-local-repo-mcp.json](docs/examples/claude-desktop-local-repo-mcp.json)
 
 For shared user-level installs, prefer the packed tarball from `npm run pack:mcp`

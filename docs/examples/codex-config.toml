@@ -1,0 +1,6 @@
+[mcp_servers.hivemind]
+command = "npx"
+args = ["-y", "/path/to/hivemind-mcp-<version>.tgz"]
+
+[mcp_servers.hivemind.env]
+HIVEMIND_API_BASE_URL = "https://hivemind.example.com"

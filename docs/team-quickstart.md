@@ -74,7 +74,7 @@ npm run start:mcp
 
 Point your MCP client at that command. Example client configs live in:
 
-- `docs/examples/codex-local-repo-mcp.json`
+- `docs/examples/codex-local-repo-config.toml`
 - `docs/examples/claude-desktop-local-repo-mcp.json`
 
 Replace the example `cwd` value with your local repo path when your MCP client requires it.
