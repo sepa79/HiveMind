@@ -287,6 +287,10 @@ export class HiveMindApiClient {
     });
   }
 
+  async getSession(sessionId) {
+    return this.#request({ method: "GET", path: `/v1/sessions/${encodeURIComponent(sessionId)}` });
+  }
+
   async endSession(input) {
     const { session_id, ...body } = input;
     return this.#request({

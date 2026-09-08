@@ -842,18 +842,14 @@ describe("FsJsonlStorage", () => {
     const branchBrief = await storage.getBranchBrief(context.context_token);
     const openThreads = await storage.getOpenThreadsReadModel(context.context_token);
 
-    expect(projectBrief.latest_plan_ref?.target).toBe("docs/plans/context-learning-issue-slice.md");
-    expect(projectBrief.recent_decisions).toHaveLength(1);
-    expect(projectBrief.recent_learnings).toHaveLength(1);
-    expect(projectBrief.active_issues).toHaveLength(1);
-    expect(projectBrief.active_issues[0].issue_id).toBe(issue.issue.issue_id);
-    expect(branchBrief.branch).toBe("feat/brief");
-    expect(openThreads.open_threads.some((thread) => thread.kind === "entry")).toBe(true);
-    expect(openThreads.open_threads.some((thread) => thread.kind === "rule_check")).toBe(true);
-    expect(openThreads.open_threads.some((thread) => thread.kind === "issue")).toBe(true);
+    expect(projectBrief.guidance).toEqual([]);
+    expect(projectBrief.review_required).toBeGreaterThanOrEqual(1);
+    expect(projectBrief.open_threads.map((item) => item.id)).toEqual([issue.issue.issue_id]);
+    expect(branchBrief.scope.branch).toBe("feat/brief");
+    expect(openThreads.open_threads.map((thread) => thread.kind)).toEqual(["issue"]);
   });
 
-  it("returns a startup summary digest with counts, highlights, and drill-down hints", async () => {
+  it("returns scoped recall without unclassified historical guidance", async () => {
     const storage = createStorage();
     await storage.createProject({
       project_id: "alpha",
@@ -943,18 +939,15 @@ describe("FsJsonlStorage", () => {
       { idempotencyKey: "startup-risk" }
     );
 
-    const summary = await storage.getStartupSummary("alpha", "main", "SMARTER_NFT_TESTS");
+    const summary = await storage.getSessionStartContext({ project_id: "alpha", branch: "main", feature: "SMARTER_NFT_TESTS" });
 
-    expect(summary.project_id).toBe("alpha");
-    expect(summary.branch).toBe("main");
-    expect(summary.feature).toBe("SMARTER_NFT_TESTS");
+    expect(summary.scope).toEqual({ project_id: "alpha", branch: "main", feature: "SMARTER_NFT_TESTS" });
     expect(summary.counts.rules).toBe(1);
-    expect(summary.counts.active_learnings).toBe(1);
-    expect(summary.counts.active_issues).toBe(1);
-    expect(summary.counts.open_threads).toBeGreaterThanOrEqual(2);
-    expect(summary.highlights.learnings[0].summary).toBe("Regenerate fixtures before authoring NFT tests");
-    expect(summary.highlights.issues[0].title).toBe("Scenario Builder fixture cache bug");
-    expect(summary.hint).toContain("context.get_project_brief");
+    expect(summary.counts.guidance).toBe(0);
+    expect(summary.counts.open_threads).toBe(1);
+    expect(summary.open_threads[0].summary).toContain("Scenario Builder fixture cache bug");
+    expect(summary.review_required).toBe(1);
+    expect(summary.retrieval.history).toContain("learning_search");
   });
 
   it("upserts rulesets with stable PUT-like semantics", async () => {
@@ -1521,18 +1514,11 @@ describe("FsJsonlStorage", () => {
     });
 
     expect(context.rules).toHaveLength(1);
-    expect(context.recent_decisions).toHaveLength(1);
-    expect(context.recent_decisions[0].summary).toBe("Use HTTP between MCP and API");
-    expect(context.recent_risks[0].summary).toBe("Rules flow is still missing");
-    expect(context.recent_tooling_notes[0].summary).toBe("Use rg for repo scans");
-    expect(context.recent_learnings).toHaveLength(1);
-    expect(context.recent_learnings[0].summary).toBe("Regenerate fixtures before authoring NFT tests");
-    expect(context.recent_learnings[0].feedback_summary.confirm_count).toBe(1);
-    expect(context.open_threads).toHaveLength(3);
-    expect(context.open_threads[0].branch).toBe("feat/a");
-    expect(context.open_threads.some((thread) => thread.kind === "rule_check" && thread.rule_id === "always_test")).toBe(
-      true
-    );
+    expect(context.guidance).toEqual([]);
+    expect(context.review_required).toBe(3);
+    expect(context.open_threads).toHaveLength(1);
+    expect(context.open_threads[0].summary).toBe("Rules flow is still missing");
+    expect(context.open_threads[0].kind).toBe("entry");
   });
 });
 

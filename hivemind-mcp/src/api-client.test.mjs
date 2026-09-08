@@ -2,6 +2,20 @@ import { describe, expect, it } from "vitest";
 import { HiveMindApiClient, HiveMindApiClientError } from "./api-client.mjs";
 
 describe("HiveMindApiClient", () => {
+  it("gets session metadata by encoded ID without requesting history", async () => {
+    const payload = { session: { session_id: "session/id", feature: "BILLING", status: "active" } };
+    const client = new HiveMindApiClient({
+      baseUrl: "http://127.0.0.1:4010",
+      fetchImpl: async (input, init) => {
+        expect(input.toString()).toBe("http://127.0.0.1:4010/v1/sessions/session%2Fid");
+        expect(init.method).toBe("GET");
+        expect(init.body).toBeUndefined();
+        return jsonResponse(200, { ok: true, data: payload });
+      }
+    });
+    expect(await client.getSession("session/id")).toEqual(payload);
+  });
+
   it("checks API health with one fast request", async () => {
     let calls = 0;
     const client = new HiveMindApiClient({

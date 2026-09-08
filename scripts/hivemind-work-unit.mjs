@@ -95,6 +95,9 @@ async function startWorkUnit(config, options) {
   if (!options.goal) {
     throw new Error("Missing --goal.");
   }
+  if (options.feature !== undefined && (typeof options.feature !== "string" || !options.feature.trim())) {
+    throw new Error("--feature requires exactly one nonempty feature name.");
+  }
   if (existsSync(config.stateFile) && !options.resume) {
     const current = readState(config);
     throw new Error(
@@ -102,8 +105,11 @@ async function startWorkUnit(config, options) {
     );
   }
   if (existsSync(config.stateFile) && options.resume) {
-    const current = readState(config);
-    console.log(JSON.stringify({ session_id: current.session_id, resumed: true }, null, 2));
+    const current = await refreshWorkUnitState(config, readState(config));
+    if (options.feature !== undefined && options.feature.trim() !== current.feature) {
+      throw new Error("Active work unit uses a different feature. End it before starting another feature.");
+    }
+    console.log(JSON.stringify({ session_id: current.session_id, feature: current.feature, resumed: true }, null, 2));
     return current;
   }
 
@@ -115,23 +121,39 @@ async function startWorkUnit(config, options) {
     author_type: config.authorType,
     source: config.source,
     agent_id: config.agentId,
-    goal: options.goal
+    goal: options.goal,
+    feature: options.feature
   };
   const data = await api(config, "/v1/sessions", {
     method: "POST",
     idempotencyKey: options["idempotency-key"] || `work-unit-${randomUUID()}`,
     body: payload
   });
-  const state = {
-    session_id: data.session.session_id,
-    project_id: data.session.project_id,
-    branch: data.session.branch,
-    goal: data.session.goal,
-    started_at: data.session.started_at
-  };
+  const state = sessionState(data.session);
   writeState(config, state);
-  console.log(JSON.stringify({ session: state, startup_summary: data.startup_summary }, null, 2));
+  console.log(JSON.stringify({ session: state, recall: data.recall }, null, 2));
   return state;
+}
+
+function sessionState(session) {
+  return {
+    session_id: session.session_id,
+    project_id: session.project_id,
+    branch: session.branch,
+    goal: session.goal,
+    feature: session.feature,
+    started_at: session.started_at
+  };
+}
+
+async function refreshWorkUnitState(config, state) {
+  const { session } = await api(config, `/v1/sessions/${encodeURIComponent(state.session_id)}`, { method: "GET" });
+  if (session.status !== "active") {
+    throw new Error(`Session '${session.session_id}' is ${session.status}; only active work units can be resumed or receive progress.`);
+  }
+  const current = sessionState(session);
+  writeState(config, current);
+  return current;
 }
 
 function printStatus(config) {
@@ -163,8 +185,9 @@ async function runWorkUnit(config, options, commandArgs) {
   if (commandArgs.length === 0) {
     throw new Error("Missing command after --.");
   }
-  const state = await startWorkUnit(config, options);
+  let state = await startWorkUnit(config, options);
   const exitCode = await runCommand(commandArgs, config.workspacePath);
+  state = await refreshWorkUnitState(config, state);
   await appendProgress(config, state, commandArgs, exitCode);
   await submitRuleCheck(config, state, {
     rule_id: "test_relevant_slices",
@@ -262,6 +285,7 @@ async function appendProgress(config, state, commandArgs, exitCode) {
       author_id: config.authorId,
       author_type: config.authorType,
       source: config.source,
+      feature: state.feature,
       entry_type: "progress",
       summary: `Ran '${commandArgs.join(" ")}' in HiveMind work unit; exit code ${exitCode}.`,
       tags: ["hivemind-wrapper"]
@@ -366,10 +390,10 @@ function repositorySlugFromUrl(value) {
 
 function usage() {
   console.log(`Usage:
-  node scripts/hivemind-work-unit.mjs start --goal "Short task summary"
+  node scripts/hivemind-work-unit.mjs start --goal "Short task summary" [--feature FEATURE]
   node scripts/hivemind-work-unit.mjs status
   node scripts/hivemind-work-unit.mjs end [--status completed|abandoned]
-  node scripts/hivemind-work-unit.mjs run --goal "Run tests" -- npm test
+  node scripts/hivemind-work-unit.mjs run --goal "Run tests" [--feature FEATURE] -- npm test
   node scripts/hivemind-work-unit.mjs doctor
   node scripts/hivemind-work-unit.mjs init --project my-project --name "My Project" --repository-url https://github.com/org/repo.git --root /repo/path --feature UI --feature Backend`);
 }

@@ -59,6 +59,18 @@ For a narrower MCP slice:
 npm test -- hivemind-mcp/src/api-client.test.mjs hivemind-mcp/src/runtime.test.mjs
 ```
 
+For maintenance integration against a disposable local OpenSearch **2.17.1**
+node (no authentication, loopback only):
+
+```bash
+HIVEMIND_TEST_OPENSEARCH_URL=http://127.0.0.1:19200 node scripts/opensearch-maintenance-smoke.mjs
+```
+
+The smoke test uses a unique index prefix and removes its own indices on exit.
+It exercises API create/retry idempotency, merge, missing-index failure, project
+deletion, and checks that no documents remain. It requires an explicitly
+configured node; it does not start or select a shared deployment.
+
 ## Static Checks
 
 ```bash

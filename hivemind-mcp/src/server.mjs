@@ -282,6 +282,7 @@ server.registerTool(
     inputSchema: {
       context_token: z.string(),
       backend_id: z.string().optional(),
+      applicability: z.record(z.unknown()).optional().describe("API-validated applicability: state (current/needs_review/retired), scope (project/branch/feature), reason and nonempty evidence_refs."),
       summary: z.string(),
       details: z.string().optional(),
       scope: z.enum(["tool", "env", "data", "workflow", "test_strategy"]),
@@ -587,11 +588,12 @@ server.registerTool(
   "session_start",
   {
     title: "Start a HiveMind session",
-    description: "Open a HiveMind session and receive bounded warm-start context, including project features agents should use when tagging entries.",
+    description: "Open a HiveMind session and receive bounded current recall for its branch and optional feature.",
     inputSchema: {
       project_id: z.string(),
       backend_id: z.string().optional(),
       branch: z.string(),
+      feature: z.string().optional(),
       workspace_path: z.string(),
       author_id: z.string(),
       author_type: z.enum(["human", "agent", "system"]),
@@ -614,6 +616,19 @@ server.registerTool(
 );
 
 server.registerTool(
+  "session_get",
+  {
+    title: "Get current session metadata",
+    description: "Read a session's current owner, branch, feature and status without loading history or recall.",
+    inputSchema: {
+      session_id: z.string(),
+      backend_id: z.string().optional()
+    }
+  },
+  runtime.sessionGet
+);
+
+server.registerTool(
   "session_end",
   {
     title: "End a HiveMind session",
@@ -631,7 +646,7 @@ server.registerTool(
   "entry_append",
   {
     title: "Append a HiveMind entry",
-    description: "Store one structured journal entry in HiveMind. Use a feature from session_start context when the entry belongs to a feature, user story, or work stream.",
+    description: "Store one structured journal entry in HiveMind. Use a registered project feature when the entry belongs to a feature, user story, or work stream.",
     inputSchema: {
       project_id: z.string(),
       backend_id: z.string().optional(),
@@ -641,6 +656,7 @@ server.registerTool(
       author_type: z.enum(["human", "agent", "system"]),
       source: z.enum(["mcp", "cli", "web", "import"]),
       entry_type: z.enum(["decision", "plan_ref", "progress", "feedback", "artifact_ref", "tooling_note", "risk"]),
+      applicability: z.record(z.unknown()).optional().describe("API-validated applicability: state (current/needs_review/retired), scope (project/branch/feature), reason and nonempty evidence_refs."),
       summary: z.string(),
       details: z.string().optional(),
       feature: z.string().optional(),
@@ -705,6 +721,7 @@ server.registerTool(
       author_type: z.enum(["human", "agent", "system"]),
       source: z.enum(["mcp", "cli", "web", "import"]),
       entry_type: z.enum(["decision", "plan_ref", "progress", "feedback", "artifact_ref", "tooling_note", "risk"]).optional(),
+      applicability: z.record(z.unknown()).optional().describe("API-validated applicability: state (current/needs_review/retired), scope (project/branch/feature), reason and nonempty evidence_refs."),
       summary: z.string(),
       details: z.string().optional(),
       feature: z.string().optional(),

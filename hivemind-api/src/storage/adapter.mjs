@@ -111,10 +111,6 @@ export class StorageAdapter {
     throw new Error("Not implemented");
   }
 
-  async getStartupSummary(_projectId, _branch, _feature) {
-    throw new Error("Not implemented");
-  }
-
   async getRuleset(_projectId) {
     throw new Error("Not implemented");
   }
@@ -140,6 +136,10 @@ export class StorageAdapter {
   }
 
   async getSession(_sessionId) {
+    throw new Error("Not implemented");
+  }
+
+  async getRecallSource(_projectId) {
     throw new Error("Not implemented");
   }
 

@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+export const RECALL_MAX_BYTES = 8192;
+export const RECALL_MAX_ITEMS = 8;
+
 const VISIBILITY_VALUES = ["project"];
 const AUTHOR_TYPE_VALUES = ["human", "agent", "system"];
 const SOURCE_VALUES = ["mcp", "cli", "web", "import"];
@@ -45,6 +48,13 @@ export const LinkSchema = z.object({
   target: NonEmptyString,
   label: z.string().trim().min(1).optional()
 });
+
+export const MemoryApplicabilitySchema = z.object({
+  state: z.enum(["current", "needs_review", "retired"]),
+  scope: z.enum(["project", "branch", "feature"]),
+  reason: NonEmptyString,
+  evidence_refs: z.array(LinkSchema).min(1)
+}).strict();
 
 export const PlanRefSchema = z.object({
   kind: z.literal("file"),
@@ -238,42 +248,9 @@ export const ContextCloseInputSchema = z.object({
   context_token: NonEmptyString
 });
 
-export const StartupSummaryLearningSchema = z.object({
-  learning_id: NonEmptyString,
-  summary: NonEmptyString,
-  importance: z.enum(IMPORTANCE_VALUES),
-  status: z.enum(LEARNING_STATUS_VALUES)
-});
-
-export const StartupSummaryIssueSchema = z.object({
-  issue_id: NonEmptyString,
-  title: NonEmptyString,
-  status: z.enum(ISSUE_STATUS_VALUES),
-  severity: z.enum(ISSUE_SEVERITY_VALUES)
-});
-
-export const StartupSummarySchema = z.object({
-  project_id: NonEmptyString,
-  branch: NonEmptyString,
-  feature: z.string().optional(),
-  counts: z.object({
-    rules: z.number().int().nonnegative(),
-    active_learnings: z.number().int().nonnegative(),
-    active_issues: z.number().int().nonnegative(),
-    open_threads: z.number().int().nonnegative()
-  }),
-  highlights: z.object({
-    learnings: z.array(StartupSummaryLearningSchema),
-    issues: z.array(StartupSummaryIssueSchema),
-    open_threads: z.array(z.lazy(() => OpenThreadSummarySchema))
-  }),
-  hint: NonEmptyString,
-  summary: NonEmptyString
-});
-
 export const ContextOpenResultSchema = z.object({
   context: ContextRecordSchema,
-  startup_summary: StartupSummarySchema
+  recall: z.lazy(() => AutomaticRecallSchema)
 });
 
 export const LearningContextSnapshotSchema = z.object({
@@ -291,6 +268,7 @@ export const LearningContextSnapshotSchema = z.object({
 });
 
 export const LearningCaptureInputSchema = z.object({
+  applicability: MemoryApplicabilitySchema.optional(),
   context_token: NonEmptyString,
   summary: NonEmptyString,
   details: z.string().trim().optional(),
@@ -312,6 +290,7 @@ export const LearningFeedbackSummarySchema = z.object({
 });
 
 export const LearningRecordSchema = z.object({
+  applicability: MemoryApplicabilitySchema.optional(),
   learning_id: NonEmptyString,
   context_token: NonEmptyString,
   context: LearningContextSnapshotSchema,
@@ -471,6 +450,7 @@ export const ContextOpenThreadsInputSchema = z.object({
 });
 
 export const SessionStartInputSchema = z.object({
+  feature: NonEmptyString.optional(),
   project_id: NonEmptyString,
   branch: NonEmptyString,
   workspace_path: NonEmptyString,
@@ -491,7 +471,10 @@ export const SessionCloseoutInputSchema = z.object({
   session_id: NonEmptyString
 });
 
+export const SessionGetInputSchema = SessionCloseoutInputSchema;
+
 export const SessionRecordSchema = z.object({
+  feature: NonEmptyString.optional(),
   session_id: NonEmptyString,
   project_id: NonEmptyString,
   branch: NonEmptyString,
@@ -510,6 +493,8 @@ export const SessionRecordSchema = z.object({
   created_at: NonEmptyString,
   updated_at: NonEmptyString
 });
+
+export const SessionGetResultSchema = z.object({ session: SessionRecordSchema });
 
 export const SessionActivityCountsSchema = z.object({
   entries: z.number().int().nonnegative(),
@@ -571,11 +556,11 @@ export const SessionListResultSchema = z.object({
 
 export const SessionStartResultSchema = z.object({
   session: SessionRecordSchema,
-  context: z.lazy(() => SessionStartContextSchema),
-  startup_summary: StartupSummarySchema
+  recall: z.lazy(() => AutomaticRecallSchema)
 });
 
 export const EntryCreateInputSchema = z.object({
+  applicability: MemoryApplicabilitySchema.optional(),
   project_id: NonEmptyString,
   session_id: NonEmptyString,
   branch: NonEmptyString,
@@ -596,6 +581,7 @@ export const EntryCreateInputSchema = z.object({
 });
 
 export const EntryRecordSchema = z.object({
+  applicability: MemoryApplicabilitySchema.optional(),
   entry_id: NonEmptyString,
   project_id: NonEmptyString,
   session_id: NonEmptyString,
@@ -879,74 +865,33 @@ export const GuidanceCheckResultSchema = z.object({
   summary: NonEmptyString
 });
 
-export const RecallEntrySummarySchema = z.object({
-  entry_id: NonEmptyString,
-  session_id: NonEmptyString,
-  branch: NonEmptyString,
-  entry_type: z.enum(ENTRY_TYPE_VALUES),
+export const RecallItemSchema = z.object({
+  kind: z.enum(["entry", "learning", "issue"]),
+  id: NonEmptyString,
   summary: NonEmptyString,
-  category: z.string().optional(),
-  tags: z.array(NonEmptyString),
-  lifecycle_state: z.enum(LIFECYCLE_STATE_VALUES).nullable(),
-  importance: z.enum(IMPORTANCE_VALUES),
-  timestamp: NonEmptyString
+  state: NonEmptyString,
+  reason: NonEmptyString
 });
 
-export const OpenThreadSummarySchema = z.object({
-  kind: z.enum(["entry", "rule_check", "issue"]),
-  summary: NonEmptyString,
-  session_id: NonEmptyString.optional(),
-  branch: NonEmptyString,
-  importance: z.enum(IMPORTANCE_VALUES),
-  timestamp: NonEmptyString,
-  entry_id: z.string().trim().min(1).optional(),
-  entry_type: z.enum(ENTRY_TYPE_VALUES).optional(),
-  lifecycle_state: z.enum(LIFECYCLE_STATE_VALUES).nullable().optional(),
-  rule_check_id: z.string().trim().min(1).optional(),
-  rule_id: z.string().trim().min(1).optional(),
-  status: z.enum(["applied", "not_applicable", "blocked", "skipped"]).optional(),
-  issue_id: z.string().trim().min(1).optional(),
-  issue_status: z.enum(ISSUE_STATUS_VALUES).optional(),
-  severity: z.enum(ISSUE_SEVERITY_VALUES).optional()
-});
-
-export const SessionStartContextSchema = z.object({
+export const AutomaticRecallSchema = z.object({
+  scope: z.object({ project_id: NonEmptyString, branch: NonEmptyString, feature: NonEmptyString.nullable() }),
+  view: z.enum(["all", "threads"]),
+  authority: z.literal("informational"),
   rules: z.array(RuleSchema),
-  features: z.array(NonEmptyString),
-  recent_decisions: z.array(RecallEntrySummarySchema),
-  recent_risks: z.array(RecallEntrySummarySchema),
-  recent_tooling_notes: z.array(RecallEntrySummarySchema),
-  recent_learnings: z.array(LearningRecordSchema),
-  open_threads: z.array(OpenThreadSummarySchema)
+  project_guidance: z.array(RecallItemSchema),
+  guidance: z.array(RecallItemSchema),
+  open_threads: z.array(RecallItemSchema),
+  counts: z.object({ rules: z.number().int().nonnegative(), guidance: z.number().int().nonnegative(), open_threads: z.number().int().nonnegative() }),
+  review_required: z.number().int().nonnegative(),
+  truncated: z.boolean(),
+  required_rules_omitted: z.number().int().nonnegative(),
+  budget: z.object({ max_bytes: z.literal(RECALL_MAX_BYTES), max_memory_items: z.literal(RECALL_MAX_ITEMS) }),
+  retrieval: z.object({ rules: z.literal("rules_get"), history: z.array(NonEmptyString) })
 });
 
-export const ContextProjectBriefResultSchema = z.object({
-  project: ProjectRecordSchema,
-  rules: z.array(RuleSchema),
-  latest_plan_ref: PlanRefSchema.nullable(),
-  recent_decisions: z.array(RecallEntrySummarySchema),
-  recent_risks: z.array(RecallEntrySummarySchema),
-  recent_learnings: z.array(LearningRecordSchema),
-  active_issues: z.array(IssueRecordSchema),
-  open_threads: z.array(OpenThreadSummarySchema)
-});
-
-export const ContextBranchBriefResultSchema = z.object({
-  project: ProjectRecordSchema,
-  branch: NonEmptyString,
-  rules: z.array(RuleSchema),
-  latest_plan_ref: PlanRefSchema.nullable(),
-  recent_decisions: z.array(RecallEntrySummarySchema),
-  recent_risks: z.array(RecallEntrySummarySchema),
-  recent_learnings: z.array(LearningRecordSchema),
-  active_issues: z.array(IssueRecordSchema),
-  open_threads: z.array(OpenThreadSummarySchema)
-});
-
-export const ContextOpenThreadsResultSchema = z.object({
-  branch: NonEmptyString,
-  open_threads: z.array(OpenThreadSummarySchema)
-});
+export const ContextProjectBriefResultSchema = AutomaticRecallSchema;
+export const ContextBranchBriefResultSchema = AutomaticRecallSchema;
+export const ContextOpenThreadsResultSchema = AutomaticRecallSchema;
 
 export const RuleCheckCreateInputSchema = z.object({
   project_id: NonEmptyString,

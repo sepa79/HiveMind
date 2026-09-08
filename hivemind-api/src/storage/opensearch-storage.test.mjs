@@ -1,7 +1,20 @@
-import { describe, expect, it } from "vitest";
+import { FakeOpenSearchClient, notFound } from "./test-support/fake-opensearch-client.mjs";
+import { describe, expect, it, vi } from "vitest";
 import { OpenSearchStorage } from "./opensearch-storage.mjs";
 
 describe("OpenSearchStorage", () => {
+  it("installs explicit recall mappings on existing indices and propagates mapping failure", async () => {
+    const client = new FakeOpenSearchClient();
+    for (const alias of ["sessions", "entries", "learnings"]) client.putSource(`test-${alias}`, "existing", {});
+    const storage = new OpenSearchStorage({ client, indexPrefix: "test" });
+    const mapping = vi.spyOn(client.indices, "putMapping");
+    await storage.initialize();
+    expect(mapping).toHaveBeenCalledWith({ index: "test-sessions", body: { properties: { feature: { type: "keyword" } } } });
+    for (const alias of ["entries", "learnings"]) expect(mapping).toHaveBeenCalledWith({ index: `test-${alias}`, body: { properties: { applicability: { type: "object", enabled: false } } } });
+    mapping.mockRejectedValueOnce(new Error("Mapping unavailable"));
+    await expect(storage.initialize()).rejects.toThrow("Mapping unavailable");
+  });
+
   it("returns the existing resource when idempotency create loses a race", async () => {
     const client = new FakeOpenSearchClient();
     const storage = new OpenSearchStorage({ client, indexPrefix: "test" });
@@ -304,6 +317,126 @@ describe("OpenSearchStorage", () => {
 
     await expect(storage.deleteProject("alpha")).resolves.toMatchObject({ deleted_project_id: "alpha" });
     await expect(storage.getProject("alpha")).resolves.toBeNull();
+  });
+
+  it.each([
+    { timed_out: true },
+    { version_conflicts: 1 },
+    { failures: [{ reason: "injected shard failure" }] },
+    { total: 2, deleted: 1 },
+    { deleted: undefined }
+  ])("retains project metadata after an incomplete bulk delete: %j", async (partial) => {
+    const client = new FakeOpenSearchClient();
+    const storage = new OpenSearchStorage({ client, indexPrefix: "test" });
+    await storage.createProject(projectFixture("alpha"));
+    client.putSource("test-entries", "entry-alpha", { project_id: "alpha", entry_id: "entry-alpha" });
+    const deletion = vi.spyOn(client, "deleteByQuery").mockResolvedValueOnce({
+      body: { timed_out: false, version_conflicts: 0, failures: [], total: 0, deleted: 0, ...partial }
+    });
+    await expect(storage.deleteProject("alpha")).rejects.toMatchObject({
+      status: 502, code: "STORAGE_DELETE_INCOMPLETE"
+    });
+    expect(deletion).toHaveBeenCalledTimes(1);
+    expect(await storage.getProject("alpha")).toMatchObject({ project_id: "alpha" });
+    expect(await storage.getRuleset("alpha")).not.toBeNull();
+    // An explicit retry is allowed; no automatic recovery ran on the failed call.
+    await storage.deleteProject("alpha");
+    expect(await storage.getProject("alpha")).toBeNull();
+    await expect(client.get({ index: "test-entries", id: "entry-alpha" })).rejects.toMatchObject({ meta: { statusCode: 404 } });
+  });
+
+  it.each(["search", "deleteByQuery"])("does not hide a missing collection index during %s", async (method) => {
+    const client = new FakeOpenSearchClient();
+    const storage = new OpenSearchStorage({ client, indexPrefix: "test" });
+    await storage.createProject(projectFixture("alpha"));
+    vi.spyOn(client, method).mockRejectedValueOnce(notFound());
+    await expect(storage.deleteProject("alpha")).rejects.toMatchObject({ meta: { statusCode: 404 } });
+    expect(await storage.getProject("alpha")).not.toBeNull();
+  });
+
+  it("retains merge provenance when source cleanup is incomplete and allows an explicit retry", async () => {
+    const client = new FakeOpenSearchClient();
+    const storage = new OpenSearchStorage({ client, indexPrefix: "test" });
+    await storage.createProject(projectFixture("alpha"));
+    await storage.createProject(projectFixture("legacy"));
+    client.putSource("test-entries", "entry-legacy", { project_id: "legacy", entry_id: "entry-legacy" });
+    vi.spyOn(client, "deleteByQuery").mockResolvedValueOnce({
+      body: { timed_out: true, version_conflicts: 0, failures: [], total: 0, deleted: 0 }
+    });
+    await expect(storage.mergeProjects("legacy", "alpha", { standardProfileResolution: automaticProfileResolution() }))
+      .rejects.toMatchObject({ code: "STORAGE_DELETE_INCOMPLETE" });
+    expect(await storage.getProject("legacy")).not.toBeNull();
+    await expect(storage.deleteProject("alpha")).rejects.toMatchObject({ code: "PROJECT_MERGE_IN_PROGRESS" });
+    const merged = await storage.mergeProjects("legacy", "alpha", { standardProfileResolution: automaticProfileResolution() });
+    expect(merged.moved_counts.entries).toBe(1);
+    expect(await storage.getProject("legacy")).toBeNull();
+    expect(await storage.getEntry("alpha", "entry-legacy")).toMatchObject({ project_id: "alpha" });
+  });
+
+  it("logs project delete stages and totals", async () => {
+    const client = new FakeOpenSearchClient();
+    const logLines = [];
+    const storage = new OpenSearchStorage({ client, indexPrefix: "test", logger: (line) => logLines.push(JSON.parse(line)) });
+    await storage.createProject({
+      project_id: "alpha",
+      name: "Alpha",
+      repository_url: "https://github.com/example/alpha.git",
+      repository_slug: "example/alpha",
+      root_path: "/repo/alpha",
+      default_branch: "main",
+      description: "Alpha project"
+    });
+    const { session } = await storage.createSession(
+      {
+        project_id: "alpha",
+        branch: "main",
+        workspace_path: "/repo/alpha",
+        author_id: "agent-alpha",
+        author_type: "agent",
+        source: "mcp",
+        agent_id: "codex",
+        goal: "Delete with logging"
+      },
+      { idempotencyKey: "delete-log-session" }
+    );
+    await storage.appendEntry(
+      {
+        project_id: "alpha",
+        session_id: session.session_id,
+        branch: "main",
+        author_id: "agent-alpha",
+        author_type: "agent",
+        source: "mcp",
+        entry_type: "decision",
+        summary: "Delete me with logs"
+      },
+      { idempotencyKey: "delete-log-entry" }
+    );
+
+    await storage.deleteProject("alpha", { reason: "cleanup" });
+
+    expect(logLines[0]).toMatchObject({
+      event: "project_delete_started",
+      project_id: "alpha",
+      reason: "cleanup"
+    });
+    expect(logLines.find((entry) => entry.event === "project_delete_stage" && entry.collection === "entries")).toMatchObject({
+      deleted_count: 1,
+      mode: "delete_by_query"
+    });
+    expect(logLines.find((entry) => entry.event === "project_delete_stage" && entry.collection === "projects")).toMatchObject({
+      deleted_count: 1,
+      mode: "delete_document"
+    });
+    expect(logLines.at(-1)).toMatchObject({
+      event: "project_delete_completed",
+      project_id: "alpha",
+      deleted_counts: {
+        entries: 1,
+        sessions: 1,
+        rules: 0
+      }
+    });
   });
 
   it("merges project-scoped OpenSearch documents into the target project", async () => {
@@ -637,159 +770,6 @@ describe("OpenSearchStorage", () => {
   });
 });
 
-class FakeOpenSearchClient {
-  constructor() {
-    this.indices = {
-      exists: async ({ index }) => this.#index(index).size > 0,
-      create: async ({ index }) => {
-        this.#index(index);
-      }
-    };
-    this.scrollCalls = 0;
-    this.#documents = new Map();
-    this.#writeCounts = new Map();
-    this.#scrolls = new Map();
-    this.#nextScrollId = 1;
-    this.#idempotencyConflictFactory = null;
-    this.#failingIndexWrite = null;
-    this.#failingDelete = null;
-  }
-
-  #documents;
-  #writeCounts;
-  #scrolls;
-  #nextScrollId;
-  #idempotencyConflictFactory;
-  #failingIndexWrite;
-  #failingDelete;
-
-  putSource(index, id, source) {
-    this.#index(index).set(id, source);
-  }
-
-  indexWrites(index) {
-    return this.#writeCounts.get(index) ?? 0;
-  }
-
-  conflictOnNextIdempotencyCreate(factory) {
-    this.#idempotencyConflictFactory = factory;
-  }
-
-  failNextIndexWrite(index, id = null, matchingWritesToSkip = 0) {
-    this.#failingIndexWrite = { index, id, matchingWritesToSkip };
-  }
-
-  failNextDelete(index, id = null) {
-    this.#failingDelete = { index, id };
-  }
-
-  async get({ index, id }) {
-    const source = this.#index(index).get(id);
-    if (!source) {
-      throw notFound();
-    }
-    return { body: { _source: source } };
-  }
-
-  async index({ index, id, body, op_type }) {
-    if (this.#failingIndexWrite?.index === index && (!this.#failingIndexWrite.id || this.#failingIndexWrite.id === id)) {
-      if (this.#failingIndexWrite.matchingWritesToSkip > 0) {
-        this.#failingIndexWrite.matchingWritesToSkip -= 1;
-      } else {
-        this.#failingIndexWrite = null;
-        throw new Error(`Injected index failure for ${index}`);
-      }
-    }
-    if (op_type === "create" && index.endsWith("-idempotency") && this.#idempotencyConflictFactory) {
-      this.#index(index).set(id, this.#idempotencyConflictFactory(body));
-      this.#idempotencyConflictFactory = null;
-      throw conflict();
-    }
-    if (op_type === "create" && this.#index(index).has(id)) {
-      throw conflict();
-    }
-    this.#index(index).set(id, body);
-    this.#writeCounts.set(index, (this.#writeCounts.get(index) ?? 0) + 1);
-    return { body: { result: "created" } };
-  }
-
-  async delete({ index, id }) {
-    if (this.#failingDelete?.index === index && (!this.#failingDelete.id || this.#failingDelete.id === id)) {
-      this.#failingDelete = null;
-      throw new Error(`Injected delete failure for ${index}`);
-    }
-    if (!this.#index(index).has(id)) {
-      throw notFound();
-    }
-    this.#index(index).delete(id);
-    return { body: { result: "deleted" } };
-  }
-
-  async search({ index, size, body }) {
-    const hits = this.#matchingHits(index, body?.query);
-    const batch = hits.slice(0, size);
-    const remaining = hits.slice(size);
-    const scrollId = `scroll-${this.#nextScrollId}`;
-    this.#nextScrollId += 1;
-    this.#scrolls.set(scrollId, { remaining, size });
-    return {
-      body: {
-        _scroll_id: scrollId,
-        hits: { hits: batch }
-      }
-    };
-  }
-
-  async scroll({ scroll_id }) {
-    this.scrollCalls += 1;
-    const state = this.#scrolls.get(scroll_id) ?? { remaining: [], size: 1000 };
-    const batch = state.remaining.slice(0, state.size);
-    state.remaining = state.remaining.slice(state.size);
-    this.#scrolls.set(scroll_id, state);
-    return {
-      body: {
-        _scroll_id: scroll_id,
-        hits: { hits: batch }
-      }
-    };
-  }
-
-  async clearScroll({ scroll_id }) {
-    this.#scrolls.delete(scroll_id);
-  }
-
-  #index(index) {
-    if (!this.#documents.has(index)) {
-      this.#documents.set(index, new Map());
-    }
-    return this.#documents.get(index);
-  }
-
-  #matchingHits(index, query) {
-    const docs = [...this.#index(index).entries()].map(([id, source]) => ({ _id: id, _source: source }));
-    if (!query || query.match_all) {
-      return docs;
-    }
-    if (query.term) {
-      const [[field, value]] = Object.entries(query.term);
-      return docs.filter((doc) => doc._source[field] === value);
-    }
-    return [];
-  }
-}
-
-function notFound() {
-  const error = new Error("not found");
-  error.meta = { statusCode: 404 };
-  return error;
-}
-
-function conflict() {
-  const error = new Error("conflict");
-  error.meta = { statusCode: 409 };
-  return error;
-}
-
 function automaticProfileResolution({ source = null, target = null, result = source ?? target } = {}) {
   return {
     source_profile_ref: source,
@@ -797,4 +777,9 @@ function automaticProfileResolution({ source = null, target = null, result = sou
     strategy: "automatic",
     result_profile_ref: result
   };
+}
+
+function projectFixture(id) {
+  return { project_id: id, name: id, repository_url: `https://github.com/example/${id}.git`,
+    repository_slug: `example/${id}`, root_path: `/repo/${id}`, default_branch: "main", description: "Test project" };
 }

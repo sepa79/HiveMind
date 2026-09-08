@@ -170,3 +170,23 @@ Output includes:
 - Old entry content is retained; corrections are appended and linked.
 - In multi-backend MCP setups, mutating tools route to exactly one resolved
   backend and fail when project/backend resolution is ambiguous.
+
+## Automatic recall surfaces
+
+`session_start`, `context_open`, `context_get_project_brief`,
+`context_get_branch_brief`, and `context_get_open_threads` expose the API-owned
+[automatic recall contract](../api/automatic-recall.md). Session start accepts
+optional `feature`. Entry append/correction and learning capture forward
+`applicability` to API validation without a separate MCP policy/schema.
+
+These tools return one compact JSON `content` text block, without a duplicate
+`structuredContent`. Session start data is `{ session, recall }`, context open
+is `{ context, recall }`, and briefs/threads return recall directly. Clients must
+consume the new shape; the previous `startup_summary` and session `context`
+shapes are removed. Errors retain the standard MCP error representation.
+
+`session_get` accepts `session_id` and optional `backend_id`, maps to
+`GET /v1/sessions/:sessionId`, and returns `{ session }` using the normal MCP
+JSON result representation. It reads current session metadata without loading
+history, closing or resuming the session. It uses the same backend routing as
+`session_end`; unknown IDs report `SESSION_NOT_FOUND`.

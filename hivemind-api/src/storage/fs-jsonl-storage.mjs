@@ -1,3 +1,4 @@
+import { buildAutomaticRecall } from "../domain/automatic-recall.mjs";
 import { randomUUID, createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync, appendFileSync, rmSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -16,21 +17,6 @@ const ISSUE_SEVERITY_WEIGHT = {
   high: 3,
   normal: 2,
   low: 1
-};
-
-const SESSION_START_LIMITS = {
-  recent_decisions: 3,
-  recent_risks: 3,
-  recent_tooling_notes: 3,
-  recent_learnings: 3,
-  active_issues: 3,
-  open_threads: 5
-};
-
-const STARTUP_SUMMARY_LIMITS = {
-  learnings: 3,
-  issues: 3,
-  open_threads: 3
 };
 
 export class FsJsonlStorage extends StorageAdapter {
@@ -354,6 +340,12 @@ export class FsJsonlStorage extends StorageAdapter {
       });
     }
 
+    for (const session of this.#listProjectSessions(projectId)) {
+      if (session.feature === feature) {
+        this.#writeJsonFile(this.#sessionFile(projectId, session.session_id), { ...session, feature: newFeature, updated_at: isoNow() });
+      }
+    }
+
     this.#rewriteJsonLines(this.#entriesFile(projectId), (entry) =>
       entry.feature === feature ? { ...entry, feature: newFeature, updated_at: isoNow() } : entry
     );
@@ -577,6 +569,7 @@ export class FsJsonlStorage extends StorageAdapter {
       learning_id: `lrn-${randomUUID()}`,
       context_token: learningInput.context_token,
       context: this.#toLearningContextSnapshot(context),
+      applicability: learningInput.applicability,
       summary: learningInput.summary,
       details: learningInput.details,
       scope: learningInput.scope,
@@ -913,64 +906,21 @@ export class FsJsonlStorage extends StorageAdapter {
   }
 
   async getProjectBrief(contextToken) {
-    const context = await this.getContext(contextToken);
-    ensure(context, 404, "CONTEXT_NOT_FOUND", `No context exists with token '${contextToken}'.`, {
-      context_token: contextToken
-    });
-
-    return this.#buildContextBrief({
-      projectId: context.project_id,
-      branch: context.branch
-    });
+    return this.getBranchBrief(contextToken);
   }
 
   async getBranchBrief(contextToken, branch) {
     const context = await this.getContext(contextToken);
-    ensure(context, 404, "CONTEXT_NOT_FOUND", `No context exists with token '${contextToken}'.`, {
-      context_token: contextToken
-    });
-
-    return this.#buildContextBrief({
-      projectId: context.project_id,
-      branch: branch ?? context.branch,
-      includeBranch: true
-    });
+    ensure(context, 404, "CONTEXT_NOT_FOUND", `No context exists with token '${contextToken}'.`, { context_token: contextToken });
+    return this.getSessionStartContext({ project_id: context.project_id, branch: branch ?? context.branch, feature: context.feature });
   }
 
   async getOpenThreadsReadModel(contextToken, branch, limit) {
     const context = await this.getContext(contextToken);
-    ensure(context, 404, "CONTEXT_NOT_FOUND", `No context exists with token '${contextToken}'.`, {
-      context_token: contextToken
+    ensure(context, 404, "CONTEXT_NOT_FOUND", `No context exists with token '${contextToken}'.`, { context_token: contextToken });
+    return buildAutomaticRecall(await this.getRecallSource(context.project_id), {
+      project_id: context.project_id, branch: branch ?? context.branch, feature: context.feature, view: "threads", limit
     });
-
-    const projectId = context.project_id;
-    const resolvedBranch = branch ?? context.branch;
-    const entries = this.#readJsonLines(this.#entriesFile(projectId));
-    const ruleChecks = this.#readJsonLines(this.#ruleChecksFile(projectId));
-    const issues = this.#listProjectIssues(projectId);
-    const ruleset = await this.getRuleset(projectId);
-
-    return {
-      branch: resolvedBranch,
-      open_threads: this.#selectOpenThreads({
-        branch: resolvedBranch,
-        entries,
-        ruleChecks,
-        issues,
-        ruleset,
-        projectId,
-        limit: limit ?? SESSION_START_LIMITS.open_threads
-      })
-    };
-  }
-
-  async getStartupSummary(projectId, branch, feature) {
-    const project = await this.getProject(projectId);
-    ensure(project, 404, "PROJECT_NOT_FOUND", `No project exists with id '${projectId}'.`, {
-      project_id: projectId
-    });
-
-    return this.#buildStartupSummary({ projectId, branch, feature });
   }
 
   async getRuleset(projectId) {
@@ -1032,6 +982,7 @@ export class FsJsonlStorage extends StorageAdapter {
       session_id: `sess-${randomUUID()}`,
       project_id: sessionInput.project_id,
       branch: sessionInput.branch,
+      feature: sessionInput.feature,
       workspace_path: sessionInput.workspace_path,
       author_id: sessionInput.author_id,
       author_type: sessionInput.author_type,
@@ -1207,51 +1158,24 @@ export class FsJsonlStorage extends StorageAdapter {
     };
   }
 
-  async getSessionStartContext({ project_id, branch }) {
-    const project = await this.getProject(project_id);
-    ensure(project, 404, "PROJECT_NOT_FOUND", `No project exists with id '${project_id}'.`, {
-      project_id
-    });
-
-    const ruleset = await this.getRuleset(project_id);
-    const entries = this.#readJsonLines(this.#entriesFile(project_id));
-    const learnings = this.#readJsonLines(this.#learningsFile(project_id));
-    const ruleChecks = this.#readJsonLines(this.#ruleChecksFile(project_id));
-    const issues = this.#listProjectIssues(project_id);
-
+  async getRecallSource(projectId) {
+    const project = await this.getProject(projectId);
+    ensure(project, 404, "PROJECT_NOT_FOUND", `No project exists with id '${projectId}'.`, { project_id: projectId });
+    const ruleset = await this.getRuleset(projectId);
+    ensure(ruleset, 500, "RULESET_MISSING", "Project ruleset is missing; automatic recall cannot determine required guidance.", { project_id: projectId });
     return {
-      rules: ruleset?.rules ?? [],
-      features: project.features ?? [],
-      recent_decisions: this.#selectRecallEntries(entries, {
-        branch,
-        entryTypes: ["decision"],
-        limit: SESSION_START_LIMITS.recent_decisions
-      }),
-      recent_risks: this.#selectRecallEntries(entries, {
-        branch,
-        entryTypes: ["risk"],
-        limit: SESSION_START_LIMITS.recent_risks,
-        openFirst: true
-      }),
-      recent_tooling_notes: this.#selectRecallEntries(entries, {
-        branch,
-        entryTypes: ["tooling_note"],
-        limit: SESSION_START_LIMITS.recent_tooling_notes
-      }),
-      recent_learnings: this.#selectRecentLearnings(project_id, learnings, {
-        branch,
-        limit: SESSION_START_LIMITS.recent_learnings
-      }),
-      open_threads: this.#selectOpenThreads({
-        branch,
-        entries,
-        ruleChecks,
-        issues,
-        ruleset,
-        projectId: project_id,
-        limit: SESSION_START_LIMITS.open_threads
-      })
+      rules: ruleset.rules,
+      entries: this.#readJsonLines(this.#entriesFile(projectId)),
+      learnings: this.#readJsonLines(this.#learningsFile(projectId)),
+      learning_feedback: this.#readJsonLines(this.#learningFeedbackFile(projectId)),
+      issues: this.#listProjectIssues(projectId),
+      rule_checks: this.#readJsonLines(this.#ruleChecksFile(projectId)),
+      sessions: this.#listProjectSessions(projectId)
     };
+  }
+
+  async getSessionStartContext(query) {
+    return buildAutomaticRecall(await this.getRecallSource(query.project_id), query);
   }
 
   async listActiveBranchLearnings(projectId, branch, limit = 3) {
@@ -1318,6 +1242,7 @@ export class FsJsonlStorage extends StorageAdapter {
       source: entryInput.source,
       entry_type: entryInput.entry_type,
       timestamp: now,
+      applicability: entryInput.applicability,
       summary: entryInput.summary,
       details: entryInput.details,
       feature: entryInput.feature,
@@ -2135,6 +2060,7 @@ export class FsJsonlStorage extends StorageAdapter {
   }
 
   #featureUsageSummary(projectId, feature) {
+    const sessions = this.#listProjectSessions(projectId).filter((session) => session.feature === feature).length;
     const contexts = this.#listProjectContexts(projectId).filter((context) => context.feature === feature).length;
     const entries = this.#readJsonLines(this.#entriesFile(projectId)).filter((entry) => entry.feature === feature).length;
     const learnings = this.#readJsonLines(this.#learningsFile(projectId)).filter(
@@ -2143,140 +2069,13 @@ export class FsJsonlStorage extends StorageAdapter {
     const issues = this.#listProjectIssues(projectId).filter((issue) => issue.context?.feature === feature).length;
 
     return {
+      sessions,
       contexts,
       entries,
       learnings,
       issues,
-      total: contexts + entries + learnings + issues
+      total: sessions + contexts + entries + learnings + issues
     };
-  }
-
-  #selectRecallEntries(entries, { branch, entryTypes, lifecycleState, limit, openFirst = false }) {
-    return entries
-      .filter((entry) => entryTypes.includes(entry.entry_type))
-      .filter((entry) => (lifecycleState ? entry.lifecycle_state === lifecycleState : true))
-      .sort((left, right) => {
-        const byBranch = compareBranchMatch(left, right, branch);
-        if (byBranch !== 0) {
-          return byBranch;
-        }
-
-        if (openFirst) {
-          const byOpenState = compareBoolean(right.lifecycle_state === "open", left.lifecycle_state === "open");
-          if (byOpenState !== 0) {
-            return byOpenState;
-          }
-        }
-
-        const byImportance = IMPORTANCE_WEIGHT[right.importance] - IMPORTANCE_WEIGHT[left.importance];
-        if (byImportance !== 0) {
-          return byImportance;
-        }
-
-        return right.timestamp.localeCompare(left.timestamp);
-      })
-      .slice(0, limit)
-      .map((entry) => toRecallEntrySummary(entry));
-  }
-
-  #selectOpenThreads({ branch, entries, ruleChecks, issues, ruleset, projectId, limit }) {
-    const entryThreads = this.#selectRecallEntries(entries, {
-      branch,
-      entryTypes: ["risk", "feedback"],
-      lifecycleState: "open",
-      limit
-    }).map((entry) => ({
-      kind: "entry",
-      summary: entry.summary,
-      session_id: entry.session_id,
-      branch: entry.branch,
-      importance: entry.importance,
-      timestamp: entry.timestamp,
-      entry_id: entry.entry_id,
-      entry_type: entry.entry_type,
-      lifecycle_state: entry.lifecycle_state
-    }));
-
-    const blockedRuleThreads = this.#blockedRuleCheckThreads({
-      projectId,
-      branch,
-      ruleChecks,
-      ruleset
-    });
-    const issueThreads = this.#activeIssueThreads({
-      branch,
-      issues
-    });
-
-    return [...entryThreads, ...blockedRuleThreads, ...issueThreads]
-      .sort((left, right) => {
-        const byBranch = compareBranchMatch(left, right, branch);
-        if (byBranch !== 0) {
-          return byBranch;
-        }
-
-        const byImportance = IMPORTANCE_WEIGHT[right.importance] - IMPORTANCE_WEIGHT[left.importance];
-        if (byImportance !== 0) {
-          return byImportance;
-        }
-
-        return right.timestamp.localeCompare(left.timestamp);
-      })
-      .slice(0, limit);
-  }
-
-  #activeIssueThreads({ branch, issues }) {
-    return this.#sortIssues(
-      issues.filter((issue) => isActiveIssueStatus(issue.status)),
-      "severity",
-      { branch }
-    ).map((issue) => ({
-      kind: "issue",
-      summary: `${issue.title}: ${issue.summary}`,
-      session_id: undefined,
-      branch: issue.context.branch,
-      importance: issueSeverityToImportance(issue.severity),
-      timestamp: issue.updated_at,
-      issue_id: issue.issue_id,
-      issue_status: issue.status,
-      severity: issue.severity
-    }));
-  }
-
-  #blockedRuleCheckThreads({ projectId, branch, ruleChecks, ruleset }) {
-    const rulesById = new Map((ruleset?.rules ?? []).map((rule) => [rule.rule_id, rule]));
-    const sessionsById = new Map(this.#listProjectSessions(projectId).map((session) => [session.session_id, session]));
-
-    return ruleChecks
-      .filter((ruleCheck) => ruleCheck.status === "blocked")
-      .map((ruleCheck) => {
-        const session = sessionsById.get(ruleCheck.session_id);
-        if (!session) {
-          return null;
-        }
-
-        const rule = rulesById.get(ruleCheck.rule_id);
-        const baseSummary = rule ? `Blocked rule: ${rule.label}` : `Blocked rule: ${ruleCheck.rule_id}`;
-        return {
-          kind: "rule_check",
-          summary: ruleCheck.note ? `${baseSummary}. ${ruleCheck.note}` : baseSummary,
-          session_id: ruleCheck.session_id,
-          branch: session.branch,
-          importance: rule?.severity === "required" ? "high" : "normal",
-          timestamp: ruleCheck.timestamp,
-          rule_check_id: ruleCheck.rule_check_id,
-          rule_id: ruleCheck.rule_id,
-          status: ruleCheck.status
-        };
-      })
-      .filter(Boolean)
-      .sort((left, right) => {
-        const byBranch = compareBranchMatch(left, right, branch);
-        if (byBranch !== 0) {
-          return byBranch;
-        }
-        return right.timestamp.localeCompare(left.timestamp);
-      });
   }
 
   #listProjectSessions(projectId) {
@@ -2317,130 +2116,6 @@ export class FsJsonlStorage extends StorageAdapter {
     };
   }
 
-  async #buildContextBrief({ projectId, branch, includeBranch = false }) {
-    const project = await this.getProject(projectId);
-    ensure(project, 404, "PROJECT_NOT_FOUND", `No project exists with id '${projectId}'.`, {
-      project_id: projectId
-    });
-
-    const ruleset = await this.getRuleset(projectId);
-    const entries = this.#readJsonLines(this.#entriesFile(projectId));
-    const learnings = this.#readJsonLines(this.#learningsFile(projectId));
-    const ruleChecks = this.#readJsonLines(this.#ruleChecksFile(projectId));
-    const issues = this.#listProjectIssues(projectId);
-
-    return {
-      project,
-      ...(includeBranch ? { branch } : {}),
-      rules: ruleset?.rules ?? [],
-      latest_plan_ref: this.#selectLatestPlanRef(projectId, branch),
-      recent_decisions: this.#selectRecallEntries(entries, {
-        branch,
-        entryTypes: ["decision"],
-        limit: SESSION_START_LIMITS.recent_decisions
-      }),
-      recent_risks: this.#selectRecallEntries(entries, {
-        branch,
-        entryTypes: ["risk"],
-        limit: SESSION_START_LIMITS.recent_risks,
-        openFirst: true
-      }),
-      recent_learnings: this.#selectRecentLearnings(projectId, learnings, {
-        branch,
-        limit: SESSION_START_LIMITS.recent_learnings
-      }),
-      active_issues: this.#sortIssues(
-        issues.filter((issue) => isActiveIssueStatus(issue.status)),
-        "severity",
-        { branch }
-      ).slice(0, SESSION_START_LIMITS.active_issues),
-      open_threads: this.#selectOpenThreads({
-        branch,
-        entries,
-        ruleChecks,
-        issues,
-        ruleset,
-        projectId,
-        limit: SESSION_START_LIMITS.open_threads
-      })
-    };
-  }
-
-  #selectLatestPlanRef(projectId, branch) {
-    const sessions = this.#listProjectSessions(projectId).filter((session) => Boolean(session.plan_ref));
-    if (sessions.length === 0) {
-      return null;
-    }
-
-    return [...sessions]
-      .sort((left, right) => {
-        const byBranch = compareBranchMatch(left, right, branch);
-        if (byBranch !== 0) {
-          return byBranch;
-        }
-        return right.updated_at.localeCompare(left.updated_at);
-      })
-      .at(0)?.plan_ref ?? null;
-  }
-
-  async #buildStartupSummary({ projectId, branch, feature }) {
-    const ruleset = await this.getRuleset(projectId);
-    const learnings = this.#readJsonLines(this.#learningsFile(projectId));
-    const issues = this.#listProjectIssues(projectId);
-    const entries = this.#readJsonLines(this.#entriesFile(projectId));
-    const ruleChecks = this.#readJsonLines(this.#ruleChecksFile(projectId));
-
-    const activeLearnings = this.#sortLearnings(
-      learnings.filter((learning) => learning.status === "active" && learning.context.branch === branch),
-      "importance",
-      { branch }
-    );
-    const activeIssues = this.#sortIssues(
-      issues.filter((issue) => isActiveIssueStatus(issue.status) && issue.context.branch === branch),
-      "severity",
-      { branch }
-    );
-    const openThreads = this.#selectOpenThreads({
-      branch,
-      entries,
-      ruleChecks,
-      issues,
-      ruleset,
-      projectId,
-      limit: Number.MAX_SAFE_INTEGER
-    });
-
-    const counts = {
-      rules: ruleset?.rules?.length ?? 0,
-      active_learnings: activeLearnings.length,
-      active_issues: activeIssues.length,
-      open_threads: openThreads.length
-    };
-
-    return {
-      project_id: projectId,
-      branch,
-      feature,
-      counts,
-      highlights: {
-        learnings: activeLearnings.slice(0, STARTUP_SUMMARY_LIMITS.learnings).map((learning) => ({
-          learning_id: learning.learning_id,
-          summary: learning.summary,
-          importance: learning.importance,
-          status: learning.status
-        })),
-        issues: activeIssues.slice(0, STARTUP_SUMMARY_LIMITS.issues).map((issue) => ({
-          issue_id: issue.issue_id,
-          title: issue.title,
-          status: issue.status,
-          severity: issue.severity
-        })),
-        open_threads: openThreads.slice(0, STARTUP_SUMMARY_LIMITS.open_threads)
-      },
-      hint: "Use context.get_project_brief, context.get_open_threads, learning.get_recent, or issue.list for details.",
-      summary: `HiveMind sees ${counts.active_learnings} active learning${counts.active_learnings === 1 ? "" : "s"}, ${counts.active_issues} active issue${counts.active_issues === 1 ? "" : "s"}, and ${counts.open_threads} open thread${counts.open_threads === 1 ? "" : "s"} on branch '${branch}'.`
-    };
-  }
 }
 
 function digest(value) {

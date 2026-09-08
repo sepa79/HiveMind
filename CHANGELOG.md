@@ -2,6 +2,40 @@
 
 All notable HiveMind changes are recorded here.
 
+## 0.5.5 - 2026-09-07
+
+- **Breaking:** replace session startup's `context` / `startup_summary` with
+  `{ session, recall }`, and context startup with `{ context, recall }`.
+  Project/branch briefs and open threads use the same canonical recall shape.
+  Automatic-recall MCP tools emit one compact JSON text block without a second
+  `structuredContent` copy. Update API, MCP and consumers together; see the
+  [automatic recall contract](docs/specs/api/automatic-recall.md).
+- Filter automatic recall by explicit applicability and branch/feature scope.
+  Exclude resolved incidents, superseded advice and unclassified legacy
+  knowledge; withhold negative-feedback learnings and historical blocked checks
+  for review. Applicable decisions remain eligible after implementation is
+  resolved. Explicit history reads preserve original records and statuses.
+- Apply one 8192-byte UTF-8 response-data budget, including session/context
+  metadata, and one eight-item memory limit. Report truncation and omitted
+  required rules explicitly, and keep smaller eligible candidates when larger
+  ones cannot fit. A missing ruleset fails instead of implying no required rules.
+- Add entry/learning `applicability`, optional session `feature`, and current
+  session metadata via `GET /v1/sessions/:sessionId` and MCP `session_get`.
+  Install the corresponding OpenSearch mappings during initialization.
+- Support `--feature` in CLI `start` and `run`, including persisted scope and
+  progress tagging. Refresh session metadata on resume and after wrapped
+  commands so feature renames are observed. Failed lookups and inactive
+  sessions stop the resumed/progress workflow instead of using stale state.
+- Isolate project maintenance locks so unrelated projects can continue working.
+  Revalidate context/session ownership after locking, reject conflicting URL
+  and body selectors, and return validation errors for invalid repository slugs.
+- Use checked OpenSearch bulk deletion for project cleanup, with stage logs
+  and explicit failures for incomplete deletion or missing indices. Preserve
+  project metadata for retry after a collection-cleanup failure.
+- Update REST/MCP contracts, user documentation and the memory freshness plan.
+  Learning lifecycle operations, concern-owner links, history pagination and
+  HiveMap/PocketHive data cleanup remain planned work.
+
 ## 0.5.4 - 2026-08-20
 
 - Add the canonical stored standard-marker workflow for repository standards:

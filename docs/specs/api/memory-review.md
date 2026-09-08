@@ -5,6 +5,8 @@
 REST contracts for entry lifecycle maintenance, entry corrections, project
 memory review, and admin cross-project review.
 
+Automatic startup and brief reads use the separate [automatic recall contract](automatic-recall.md). Review/search remains an explicit history surface.
+
 ## Entry Lifecycle
 
 `POST /v1/projects/:projectId/entries/:entryId/mark`
@@ -113,9 +115,34 @@ Moves source project memory into the target project and deletes the source.
 The merge fails with `PROJECT_MERGE_CONFLICT` if source identifiers would
 overwrite target identifiers.
 
-Delete and merge execute exclusively against other `/v1` requests in the API
-process. One data root or OpenSearch index prefix supports one API process; the
-deployment contract enforces one replica rather than distributed locking.
+Delete and merge acquire exclusive locks for their project(s) in the API
+process. Project-scoped requests, including learning/issue creation, acquire
+shared locks for the same project. Unrelated project requests can proceed even
+while maintenance waits for a busy project. Global inventory/review reads are
+not a transactionally consistent snapshot across projects. One data root or
+OpenSearch index prefix supports one API process; the deployment contract
+enforces one replica rather than distributed locking.
+
+Requests addressed by context token or session id resolve their project, acquire
+its lock, and revalidate ownership before executing. If the resource was deleted
+in between, they return `404 CONTEXT_NOT_FOUND` or `404 SESSION_NOT_FOUND`. If a
+merge moved it, they return `409 PROJECT_SCOPE_CHANGED` without executing or
+automatically retrying the operation.
+
+For JSON requests, any body field repeating a URL selector (`project_id`,
+`session_id`, `context_token`, `entry_id`, `issue_id`, or `feature`) must match
+the URL after whitespace trimming. A mismatch returns
+`400 ROUTE_PARAMETER_MISMATCH` with `details.field`; matching redundant fields
+are accepted. Body fields cannot redirect an operation to an unlocked resource.
+
+OpenSearch collection deletion uses delete-by-query with `refresh=true` and
+`conflicts=abort`. A returned timeout, conflict, failure, missing completion
+fields, or unequal total/deleted count produces `502 STORAGE_DELETE_INCOMPLETE`.
+Transport/backend errors also fail the operation. Missing collection indices
+are errors, not empty collections. Ruleset and project metadata are deleted
+only after all collection deletions succeed. Earlier deletions are not rolled
+back on failure; an explicit retry continues cleanup from the retained project.
+The same checks apply to source cleanup during merge.
 
 Merge is monotonic and resumable: it validates conflicts, idempotently moves
 project-scoped records, publishes the target ruleset and metadata, and deletes

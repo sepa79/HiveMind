@@ -87,6 +87,18 @@ For a meaningful task:
 npm run hivemind:work -- start --goal "Short task summary"
 ```
 
+For feature work, pass one feature name to `start` or `run`:
+
+```bash
+npm run hivemind:work -- start --goal "Payment validation" --feature PAYMENTS
+```
+
+This scopes automatic recall and stores the feature for subsequent progress.
+`--resume` refreshes the scope from the API, including feature renames; an explicit
+feature must match that current scope. `run` refreshes again after the command
+before logging progress. An unavailable API or inactive session stops this flow.
+
+
 Check the active work unit:
 
 ```bash

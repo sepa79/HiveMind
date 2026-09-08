@@ -201,7 +201,7 @@ export function createHiveMindRuntime({ apiClient, apiClients } = {}) {
           idempotencyKey: input.idempotencyKey ?? `context-${randomUUID()}`
         });
         rememberContextRoute(routeCache, payload.context?.context_token, backend);
-        return jsonResult(payload);
+        return recallResult(payload);
       } catch (error) {
         return errorResult(error);
       }
@@ -244,7 +244,7 @@ export function createHiveMindRuntime({ apiClient, apiClients } = {}) {
       try {
         const backend = await resolveBackend(backends, input, routeCache);
         const payload = await backend.apiClient.getProjectBrief(input.context_token);
-        return jsonResult(payload);
+        return recallResult(payload);
       } catch (error) {
         return errorResult(error);
       }
@@ -254,7 +254,7 @@ export function createHiveMindRuntime({ apiClient, apiClients } = {}) {
       try {
         const backend = await resolveBackend(backends, input, routeCache);
         const payload = await backend.apiClient.getBranchBrief(stripRouting(input));
-        return jsonResult(payload);
+        return recallResult(payload);
       } catch (error) {
         return errorResult(error);
       }
@@ -264,7 +264,7 @@ export function createHiveMindRuntime({ apiClient, apiClients } = {}) {
       try {
         const backend = await resolveBackend(backends, input, routeCache);
         const payload = await backend.apiClient.getOpenThreads(stripRouting(input));
-        return jsonResult(payload);
+        return recallResult(payload);
       } catch (error) {
         return errorResult(error);
       }
@@ -459,6 +459,17 @@ export function createHiveMindRuntime({ apiClient, apiClients } = {}) {
         const payload = await backend.apiClient.startSession(stripRouting(input), {
           idempotencyKey: input.idempotencyKey ?? `session-${randomUUID()}`
         });
+        rememberSessionRoute(routeCache, payload.session?.session_id, backend);
+        return recallResult(payload);
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+
+    async sessionGet(input) {
+      try {
+        const backend = await resolveBackend(backends, input, routeCache);
+        const payload = await backend.apiClient.getSession(input.session_id);
         rememberSessionRoute(routeCache, payload.session?.session_id, backend);
         return jsonResult(payload);
       } catch (error) {
@@ -977,4 +988,9 @@ function errorResult(error) {
       meta: {}
     })
   };
+}
+
+// One compact representation: automatic recall already has a shared API data budget.
+function recallResult(payload) {
+  return { content: [{ type: "text", text: JSON.stringify(payload) }] };
 }

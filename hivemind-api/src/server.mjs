@@ -33,7 +33,7 @@ async function startServer() {
     console.log(`Warning: HiveMind admin token file ignored because HIVEMIND_ADMIN_TOKEN is set: ${adminAuth.ignoredTokenPath}`);
   }
 
-  const storage = createStorage({ storageBackend, dataRoot });
+  const storage = createStorage({ storageBackend, dataRoot, logger: console });
   if (typeof storage.initialize === "function") {
     await storage.initialize();
   }
@@ -61,7 +61,7 @@ async function startServer() {
   );
 }
 
-function createStorage({ storageBackend, dataRoot }) {
+function createStorage({ storageBackend, dataRoot, logger = null }) {
   if (storageBackend === "fs-jsonl") {
     return new FsJsonlStorage({ dataRoot });
   }
@@ -71,6 +71,7 @@ function createStorage({ storageBackend, dataRoot }) {
     return new OpenSearchStorage({
       node,
       indexPrefix: process.env.HIVEMIND_OPENSEARCH_INDEX_PREFIX || "hivemind",
+      logger,
       auth: {
         username: requiredEnv("HIVEMIND_OPENSEARCH_USERNAME"),
         password: requiredEnv("HIVEMIND_OPENSEARCH_PASSWORD")

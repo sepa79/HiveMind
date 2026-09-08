@@ -1,3 +1,4 @@
+import { buildAutomaticRecall } from "../domain/automatic-recall.mjs";
 import { createHash, randomUUID } from "node:crypto";
 import { Client } from "@opensearch-project/opensearch";
 import { ApiError, ensure } from "../app/errors.mjs";
@@ -15,21 +16,6 @@ const ISSUE_SEVERITY_WEIGHT = {
   high: 3,
   normal: 2,
   low: 1
-};
-
-const SESSION_START_LIMITS = {
-  recent_decisions: 3,
-  recent_risks: 3,
-  recent_tooling_notes: 3,
-  recent_learnings: 3,
-  active_issues: 3,
-  open_threads: 5
-};
-
-const STARTUP_SUMMARY_LIMITS = {
-  learnings: 3,
-  issues: 3,
-  open_threads: 3
 };
 
 const PROJECT_DOCUMENT_COLLECTIONS = [
@@ -95,6 +81,7 @@ const INDEX_DEFINITIONS = {
   },
   sessions: {
     properties: {
+      feature: { type: "keyword" },
       session_id: { type: "keyword" },
       project_id: { type: "keyword" },
       branch: { type: "keyword" },
@@ -115,6 +102,7 @@ const INDEX_DEFINITIONS = {
   },
   entries: {
     properties: {
+      applicability: { type: "object", enabled: false },
       entry_id: { type: "keyword" },
       project_id: { type: "keyword" },
       session_id: { type: "keyword" },
@@ -138,6 +126,7 @@ const INDEX_DEFINITIONS = {
   },
   learnings: {
     properties: {
+      applicability: { type: "object", enabled: false },
       learning_id: { type: "keyword" },
       context_token: { type: "keyword" },
       project_id: { type: "keyword" },
@@ -247,7 +236,7 @@ const INDEX_DEFINITIONS = {
 };
 
 export class OpenSearchStorage extends StorageAdapter {
-  constructor({ node, indexPrefix = DEFAULT_INDEX_PREFIX, client = null, refresh = "wait_for", auth = null, ssl = null } = {}) {
+  constructor({ node, indexPrefix = DEFAULT_INDEX_PREFIX, client = null, refresh = "wait_for", auth = null, ssl = null, logger = null } = {}) {
     super();
     if (!node && !client) {
       throw new Error("OpenSearchStorage requires an OpenSearch node URL.");
@@ -255,6 +244,7 @@ export class OpenSearchStorage extends StorageAdapter {
     this.client = client ?? new Client({ node, ...(auth ? { auth } : {}), ...(ssl ? { ssl } : {}) });
     this.indexPrefix = indexPrefix;
     this.refresh = refresh;
+    this.logger = logger;
   }
 
   async initialize() {
@@ -262,6 +252,11 @@ export class OpenSearchStorage extends StorageAdapter {
       const index = this.#index(alias);
       const exists = await this.#indexExists(index);
       if (exists) {
+        // Install new recall fields explicitly before writing source documents.
+        const recallField = alias === "sessions" ? "feature" : ["entries", "learnings"].includes(alias) ? "applicability" : null;
+        if (recallField) {
+          await this.client.indices.putMapping({ index, body: { properties: { [recallField]: mapping.properties[recallField] } } });
+        }
         continue;
       }
       await this.client.indices.create({
@@ -360,8 +355,23 @@ export class OpenSearchStorage extends StorageAdapter {
     ensure(project, 404, "PROJECT_NOT_FOUND", `No project exists with id '${projectId}'.`, { project_id: projectId });
     await this.#ensureProjectHasNoActiveMerge(project);
 
+    const startedAt = Date.now();
     const deletedCounts = await this.#projectAdminCounts(projectId);
-    await this.#deleteProjectDocuments(projectId);
+    this.#writeLog({
+      event: "project_delete_started",
+      project_id: projectId,
+      reason,
+      deleted_counts: deletedCounts
+    });
+    const deleteStages = await this.#deleteProjectDocuments(projectId);
+    this.#writeLog({
+      event: "project_delete_completed",
+      project_id: projectId,
+      reason,
+      duration_ms: Date.now() - startedAt,
+      deleted_counts: deletedCounts,
+      delete_stages: deleteStages
+    });
     return {
       deleted_project_id: projectId,
       deleted_project: project,
@@ -533,6 +543,9 @@ export class OpenSearchStorage extends StorageAdapter {
     await this.#rewriteProjectDocs("contexts", projectId, "context_id", (context) =>
       context.feature === feature ? { ...context, feature: newFeature, updated_at: now } : context
     );
+    await this.#rewriteProjectDocs("sessions", projectId, "session_id", (session) =>
+      session.feature === feature ? { ...session, feature: newFeature, updated_at: now } : session
+    );
     await this.#rewriteProjectDocs("entries", projectId, "entry_id", (entry) =>
       entry.feature === feature ? { ...entry, feature: newFeature, updated_at: now } : entry
     );
@@ -688,6 +701,7 @@ export class OpenSearchStorage extends StorageAdapter {
       context_token: learningInput.context_token,
       project_id: context.project_id,
       context: this.#toLearningContextSnapshot(context),
+      applicability: learningInput.applicability,
       summary: learningInput.summary,
       details: learningInput.details,
       scope: learningInput.scope,
@@ -987,40 +1001,21 @@ export class OpenSearchStorage extends StorageAdapter {
   }
 
   async getProjectBrief(contextToken) {
-    const context = await this.getContext(contextToken);
-    ensure(context, 404, "CONTEXT_NOT_FOUND", `No context exists with token '${contextToken}'.`, { context_token: contextToken });
-    return this.#buildContextBrief({ projectId: context.project_id, branch: context.branch });
+    return this.getBranchBrief(contextToken);
   }
 
   async getBranchBrief(contextToken, branch) {
     const context = await this.getContext(contextToken);
     ensure(context, 404, "CONTEXT_NOT_FOUND", `No context exists with token '${contextToken}'.`, { context_token: contextToken });
-    return this.#buildContextBrief({ projectId: context.project_id, branch: branch ?? context.branch, includeBranch: true });
+    return this.getSessionStartContext({ project_id: context.project_id, branch: branch ?? context.branch, feature: context.feature });
   }
 
   async getOpenThreadsReadModel(contextToken, branch, limit) {
     const context = await this.getContext(contextToken);
     ensure(context, 404, "CONTEXT_NOT_FOUND", `No context exists with token '${contextToken}'.`, { context_token: contextToken });
-    const projectId = context.project_id;
-    const resolvedBranch = branch ?? context.branch;
-    return {
-      branch: resolvedBranch,
-      open_threads: this.#selectOpenThreads({
-        branch: resolvedBranch,
-        entries: await this.#listProjectEntries(projectId),
-        ruleChecks: await this.#listProjectRuleChecks(projectId),
-        issues: await this.#listProjectIssues(projectId),
-        ruleset: await this.getRuleset(projectId),
-        projectId,
-        limit: limit ?? SESSION_START_LIMITS.open_threads
-      })
-    };
-  }
-
-  async getStartupSummary(projectId, branch, feature) {
-    const project = await this.getProject(projectId);
-    ensure(project, 404, "PROJECT_NOT_FOUND", `No project exists with id '${projectId}'.`, { project_id: projectId });
-    return this.#buildStartupSummary({ projectId, branch, feature });
+    return buildAutomaticRecall(await this.getRecallSource(context.project_id), {
+      project_id: context.project_id, branch: branch ?? context.branch, feature: context.feature, view: "threads", limit
+    });
   }
 
   async getRuleset(projectId) {
@@ -1065,6 +1060,7 @@ export class OpenSearchStorage extends StorageAdapter {
       session_id: record.resource_id,
       project_id: sessionInput.project_id,
       branch: sessionInput.branch,
+      feature: sessionInput.feature,
       workspace_path: sessionInput.workspace_path,
       author_id: sessionInput.author_id,
       author_type: sessionInput.author_type,
@@ -1210,32 +1206,24 @@ export class OpenSearchStorage extends StorageAdapter {
     };
   }
 
-  async getSessionStartContext({ project_id, branch }) {
-    const project = await this.getProject(project_id);
-    ensure(project, 404, "PROJECT_NOT_FOUND", `No project exists with id '${project_id}'.`, { project_id });
-    const ruleset = await this.getRuleset(project_id);
-    const entries = await this.#listProjectEntries(project_id);
-    const learnings = await this.#listProjectLearnings(project_id);
-    const ruleChecks = await this.#listProjectRuleChecks(project_id);
-    const issues = await this.#listProjectIssues(project_id);
+  async getRecallSource(projectId) {
+    const project = await this.getProject(projectId);
+    ensure(project, 404, "PROJECT_NOT_FOUND", `No project exists with id '${projectId}'.`, { project_id: projectId });
+    const ruleset = await this.getRuleset(projectId);
+    ensure(ruleset, 500, "RULESET_MISSING", "Project ruleset is missing; automatic recall cannot determine required guidance.", { project_id: projectId });
     return {
-      rules: ruleset?.rules ?? [],
-      features: project.features ?? [],
-      recent_decisions: this.#selectRecallEntries(entries, { branch, entryTypes: ["decision"], limit: SESSION_START_LIMITS.recent_decisions }),
-      recent_risks: this.#selectRecallEntries(entries, {
-        branch,
-        entryTypes: ["risk"],
-        limit: SESSION_START_LIMITS.recent_risks,
-        openFirst: true
-      }),
-      recent_tooling_notes: this.#selectRecallEntries(entries, {
-        branch,
-        entryTypes: ["tooling_note"],
-        limit: SESSION_START_LIMITS.recent_tooling_notes
-      }),
-      recent_learnings: await this.#selectRecentLearnings(project_id, learnings, { branch, limit: SESSION_START_LIMITS.recent_learnings }),
-      open_threads: this.#selectOpenThreads({ branch, entries, ruleChecks, issues, ruleset, projectId: project_id, limit: SESSION_START_LIMITS.open_threads })
+      rules: ruleset.rules,
+      entries: await this.#listProjectEntries(projectId),
+      learnings: await this.#listProjectLearnings(projectId),
+      learning_feedback: await this.#searchByProject("learning_feedback", projectId),
+      issues: await this.#listProjectIssues(projectId),
+      rule_checks: await this.#listProjectRuleChecks(projectId),
+      sessions: await this.#listProjectSessions(projectId)
     };
+  }
+
+  async getSessionStartContext(query) {
+    return buildAutomaticRecall(await this.getRecallSource(query.project_id), query);
   }
 
   async listActiveBranchLearnings(projectId, branch, limit = 3) {
@@ -1271,6 +1259,7 @@ export class OpenSearchStorage extends StorageAdapter {
       source: entryInput.source,
       entry_type: entryInput.entry_type,
       timestamp: record.timestamp,
+      applicability: entryInput.applicability,
       summary: entryInput.summary,
       details: entryInput.details,
       feature: entryInput.feature,
@@ -1497,12 +1486,36 @@ export class OpenSearchStorage extends StorageAdapter {
   async #delete(alias, id) {
     try {
       await this.client.delete({ index: this.#index(alias), id, refresh: this.refresh });
+      return 1;
     } catch (error) {
       if (error.meta?.statusCode === 404) {
-        return;
+        return 0;
       }
       throw error;
     }
+  }
+
+  async #deleteByProject(alias, projectId) {
+    const response = await this.client.deleteByQuery({
+      index: this.#index(alias),
+      // Bulk-by-scroll accepts only a boolean, unlike document writes.
+      refresh: true,
+      conflicts: "abort",
+      body: { query: { term: { project_id: projectId } } }
+    });
+    const result = response.body;
+    ensure(
+      result?.timed_out === false &&
+        result.version_conflicts === 0 &&
+        Array.isArray(result.failures) && result.failures.length === 0 &&
+        Number.isInteger(result.deleted) && result.deleted >= 0 &&
+        result.total === result.deleted,
+      502,
+      "STORAGE_DELETE_INCOMPLETE",
+      "Project collection deletion did not complete; project metadata has been retained.",
+      { project_id: projectId, collection: alias }
+    );
+    return result.deleted;
   }
 
   async #searchAll(alias, query = { match_all: {} }, batchSize = 1000) {
@@ -1723,16 +1736,48 @@ export class OpenSearchStorage extends StorageAdapter {
   }
 
   async #deleteProjectDocuments(projectId) {
-    for (const { alias, idField } of PROJECT_DOCUMENT_COLLECTIONS) {
-      for (const doc of await this.#searchByProject(alias, projectId)) {
-        await this.#delete(alias, doc[idField]);
-      }
+    const stages = [];
+    for (const { alias } of PROJECT_DOCUMENT_COLLECTIONS) {
+      stages.push(await this.#deleteProjectCollection(alias, projectId));
     }
-    for (const doc of await this.#searchByProject("idempotency", projectId)) {
-      await this.#delete("idempotency", idempotencyDocumentId(projectId, doc.operation, doc.key));
-    }
-    await this.#delete("rulesets", projectId);
-    await this.#delete("projects", projectId);
+    stages.push(await this.#deleteProjectCollection("idempotency", projectId));
+    stages.push(await this.#deleteProjectDocument("rulesets", projectId));
+    stages.push(await this.#deleteProjectDocument("projects", projectId));
+    return stages;
+  }
+
+  async #deleteProjectCollection(alias, projectId) {
+    const startedAt = Date.now();
+    const deletedCount = await this.#deleteByProject(alias, projectId);
+    const stage = {
+      collection: alias,
+      mode: "delete_by_query",
+      deleted_count: deletedCount,
+      duration_ms: Date.now() - startedAt
+    };
+    this.#writeLog({
+      event: "project_delete_stage",
+      project_id: projectId,
+      ...stage
+    });
+    return stage;
+  }
+
+  async #deleteProjectDocument(alias, id) {
+    const startedAt = Date.now();
+    const deletedCount = await this.#delete(alias, id);
+    const stage = {
+      collection: alias,
+      mode: "delete_document",
+      deleted_count: deletedCount,
+      duration_ms: Date.now() - startedAt
+    };
+    this.#writeLog({
+      event: "project_delete_stage",
+      project_id: id,
+      ...stage
+    });
+    return stage;
   }
 
   async #rewriteProjectDocs(alias, projectId, idField, mapDoc) {
@@ -1888,11 +1933,12 @@ export class OpenSearchStorage extends StorageAdapter {
   }
 
   async #featureUsageSummary(projectId, feature) {
+    const sessions = (await this.#listProjectSessions(projectId)).filter((session) => session.feature === feature).length;
     const contexts = (await this.#listProjectContexts(projectId)).filter((context) => context.feature === feature).length;
     const entries = (await this.#listProjectEntries(projectId)).filter((entry) => entry.feature === feature).length;
     const learnings = (await this.#listProjectLearnings(projectId)).filter((learning) => learning.context?.feature === feature).length;
     const issues = (await this.#listProjectIssues(projectId)).filter((issue) => issue.context?.feature === feature).length;
-    return { contexts, entries, learnings, issues, total: contexts + entries + learnings + issues };
+    return { sessions, contexts, entries, learnings, issues, total: sessions + contexts + entries + learnings + issues };
   }
 
   #matchesQuery(entry, query) {
@@ -2030,96 +2076,6 @@ export class OpenSearchStorage extends StorageAdapter {
     };
   }
 
-  #selectRecallEntries(entries, { branch, entryTypes, lifecycleState, limit, openFirst = false }) {
-    return entries
-      .filter((entry) => entryTypes.includes(entry.entry_type))
-      .filter((entry) => (lifecycleState ? entry.lifecycle_state === lifecycleState : true))
-      .sort((left, right) => {
-        const byBranch = compareBranchMatch(left, right, branch);
-        if (byBranch !== 0) return byBranch;
-        if (openFirst) {
-          const byOpenState = compareBoolean(right.lifecycle_state === "open", left.lifecycle_state === "open");
-          if (byOpenState !== 0) return byOpenState;
-        }
-        const byImportance = IMPORTANCE_WEIGHT[right.importance] - IMPORTANCE_WEIGHT[left.importance];
-        if (byImportance !== 0) return byImportance;
-        return right.timestamp.localeCompare(left.timestamp);
-      })
-      .slice(0, limit)
-      .map((entry) => toRecallEntrySummary(entry));
-  }
-
-  #selectOpenThreads({ branch, entries, ruleChecks, issues, ruleset, projectId, limit }) {
-    const entryThreads = this.#selectRecallEntries(entries, {
-      branch,
-      entryTypes: ["risk", "feedback"],
-      lifecycleState: "open",
-      limit
-    }).map((entry) => ({
-      kind: "entry",
-      summary: entry.summary,
-      session_id: entry.session_id,
-      branch: entry.branch,
-      importance: entry.importance,
-      timestamp: entry.timestamp,
-      entry_id: entry.entry_id,
-      entry_type: entry.entry_type,
-      lifecycle_state: entry.lifecycle_state
-    }));
-    const blockedRuleThreads = this.#blockedRuleCheckThreads({ projectId, branch, ruleChecks, ruleset });
-    const issueThreads = this.#activeIssueThreads({ branch, issues });
-    return [...entryThreads, ...blockedRuleThreads, ...issueThreads]
-      .sort((left, right) => {
-        const byBranch = compareBranchMatch(left, right, branch);
-        if (byBranch !== 0) return byBranch;
-        const byImportance = IMPORTANCE_WEIGHT[right.importance] - IMPORTANCE_WEIGHT[left.importance];
-        if (byImportance !== 0) return byImportance;
-        return right.timestamp.localeCompare(left.timestamp);
-      })
-      .slice(0, limit);
-  }
-
-  #activeIssueThreads({ branch, issues }) {
-    return this.#sortIssues(
-      issues.filter((issue) => isActiveIssueStatus(issue.status)),
-      "severity",
-      { branch }
-    ).map((issue) => ({
-      kind: "issue",
-      summary: `${issue.title}: ${issue.summary}`,
-      session_id: undefined,
-      branch: issue.context.branch,
-      importance: issueSeverityToImportance(issue.severity),
-      timestamp: issue.updated_at,
-      issue_id: issue.issue_id,
-      issue_status: issue.status,
-      severity: issue.severity
-    }));
-  }
-
-  #blockedRuleCheckThreads({ projectId, branch, ruleChecks, ruleset }) {
-    const rulesById = new Map((ruleset?.rules ?? []).map((rule) => [rule.rule_id, rule]));
-    return ruleChecks
-      .filter((ruleCheck) => ruleCheck.status === "blocked")
-      .map((ruleCheck) => {
-        const branchValue = ruleCheck.branch ?? branch;
-        const rule = rulesById.get(ruleCheck.rule_id);
-        const baseSummary = rule ? `Blocked rule: ${rule.label}` : `Blocked rule: ${ruleCheck.rule_id}`;
-        return {
-          kind: "rule_check",
-          summary: ruleCheck.note ? `${baseSummary}. ${ruleCheck.note}` : baseSummary,
-          session_id: ruleCheck.session_id,
-          branch: branchValue,
-          importance: rule?.severity === "required" ? "high" : "normal",
-          timestamp: ruleCheck.timestamp,
-          rule_check_id: ruleCheck.rule_check_id,
-          rule_id: ruleCheck.rule_id,
-          status: ruleCheck.status
-        };
-      })
-      .sort((left, right) => compareBranchMatch(left, right, branch) || right.timestamp.localeCompare(left.timestamp));
-  }
-
   #withSessionActivity(session, entries, ruleChecks) {
     const observedAt = [session.updated_at, session.started_at];
     let entryCount = 0;
@@ -2143,90 +2099,8 @@ export class OpenSearchStorage extends StorageAdapter {
     };
   }
 
-  async #buildContextBrief({ projectId, branch, includeBranch = false }) {
-    const project = await this.getProject(projectId);
-    ensure(project, 404, "PROJECT_NOT_FOUND", `No project exists with id '${projectId}'.`, { project_id: projectId });
-    const ruleset = await this.getRuleset(projectId);
-    const entries = await this.#listProjectEntries(projectId);
-    const learnings = await this.#listProjectLearnings(projectId);
-    const ruleChecks = await this.#listProjectRuleChecks(projectId);
-    const issues = await this.#listProjectIssues(projectId);
-    return {
-      project,
-      ...(includeBranch ? { branch } : {}),
-      rules: ruleset?.rules ?? [],
-      latest_plan_ref: await this.#selectLatestPlanRef(projectId, branch),
-      recent_decisions: this.#selectRecallEntries(entries, { branch, entryTypes: ["decision"], limit: SESSION_START_LIMITS.recent_decisions }),
-      recent_risks: this.#selectRecallEntries(entries, {
-        branch,
-        entryTypes: ["risk"],
-        limit: SESSION_START_LIMITS.recent_risks,
-        openFirst: true
-      }),
-      recent_learnings: await this.#selectRecentLearnings(projectId, learnings, { branch, limit: SESSION_START_LIMITS.recent_learnings }),
-      active_issues: this.#sortIssues(
-        issues.filter((issue) => isActiveIssueStatus(issue.status)),
-        "severity",
-        { branch }
-      ).slice(0, SESSION_START_LIMITS.active_issues),
-      open_threads: this.#selectOpenThreads({ branch, entries, ruleChecks, issues, ruleset, projectId, limit: SESSION_START_LIMITS.open_threads })
-    };
-  }
-
-  async #selectLatestPlanRef(projectId, branch) {
-    const sessions = (await this.#listProjectSessions(projectId)).filter((session) => Boolean(session.plan_ref));
-    if (sessions.length === 0) return null;
-    return [...sessions]
-      .sort((left, right) => compareBranchMatch(left, right, branch) || right.updated_at.localeCompare(left.updated_at))
-      .at(0)?.plan_ref ?? null;
-  }
-
-  async #buildStartupSummary({ projectId, branch, feature }) {
-    const ruleset = await this.getRuleset(projectId);
-    const learnings = await this.#listProjectLearnings(projectId);
-    const issues = await this.#listProjectIssues(projectId);
-    const entries = await this.#listProjectEntries(projectId);
-    const ruleChecks = await this.#listProjectRuleChecks(projectId);
-    const activeLearnings = this.#sortLearnings(
-      learnings.filter((learning) => learning.status === "active" && learning.context.branch === branch),
-      "importance",
-      { branch }
-    );
-    const activeIssues = this.#sortIssues(
-      issues.filter((issue) => isActiveIssueStatus(issue.status) && issue.context.branch === branch),
-      "severity",
-      { branch }
-    );
-    const openThreads = this.#selectOpenThreads({ branch, entries, ruleChecks, issues, ruleset, projectId, limit: Number.MAX_SAFE_INTEGER });
-    const counts = {
-      rules: ruleset?.rules?.length ?? 0,
-      active_learnings: activeLearnings.length,
-      active_issues: activeIssues.length,
-      open_threads: openThreads.length
-    };
-    return {
-      project_id: projectId,
-      branch,
-      feature,
-      counts,
-      highlights: {
-        learnings: activeLearnings.slice(0, STARTUP_SUMMARY_LIMITS.learnings).map((learning) => ({
-          learning_id: learning.learning_id,
-          summary: learning.summary,
-          importance: learning.importance,
-          status: learning.status
-        })),
-        issues: activeIssues.slice(0, STARTUP_SUMMARY_LIMITS.issues).map((issue) => ({
-          issue_id: issue.issue_id,
-          title: issue.title,
-          status: issue.status,
-          severity: issue.severity
-        })),
-        open_threads: openThreads.slice(0, STARTUP_SUMMARY_LIMITS.open_threads)
-      },
-      hint: "Use context.get_project_brief, context.get_open_threads, learning.get_recent, or issue.list for details.",
-      summary: `HiveMind sees ${counts.active_learnings} active learning${counts.active_learnings === 1 ? "" : "s"}, ${counts.active_issues} active issue${counts.active_issues === 1 ? "" : "s"}, and ${counts.open_threads} open thread${counts.open_threads === 1 ? "" : "s"} on branch '${branch}'.`
-    };
+  #writeLog(entry) {
+    writeStructuredLog(this.logger, entry);
   }
 }
 
@@ -2253,6 +2127,21 @@ function stableStringify(value) {
       .join(",")}}`;
   }
   return JSON.stringify(value);
+}
+
+function writeStructuredLog(logger, entry) {
+  if (!logger) {
+    return;
+  }
+  const line = JSON.stringify({
+    ...entry,
+    timestamp: new Date().toISOString()
+  });
+  if (typeof logger === "function") {
+    logger(line);
+    return;
+  }
+  logger.log(line);
 }
 
 function isoNow() {

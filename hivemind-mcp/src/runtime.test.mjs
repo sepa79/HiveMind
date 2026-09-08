@@ -315,7 +315,7 @@ describe("HiveMind MCP runtime", () => {
     const listedSkippybot = await runtime.projectList({ backend_id: "skippybot" });
 
     expect(session.isError).toBeUndefined();
-    expect(session.structuredContent.session.project_id).toBe("skippybot");
+    expect(recallData(session).session.project_id).toBe("skippybot");
     expect(listedDefault.structuredContent.projects).toHaveLength(0);
     expect(listedSkippybot.structuredContent.projects).toHaveLength(1);
   });
@@ -353,10 +353,13 @@ describe("HiveMind MCP runtime", () => {
     });
 
     const context = await runtime.contextGet({
-      context_token: opened.structuredContent.context.context_token
+      context_token: recallData(opened).context.context_token
     });
+    const currentSession = await runtime.sessionGet({ session_id: recallData(started).session.session_id });
+    expect(currentSession.isError).toBeUndefined();
+    expect(currentSession.structuredContent).toEqual({ session: recallData(started).session });
     const ended = await runtime.sessionEnd({
-      session_id: started.structuredContent.session.session_id
+      session_id: recallData(started).session.session_id
     });
 
     expect(context.isError).toBeUndefined();
@@ -538,7 +541,7 @@ describe("HiveMind MCP runtime", () => {
       source: "mcp",
       agent_id: "codex-main"
     });
-    const contextToken = opened.structuredContent.context.context_token;
+    const contextToken = recallData(opened).context.context_token;
 
     const fetched = await runtime.contextGet({
       context_token: contextToken
@@ -553,8 +556,8 @@ describe("HiveMind MCP runtime", () => {
     });
 
     expect(opened.isError).toBeUndefined();
-    expect(opened.structuredContent.startup_summary.project_id).toBe("buzz");
-    expect(opened.structuredContent.startup_summary.branch).toBe("feat/context");
+    expect(recallData(opened).recall.scope.project_id).toBe("buzz");
+    expect(recallData(opened).recall.scope.branch).toBe("feat/context");
     expect(fetched.structuredContent.context.context_token).toBe(contextToken);
     expect(updated.structuredContent.context.feature).toBe("SMARTER_NFT_TESTS");
     expect(updated.structuredContent.context.tool_version).toBe("7.44");
@@ -600,8 +603,8 @@ describe("HiveMind MCP runtime", () => {
       agent_id: "codex-main"
     });
 
-    const currentToken = currentContext.structuredContent.context.context_token;
-    const legacyToken = legacyContext.structuredContent.context.context_token;
+    const currentToken = recallData(currentContext).context.context_token;
+    const legacyToken = recallData(legacyContext).context.context_token;
 
     const captured = await runtime.learningCapture({
       context_token: currentToken,
@@ -677,7 +680,7 @@ describe("HiveMind MCP runtime", () => {
       source: "mcp",
       agent_id: "codex-main"
     });
-    const contextToken = context.structuredContent.context.context_token;
+    const contextToken = recallData(context).context.context_token;
 
     const reported = await runtime.issueReport({
       context_token: contextToken,
@@ -782,11 +785,11 @@ describe("HiveMind MCP runtime", () => {
       source: "mcp",
       agent_id: "codex-main"
     });
-    const contextToken = context.structuredContent.context.context_token;
+    const contextToken = recallData(context).context.context_token;
 
     await runtime.entryAppend({
       project_id: "buzz",
-      session_id: session.structuredContent.session.session_id,
+      session_id: recallData(session).session.session_id,
       branch: "feat/brief",
       author_id: "codex-main",
       author_type: "agent",
@@ -797,7 +800,7 @@ describe("HiveMind MCP runtime", () => {
     });
     await runtime.entryAppend({
       project_id: "buzz",
-      session_id: session.structuredContent.session.session_id,
+      session_id: recallData(session).session.session_id,
       branch: "feat/brief",
       author_id: "codex-main",
       author_type: "agent",
@@ -821,7 +824,7 @@ describe("HiveMind MCP runtime", () => {
     });
     await runtime.ruleCheckSubmit({
       project_id: "buzz",
-      session_id: session.structuredContent.session.session_id,
+      session_id: recallData(session).session.session_id,
       rule_id: "always_test",
       author_id: "codex-main",
       author_type: "agent",
@@ -841,12 +844,10 @@ describe("HiveMind MCP runtime", () => {
     });
 
     expect(projectBrief.isError).toBeUndefined();
-    expect(projectBrief.structuredContent.latest_plan_ref.target).toBe("docs/plans/context-learning-issue-slice.md");
-    expect(projectBrief.structuredContent.active_issues).toHaveLength(1);
-    expect(branchBrief.structuredContent.branch).toBe("feat/brief");
-    expect(openThreads.structuredContent.open_threads.some((thread) => thread.kind === "entry")).toBe(true);
-    expect(openThreads.structuredContent.open_threads.some((thread) => thread.kind === "rule_check")).toBe(true);
-    expect(openThreads.structuredContent.open_threads.some((thread) => thread.kind === "issue")).toBe(true);
+    expect(recallData(projectBrief).open_threads.filter((item) => item.kind === "issue")).toHaveLength(1);
+    expect(recallData(branchBrief).scope.branch).toBe("feat/brief");
+    expect(recallData(openThreads).open_threads.map((thread) => thread.kind)).toEqual(["issue"]);
+    expect(recallData(openThreads).view).toBe("threads");
   });
 
   it("session.start returns bounded warm-start context", async () => {
@@ -901,7 +902,7 @@ describe("HiveMind MCP runtime", () => {
       agent_id: "codex-main"
     });
     await runtime.learningCapture({
-      context_token: recallContext.structuredContent.context.context_token,
+      context_token: recallData(recallContext).context.context_token,
       summary: "Regenerate fixtures before authoring NFT tests",
       scope: "data",
       recommended_action: "Run fixture regeneration before test authoring.",
@@ -909,7 +910,7 @@ describe("HiveMind MCP runtime", () => {
     });
     await runtime.entryAppend({
       project_id: "buzz",
-      session_id: seed.structuredContent.session.session_id,
+      session_id: recallData(seed).session.session_id,
       branch: "feat/start",
       author_id: "codex-main",
       author_type: "agent",
@@ -920,7 +921,7 @@ describe("HiveMind MCP runtime", () => {
     });
     await runtime.entryAppend({
       project_id: "buzz",
-      session_id: seed.structuredContent.session.session_id,
+      session_id: recallData(seed).session.session_id,
       branch: "feat/start",
       author_id: "codex-main",
       author_type: "agent",
@@ -931,7 +932,7 @@ describe("HiveMind MCP runtime", () => {
     });
     await runtime.ruleCheckSubmit({
       project_id: "buzz",
-      session_id: seed.structuredContent.session.session_id,
+      session_id: recallData(seed).session.session_id,
       rule_id: "always_test",
       author_id: "codex-main",
       author_type: "agent",
@@ -952,20 +953,42 @@ describe("HiveMind MCP runtime", () => {
     });
 
     expect(result.isError).toBeUndefined();
-    expect(result.structuredContent.session.session_id).not.toBe(seed.structuredContent.session.session_id);
-    expect(result.structuredContent.startup_summary.project_id).toBe("buzz");
-    expect(result.structuredContent.startup_summary.branch).toBe("feat/start");
-    expect(result.structuredContent.startup_summary.counts.active_learnings).toBe(1);
-    expect(result.structuredContent.startup_summary.counts.open_threads).toBe(2);
-    expect(result.structuredContent.context.recent_decisions).toHaveLength(1);
-    expect(result.structuredContent.context.features).toEqual(["SMARTER_NFT_TESTS"]);
-    expect(result.structuredContent.context.recent_decisions[0].summary).toBe("Persist important architecture choices");
-    expect(result.structuredContent.context.recent_learnings).toHaveLength(1);
-    expect(result.structuredContent.context.recent_learnings[0].summary).toBe("Regenerate fixtures before authoring NFT tests");
-    expect(result.structuredContent.context.open_threads).toHaveLength(2);
-    expect(result.structuredContent.context.open_threads.some((thread) => thread.kind === "entry")).toBe(true);
-    expect(result.structuredContent.context.open_threads.some((thread) => thread.kind === "rule_check")).toBe(true);
-    expect(result.structuredContent.session.session_id).toMatch(/^sess-/);
+    expect(recallData(result).session.session_id).not.toBe(recallData(seed).session.session_id);
+    expect(recallData(result).recall.scope.project_id).toBe("buzz");
+    expect(recallData(result).recall.scope.branch).toBe("feat/start");
+    expect(recallData(result).recall.guidance).toEqual([]);
+    expect(recallData(result).recall.open_threads).toHaveLength(1);
+    expect(recallData(result).recall.open_threads[0].kind).toBe("entry");
+    expect(recallData(result).recall.review_required).toBeGreaterThanOrEqual(2);
+    expect(recallData(result).session.session_id).toMatch(/^sess-/);
+  });
+
+  it("forwards applicability and feature through REST and emits one bounded recall copy", async () => {
+    const runtime = createRuntime();
+    await runtime.projectRegister({ project_id: "buzz", name: "Buzz", repository_url: "https://github.com/example/buzz.git", repository_slug: "example/buzz", root_path: "/repo/buzz", default_branch: "main" });
+    const input = { project_id: "buzz", branch: "main", feature: "API", workspace_path: "/repo/buzz", author_id: "codex", author_type: "agent", source: "mcp", agent_id: "codex", goal: "Recall contract" };
+    const started = recallData(await runtime.sessionStart({ ...input, idempotencyKey: "recall-session" }));
+    expect(started.session.feature).toBe("API");
+    const applicability = { state: "current", scope: "feature", reason: "Verified API contract", evidence_refs: [{ kind: "repo_file", target: "README.md" }] };
+    const entry = await runtime.entryAppend({ ...input, session_id: started.session.session_id, entry_type: "decision", summary: "API owns contracts", lifecycle_state: "resolved", applicability });
+    expect(entry.structuredContent.entry.applicability).toEqual(applicability);
+    const recalled = recallData(await runtime.sessionStart({ ...input, idempotencyKey: "recall-session" }));
+    expect(recalled.session.session_id).toBe(started.session.session_id);
+    expect(recalled.recall.guidance.map((item) => item.id)).toEqual([entry.structuredContent.entry.entry_id]);
+    for (let n = 0; n < 12; n += 1) {
+      await runtime.entryAppend({ ...input, session_id: started.session.session_id, entry_type: "decision", summary: `Long ${n}: ${"🧠".repeat(400)}`, applicability });
+    }
+    const bounded = recallData(await runtime.sessionStart({ ...input, idempotencyKey: "recall-session" }));
+    expect(bounded.recall.truncated).toBe(true);
+    expect(bounded.recall.counts.guidance).toBe(13);
+    expect(bounded.recall.guidance.length).toBeLessThanOrEqual(8);
+  });
+
+  it("session.get exposes a missing-session API error", async () => {
+    const runtime = createRuntime();
+    const result = await runtime.sessionGet({ session_id: "missing-session" });
+    expect(result.isError).toBe(true);
+    expect(result.structuredContent.error.code).toBe("SESSION_NOT_FOUND");
   });
 
   it("session.end closes the session and returns closeout reminders", async () => {
@@ -1023,7 +1046,7 @@ describe("HiveMind MCP runtime", () => {
       agent_id: "codex-main"
     });
     await runtime.learningCapture({
-      context_token: context.structuredContent.context.context_token,
+      context_token: recallData(context).context.context_token,
       summary: "Regenerate fixtures before authoring NFT tests",
       scope: "data",
       recommended_action: "Run fixture regeneration before test authoring.",
@@ -1031,7 +1054,7 @@ describe("HiveMind MCP runtime", () => {
     });
     await runtime.ruleCheckSubmit({
       project_id: "buzz",
-      session_id: session.structuredContent.session.session_id,
+      session_id: recallData(session).session.session_id,
       rule_id: "always_test",
       author_id: "codex-main",
       author_type: "agent",
@@ -1041,7 +1064,7 @@ describe("HiveMind MCP runtime", () => {
     });
 
     const ended = await runtime.sessionEnd({
-      session_id: session.structuredContent.session.session_id,
+      session_id: recallData(session).session.session_id,
       status: "completed"
     });
 
@@ -1096,7 +1119,7 @@ describe("HiveMind MCP runtime", () => {
 
     await runtime.entryAppend({
       project_id: "buzz",
-      session_id: session.structuredContent.session.session_id,
+      session_id: recallData(session).session.session_id,
       branch: "feat/search",
       author_id: "codex-main",
       author_type: "agent",
@@ -1139,7 +1162,7 @@ describe("HiveMind MCP runtime", () => {
     });
     const original = await runtime.entryAppend({
       project_id: "buzz",
-      session_id: session.structuredContent.session.session_id,
+      session_id: recallData(session).session.session_id,
       branch: "feat/review",
       author_id: "codex-main",
       author_type: "agent",
@@ -1152,7 +1175,7 @@ describe("HiveMind MCP runtime", () => {
     const correction = await runtime.entryCorrect({
       project_id: "buzz",
       entry_id: original.structuredContent.entry.entry_id,
-      session_id: session.structuredContent.session.session_id,
+      session_id: recallData(session).session.session_id,
       branch: "feat/review",
       author_id: "codex-main",
       author_type: "agent",
@@ -1213,7 +1236,7 @@ describe("HiveMind MCP runtime", () => {
 
     const submit = await runtime.ruleCheckSubmit({
       project_id: "buzz",
-      session_id: session.structuredContent.session.session_id,
+      session_id: recallData(session).session.session_id,
       rule_id: "always_test",
       author_id: "codex-main",
       author_type: "agent",
@@ -1223,7 +1246,7 @@ describe("HiveMind MCP runtime", () => {
     });
     const list = await runtime.ruleCheckListForSession({
       project_id: "buzz",
-      session_id: session.structuredContent.session.session_id
+      session_id: recallData(session).session.session_id
     });
 
     expect(submit.isError).toBeUndefined();
@@ -1272,4 +1295,12 @@ function createRuntimeWithBackends(backendIds) {
     };
   });
   return createHiveMindRuntime({ apiClients });
+}
+
+function recallData(result) {
+  expect(result.isError).toBeUndefined();
+  expect(result.structuredContent).toBeUndefined();
+  expect(result.content).toHaveLength(1);
+  expect(Buffer.byteLength(result.content[0].text, "utf8")).toBeLessThanOrEqual(8192);
+  return JSON.parse(result.content[0].text);
 }

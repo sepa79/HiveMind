@@ -40,6 +40,18 @@ describe("HiveMind API", () => {
     expect(payload.meta.request_id).toBeTruthy();
   });
 
+  it.each([123, true, {}, [], null])("rejects a non-string repository_slug (%j) before writing a project", async (repository_slug) => {
+    const app = createTestApp();
+    const response = await createProject(app, { repository_slug });
+    expect(response.status).toBe(400);
+    const payload = await response.json();
+    expect(payload.error.code).toBe("VALIDATION_ERROR");
+    expect(payload.error.details.issues.some((issue) => issue.path === "repository_slug")).toBe(true);
+    const projects = await (await app.request("/v1/projects")).json();
+    expect(projects.data.projects).toEqual([]);
+    expect((await createProject(app)).status).toBe(201);
+  });
+
   it("canonicalizes project ids from the Git repository name", async () => {
     const app = createTestApp();
 
@@ -213,7 +225,7 @@ describe("HiveMind API", () => {
         deleteFinished = true;
         return response;
       });
-    await Promise.resolve();
+    await new Promise((resolve) => setImmediate(resolve));
     expect(deleteFinished).toBe(false);
 
     releaseSessionLookup();
@@ -223,6 +235,182 @@ describe("HiveMind API", () => {
     expect(deleteResponse.status).toBe(200);
     expect(await storage.getProject("buzz")).toBeNull();
     expect(existsSync(join(dataRoot, "projects", "buzz"))).toBe(false);
+  });
+
+  it("rejects an opaque-id session route if deletion wins during project lookup", async () => {
+    const dataRoot = mkdtempSync(join(tmpdir(), "hivemind-api-gate-session-"));
+    roots.push(dataRoot);
+    const storage = new FsJsonlStorage({ dataRoot });
+    const service = new HiveMindService({ storage, version: "test-version" });
+    const app = createApp({ service, adminToken: "test-admin-token" });
+    await createProject(app);
+
+    const sessionResponse = await app.request("/v1/sessions", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "Idempotency-Key": "gate-session-end"
+      },
+      body: JSON.stringify({
+        project_id: "buzz",
+        branch: "main",
+        workspace_path: "/repo/buzz",
+        author_id: "agent-gate",
+        author_type: "agent",
+        source: "mcp",
+        agent_id: "codex",
+        goal: "Exercise opaque session gate"
+      })
+    });
+    const sessionPayload = await sessionResponse.json();
+    const sessionId = sessionPayload.data.session.session_id;
+
+    const originalGetSession = storage.getSession.bind(storage);
+    let blockFirstLookup = true;
+    let signalSessionLookup;
+    let releaseSessionLookup;
+    const sessionLookupStarted = new Promise((resolve) => {
+      signalSessionLookup = resolve;
+    });
+    const sessionLookupGate = new Promise((resolve) => {
+      releaseSessionLookup = resolve;
+    });
+    storage.getSession = async (...args) => {
+      const session = await originalGetSession(...args);
+      if (blockFirstLookup && session?.session_id === sessionId) {
+        blockFirstLookup = false;
+        signalSessionLookup();
+        await sessionLookupGate;
+      }
+      return session;
+    };
+
+    const endSessionRequest = app.request(`/v1/sessions/${sessionId}/end`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json"
+      },
+      body: JSON.stringify({
+        status: "completed"
+      })
+    });
+    await sessionLookupStarted;
+
+    let deleteFinished = false;
+    const deleteRequest = app
+      .request("/v1/admin/projects/buzz", { method: "DELETE", headers: adminHeaders() })
+      .then((response) => {
+        deleteFinished = true;
+        return response;
+      });
+    await deleteRequest;
+    expect(deleteFinished).toBe(true);
+
+    releaseSessionLookup();
+    const [endSessionResponse, deleteResponse] = await Promise.all([endSessionRequest, deleteRequest]);
+    expect(endSessionResponse.status).toBe(404);
+    expect((await endSessionResponse.json()).error.code).toBe("SESSION_NOT_FOUND");
+    expect(deleteResponse.status).toBe(200);
+  });
+
+  it("allows unrelated project traffic while deleting a different project", async () => {
+    const dataRoot = mkdtempSync(join(tmpdir(), "hivemind-api-gate-project-"));
+    roots.push(dataRoot);
+    const storage = new FsJsonlStorage({ dataRoot });
+    const service = new HiveMindService({ storage, version: "test-version" });
+    const app = createApp({ service, adminToken: "test-admin-token" });
+    await createProject(app);
+    await createProject(app, {
+      project_id: "legacy",
+      name: "Legacy",
+      repository_url: "https://github.com/example/legacy.git",
+      repository_slug: "example/legacy",
+      root_path: "/repo/legacy",
+      default_branch: "main",
+      description: "Legacy project"
+    });
+
+    const sessionResponse = await app.request("/v1/sessions", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "Idempotency-Key": "gate-buzz-session"
+      },
+      body: JSON.stringify({
+        project_id: "buzz",
+        branch: "main",
+        workspace_path: "/repo/buzz",
+        author_id: "agent-gate",
+        author_type: "agent",
+        source: "mcp",
+        agent_id: "codex",
+        goal: "Exercise project gate"
+      })
+    });
+    const sessionPayload = await sessionResponse.json();
+
+    const originalGetSession = storage.getSession.bind(storage);
+    let signalSessionLookup;
+    let releaseSessionLookup;
+    const sessionLookupStarted = new Promise((resolve) => {
+      signalSessionLookup = resolve;
+    });
+    const sessionLookupGate = new Promise((resolve) => {
+      releaseSessionLookup = resolve;
+    });
+    storage.getSession = async (...args) => {
+      const session = await originalGetSession(...args);
+      if (session?.project_id === "buzz") {
+        signalSessionLookup();
+        await sessionLookupGate;
+      }
+      return session;
+    };
+
+    const buzzEntryRequest = app.request("/v1/entries", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "Idempotency-Key": "gate-buzz-entry"
+      },
+      body: JSON.stringify({
+        project_id: "buzz",
+        session_id: sessionPayload.data.session.session_id,
+        branch: "main",
+        author_id: "agent-gate",
+        author_type: "agent",
+        source: "mcp",
+        entry_type: "progress",
+        summary: "Hold buzz gate"
+      })
+    });
+    await sessionLookupStarted;
+
+    const deleteRequest = app.request("/v1/admin/projects/buzz", { method: "DELETE", headers: adminHeaders() });
+    const legacySessionResponse = await app.request("/v1/sessions", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "Idempotency-Key": "gate-legacy-session"
+      },
+      body: JSON.stringify({
+        project_id: "legacy",
+        branch: "main",
+        workspace_path: "/repo/legacy",
+        author_id: "agent-legacy",
+        author_type: "agent",
+        source: "mcp",
+        agent_id: "codex",
+        goal: "Unrelated project should proceed"
+      })
+    });
+
+    expect(legacySessionResponse.status).toBe(201);
+
+    releaseSessionLookup();
+    const [buzzEntryResponse, deleteResponse] = await Promise.all([buzzEntryRequest, deleteRequest]);
+    expect(buzzEntryResponse.status).toBe(201);
+    expect(deleteResponse.status).toBe(200);
   });
 
   it("merges one project into another through the admin API", async () => {
@@ -1062,9 +1250,9 @@ describe("HiveMind API", () => {
     expect(openResponse.status).toBe(201);
     const openPayload = await openResponse.json();
     const contextToken = openPayload.data.context.context_token;
-    expect(openPayload.data.startup_summary.project_id).toBe("buzz");
-    expect(openPayload.data.startup_summary.branch).toBe("feat/context");
-    expect(openPayload.data.startup_summary.hint).toContain("learning.get_recent");
+    expect(openPayload.data.recall.scope.project_id).toBe("buzz");
+    expect(openPayload.data.recall.scope.branch).toBe("feat/context");
+    expect(openPayload.data.recall.retrieval.history).toContain("learning_search");
 
     const getResponse = await app.request(`/v1/contexts/${contextToken}`);
     expect(getResponse.status).toBe(200);
@@ -1438,12 +1626,10 @@ describe("HiveMind API", () => {
     const branchBriefPayload = await branchBriefResponse.json();
     const openThreadsPayload = await openThreadsResponse.json();
 
-    expect(projectBriefPayload.data.latest_plan_ref.target).toBe("docs/plans/context-learning-issue-slice.md");
-    expect(projectBriefPayload.data.active_issues).toHaveLength(1);
-    expect(branchBriefPayload.data.branch).toBe("feat/brief");
-    expect(openThreadsPayload.data.open_threads.some((thread) => thread.kind === "entry")).toBe(true);
-    expect(openThreadsPayload.data.open_threads.some((thread) => thread.kind === "rule_check")).toBe(true);
-    expect(openThreadsPayload.data.open_threads.some((thread) => thread.kind === "issue")).toBe(true);
+    expect(projectBriefPayload.data.open_threads.filter((item) => item.kind === "issue")).toHaveLength(1);
+    expect(branchBriefPayload.data.scope.branch).toBe("feat/brief");
+    expect(openThreadsPayload.data.open_threads.map((thread) => thread.kind)).toEqual(["issue"]);
+    expect(openThreadsPayload.data.view).toBe("threads");
   });
 
   it("creates a session and an entry, then searches by project and branch", async () => {
@@ -1468,8 +1654,8 @@ describe("HiveMind API", () => {
       })
     });
     const sessionPayload = await sessionResponse.json();
-    expect(sessionPayload.data.startup_summary.project_id).toBe("buzz");
-    expect(sessionPayload.data.startup_summary.branch).toBe("feat/search");
+    expect(sessionPayload.data.recall.scope.project_id).toBe("buzz");
+    expect(sessionPayload.data.recall.scope.branch).toBe("feat/search");
 
     const entryResponse = await app.request("/v1/entries", {
       method: "POST",
@@ -2066,19 +2252,14 @@ describe("HiveMind API", () => {
 
     expect(nextSessionResponse.status).toBe(201);
     const payload = await nextSessionResponse.json();
-    expect(payload.data.startup_summary.project_id).toBe("buzz");
-    expect(payload.data.startup_summary.branch).toBe("feat/recall");
-    expect(payload.data.startup_summary.counts.active_learnings).toBe(1);
-    expect(payload.data.startup_summary.counts.open_threads).toBe(2);
-    expect(payload.data.startup_summary.highlights.issues).toHaveLength(0);
-    expect(payload.data.context.features).toEqual(["SMARTER_NFT_TESTS"]);
-    expect(payload.data.context.recent_decisions).toHaveLength(1);
-    expect(payload.data.context.recent_decisions[0].summary).toBe("Prefer storage adapter boundaries");
-    expect(payload.data.context.recent_learnings).toHaveLength(1);
-    expect(payload.data.context.recent_learnings[0].summary).toBe("Regenerate fixtures before authoring NFT tests");
-    expect(payload.data.context.open_threads).toHaveLength(2);
-    expect(payload.data.context.open_threads.some((thread) => thread.kind === "entry")).toBe(true);
-    expect(payload.data.context.open_threads.some((thread) => thread.kind === "rule_check")).toBe(true);
+    expect(payload.data.recall.scope.project_id).toBe("buzz");
+    expect(payload.data.recall.scope.branch).toBe("feat/recall");
+    expect(payload.data.recall.guidance).toEqual([]);
+    expect(payload.data.recall.open_threads).toHaveLength(1);
+    expect(payload.data.recall.open_threads[0].kind).toBe("entry");
+    expect(payload.data.recall.review_required).toBe(2);
+    expect(payload.data).not.toHaveProperty("startup_summary");
+    expect(payload.data).not.toHaveProperty("context");
   });
 
   it("stores rule checks and returns a missing-rule reminder plus session listing", async () => {

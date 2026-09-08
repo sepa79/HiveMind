@@ -78,6 +78,8 @@ Upgrade from an older standard profile:
 
 For the full local onboarding flow, use [docs/team-quickstart.md](docs/team-quickstart.md).
 For runtime concepts and workflow, use [docs/user-guide.md](docs/user-guide.md).
+For the memory freshness follow-up, see the [implementation task](docs/plans/memory-freshness-lifecycle.md)
+and the [HiveMap/PocketHive memory audit](docs/reviews/hivemap-pockethive-memory-review-2026-09-07.md).
 For AI ruleset catalog usage, use [docs/ai-ruleset-catalog.md](docs/ai-ruleset-catalog.md).
 For HiveForge deployment, use [HiveForge Deployment](#hiveforge-deployment), [hiveforge.yaml](hiveforge.yaml), and the HiveForge repo docs at [github.com/sepa79/HiveForge](https://github.com/sepa79/HiveForge).
 
@@ -312,3 +314,8 @@ Focused HiveMind slice:
 ```bash
 npm run test:hivemind
 ```
+
+Automatic startup memory now uses one bounded `recall` document with current
+applicability and strict branch/feature selection. This changes startup/brief
+response shapes; see [the contract](docs/specs/api/automatic-recall.md) before
+updating clients. Explicit history search and session closeout remain available.

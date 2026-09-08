@@ -1,3 +1,4 @@
+import { buildAutomaticRecall, validateRecallCreationMetadata, validateApplicabilityFeature } from "../domain/automatic-recall.mjs";
 import {
   ContextBranchBriefInputSchema,
   ContextBranchBriefResultSchema,
@@ -67,9 +68,10 @@ import {
   SessionCloseoutResultSchema,
   SessionEndInputSchema,
   SessionEndResultSchema,
+  SessionGetInputSchema,
+  SessionGetResultSchema,
   SessionListInputSchema,
   SessionListResultSchema,
-  SessionStartContextSchema,
   SessionStartInputSchema,
   SessionStartResultSchema
 } from "../domain/schemas.mjs";
@@ -419,12 +421,18 @@ export class HiveMindService {
       throw new ApiError(400, "IDEMPOTENCY_KEY_REQUIRED", "Missing required Idempotency-Key header.");
     }
     const payload = parseWithSchema(ContextOpenInputSchema, input);
+    validateRecallCreationMetadata(payload);
     const { context } = await this.storage.openContext(payload, { idempotencyKey });
-    return parseWithSchema(ContextOpenResultSchema, {
-      context: parseWithSchema(ContextRecordSchema, context)
-      ,
-      startup_summary: await this.storage.getStartupSummary(context.project_id, context.branch, context.feature)
-    });
+    return parseWithSchema(ContextOpenResultSchema, buildAutomaticRecall(
+      await this.storage.getRecallSource(context.project_id),
+      { project_id: context.project_id, branch: context.branch, feature: context.feature },
+      { context: parseWithSchema(ContextRecordSchema, context) }
+    ));
+  }
+
+  async resolveProjectIdForContextToken(contextToken) {
+    const payload = parseWithSchema(ContextProjectBriefInputSchema, { context_token: contextToken });
+    return (await this.getContext(payload.context_token)).context.project_id;
   }
 
   async getContext(contextToken) {
@@ -479,6 +487,10 @@ export class HiveMindService {
       throw new ApiError(400, "IDEMPOTENCY_KEY_REQUIRED", "Missing required Idempotency-Key header.");
     }
     const payload = parseWithSchema(LearningCaptureInputSchema, input);
+    if (payload.applicability?.scope === "feature") {
+      const { context } = await this.getContext(payload.context_token);
+      validateApplicabilityFeature(payload.applicability, context.feature);
+    }
     const { learning } = await this.storage.captureLearning(payload, { idempotencyKey });
     return {
       learning: parseWithSchema(LearningRecordSchema, learning)
@@ -562,18 +574,28 @@ export class HiveMindService {
       throw new ApiError(400, "IDEMPOTENCY_KEY_REQUIRED", "Missing required Idempotency-Key header.");
     }
     const payload = parseWithSchema(SessionStartInputSchema, input);
+    validateRecallCreationMetadata(payload);
     const { session } = await this.storage.createSession(payload, { idempotencyKey });
-    return parseWithSchema(SessionStartResultSchema, {
-      session,
-      context: parseWithSchema(
-        SessionStartContextSchema,
-        await this.storage.getSessionStartContext({
-          project_id: payload.project_id,
-          branch: payload.branch
-        })
-      ),
-      startup_summary: await this.storage.getStartupSummary(payload.project_id, payload.branch)
-    });
+    return parseWithSchema(SessionStartResultSchema, buildAutomaticRecall(
+      await this.storage.getRecallSource(session.project_id),
+      { project_id: session.project_id, branch: session.branch, feature: session.feature },
+      { session }
+    ));
+  }
+
+  async resolveProjectIdForSessionId(sessionId) {
+    return (await this.getSession({ session_id: sessionId })).session.project_id;
+  }
+
+  async getSession(input) {
+    const payload = parseWithSchema(SessionGetInputSchema, input);
+    const session = await this.storage.getSession(payload.session_id);
+    if (!session) {
+      throw new ApiError(404, "SESSION_NOT_FOUND", `No session exists with id '${payload.session_id}'.`, {
+        session_id: payload.session_id
+      });
+    }
+    return parseWithSchema(SessionGetResultSchema, { session });
   }
 
   async endSession(input) {
@@ -602,6 +624,7 @@ export class HiveMindService {
       throw new ApiError(400, "IDEMPOTENCY_KEY_REQUIRED", "Missing required Idempotency-Key header.");
     }
     const payload = parseWithSchema(EntryCreateInputSchema, input);
+    validateApplicabilityFeature(payload.applicability, payload.feature);
     const { entry } = await this.storage.appendEntry(payload, { idempotencyKey });
     return {
       entry,
@@ -622,6 +645,7 @@ export class HiveMindService {
       throw new ApiError(400, "IDEMPOTENCY_KEY_REQUIRED", "Missing required Idempotency-Key header.");
     }
     const payload = parseWithSchema(EntryCorrectInputSchema, input);
+    validateApplicabilityFeature(payload.applicability, payload.feature);
     const original = await this.storage.getEntry(payload.project_id, payload.entry_id);
     if (!original) {
       throw new ApiError(404, "ENTRY_NOT_FOUND", `No entry exists with id '${payload.entry_id}' in project '${payload.project_id}'.`, {

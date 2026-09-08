@@ -91,12 +91,34 @@ Use entries for concise, high-signal memory:
 
 Use `feature`, `category`, `tags`, and `links` when they improve future recall. Prefer repo-relative `repo_file` links for repository files.
 
+## Automatic recall
+
+Session start and context open return one `recall` document. It contains current
+applicable guidance and unresolved concerns for the selected branch/feature.
+Pass `feature` when starting feature work; project guidance is explicitly scoped
+and displayed separately. Briefs and open threads use the same selection policy.
+Closed incidents, superseded entries and resolved learnings are excluded. Legacy
+knowledge without an explicit applicability assertion is counted for review,
+not injected into the next session. History remains available through search/list.
+
+For reusable decisions, tooling notes and learnings, record `applicability` with
+`state` (`current`, `needs_review`, `retired`), `scope` (`project`, `branch`,
+`feature`), a `reason` and nonempty `evidence_refs`. A current decision may remain
+applicable after its implementation is resolved. Negative learning feedback
+withholds the advice pending review. Memory does not grant authorization.
+
+The whole response data fits 8192 UTF-8 bytes, with at most eight memory items
+across sections. `truncated` and `required_rules_omitted` report omissions; fetch
+complete rules using `rules_get` when required guidance does not fit. MCP sends
+one compact JSON text block. See the [automatic recall contract](specs/api/automatic-recall.md)
+for eligibility, review counts, metadata limits and remaining lifecycle work.
+
 ## Recommended Agent Workflow
 
 For meaningful work:
 
 1. Start a session early with a useful goal.
-2. Read the returned startup summary and project features.
+2. Read the returned `recall`; fetch `rules_get` if required rules were omitted. Use `feature_list` for the project feature registry.
 3. Record important decisions, progress, feedback, risks, and plan references.
 4. Use features/tags for useful grouping, not micro-task tracking.
 5. Run relevant tests.
@@ -107,7 +129,7 @@ Do not submit a rule check only to prove HiveMind was used. A session with
 concise entries is the evidence of use; rule checks are for rules that need a
 separate verification signal.
 
-For local shell work, `npm run hivemind:work -- ...` wraps the common `session_start`, progress logging, rule checks, and `session_end` flow. See `docs/team-quickstart.md` for exact commands.
+For local shell work, `npm run hivemind:work -- ...` wraps the common `session_start`, progress logging, rule checks, and `session_end` flow. See `docs/team-quickstart.md` for exact commands. Use `--feature FEATURE` with `start` or `run` to select feature memory. The CLI stores the returned feature and tags progress with it. Before resuming and after a wrapped command, the CLI reads the current session from the API and refreshes its local scope. This follows feature renames; an explicit different feature is rejected. Only active sessions can resume or receive CLI progress, and failed lookups stop the workflow. Use `session_get` to inspect current metadata without history.
 
 ## AI Ruleset Catalog
 
@@ -265,6 +287,14 @@ One data root or OpenSearch index prefix supports exactly one running
 the API is a single writer by design. The supplied Swarm configuration fixes
 the API at one replica and uses `stop-first` updates; do not scale that service
 horizontally without first adding storage-level coordination.
+
+Project deletion and merging wait for operations on the affected projects;
+other projects can keep working. A context/session request that loses a race
+with deletion returns not-found; one whose resource moves during merge returns
+`PROJECT_SCOPE_CHANGED` and does not execute. Conflicting URL/body identifiers
+return `ROUTE_PARAMETER_MISMATCH`. OpenSearch cleanup failures retain project
+metadata for an explicit retry; they never report a successful complete delete.
+See [REST maintenance semantics](specs/api/memory-review.md#admin-project-maintenance).
 
 For production environments, provide these passwords through the platform secret
 mechanism instead of plain environment variables. The HiveForge Swarm playbooks
