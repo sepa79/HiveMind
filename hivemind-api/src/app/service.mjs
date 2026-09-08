@@ -1,3 +1,4 @@
+import { buildEntryReview } from "../domain/entry-review.mjs";
 import { buildAutomaticRecall, validateRecallCreationMetadata, validateApplicabilityFeature } from "../domain/automatic-recall.mjs";
 import {
   ContextBranchBriefInputSchema,
@@ -771,55 +772,14 @@ export class HiveMindService {
       ...(branch ? { branch } : {}),
       ...(query ? { query } : {})
     };
-    const [recent, openEntries, openFeedback, openRisks, toolingNotes] = await Promise.all([
-      this.storage.searchEntries({ ...base, entry_type: ["decision"], limit, sort: "recent" }),
-      this.storage.searchEntries({ ...base, lifecycle_state: "open", limit: 200, sort: "recent" }),
-      this.storage.searchEntries({ ...base, entry_type: ["feedback"], lifecycle_state: "open", limit, sort: "recent" }),
-      this.storage.searchEntries({ ...base, entry_type: ["risk"], lifecycle_state: "open", limit, sort: "recent" }),
-      this.storage.searchEntries({ ...base, entry_type: ["tooling_note"], limit, sort: "recent" })
-    ]);
-    const staleCutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
-    const staleOpenEntries = openEntries.entries
-      .filter((entry) => new Date(entry.updated_at).getTime() < staleCutoff)
-      .slice(0, limit);
-    const recommendedActions = [
-      ...openFeedback.entries.map((entry) => ({
-        action_type: "review",
-        target_kind: "entry",
-        target_id: entry.entry_id,
-        summary: `Review open feedback: ${entry.summary}`,
-        reason: "Open feedback is waiting for triage.",
-        priority: entry.importance === "high" ? "high" : "normal"
-      })),
-      ...openRisks.entries.map((entry) => ({
-        action_type: "review",
-        target_kind: "entry",
-        target_id: entry.entry_id,
-        summary: `Review open risk: ${entry.summary}`,
-        reason: "Open risk may need mitigation or resolution.",
-        priority: entry.importance === "high" ? "high" : "normal"
-      })),
-      ...staleOpenEntries.map((entry) => ({
-        action_type: "mark_resolved",
-        target_kind: "entry",
-        target_id: entry.entry_id,
-        summary: `Resolve or supersede stale open entry: ${entry.summary}`,
-        reason: "Open entry has not been updated for at least 7 days.",
-        priority: "normal"
-      }))
-    ].slice(0, limit);
+    const entries = await this.storage.listEntries({ ...base, sort: "recent" });
+    const { signals, recommended_actions: recommendedActions } = buildEntryReview(entries, { limit });
 
     return {
       project,
       branch: branch ?? null,
       generated_at: new Date().toISOString(),
-      signals: {
-        recent_decisions: recent.entries,
-        open_feedback: openFeedback.entries,
-        open_risks: openRisks.entries,
-        stale_open_entries: staleOpenEntries,
-        tooling_notes: toolingNotes.entries
-      },
+      signals,
       recommended_actions: recommendedActions,
       summary:
         recommendedActions.length === 0

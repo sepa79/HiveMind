@@ -2,6 +2,18 @@
 
 All notable HiveMind changes are recorded here.
 
+## 0.5.6 - 2026-09-08
+
+- Filter project/admin review knowledge by current applicability and exclude
+  superseded/retired entries; preserve resolved decisions that remain current.
+- Add `signals.review_queue` for unclassified knowledge, explicit verification
+  requests and incidents without lifecycle. Emit one review recommendation per
+  entry with combined reasons; inactivity never implies resolution.
+- Apply review limits after classification so archived records cannot hide
+  older eligible entries. Explicit history search remains unchanged.
+- Update REST/MCP contracts and user guidance, and add the HiveMind memory audit
+  with concrete cleanup candidates. Historical records have not been changed.
+
 ## 0.5.5 - 2026-09-07
 
 - **Breaking:** replace session startup's `context` / `startup_summary` with

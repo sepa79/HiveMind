@@ -113,6 +113,19 @@ complete rules using `rules_get` when required guidance does not fit. MCP sends
 one compact JSON text block. See the [automatic recall contract](specs/api/automatic-recall.md)
 for eligibility, review counts, metadata limits and remaining lifecycle work.
 
+## Reviewing stored memory
+
+Use `project_review` to inspect current decisions/tooling and a separate
+`signals.review_queue` for unclassified knowledge, explicit `needs_review`
+records and incidents without lifecycle. Superseded and retired entries remain
+in history search. A resolved decision can still be current guidance.
+
+Recommendations request review and combine reasons into one action per entry.
+Seven days without an update is a prompt to revalidate, never evidence that a
+task is complete. Check the cited evidence before calling `entry_mark` or
+`entry_correct`. Admin memory review uses the same policy. See the
+[review contract](specs/api/memory-review.md#project-review) for limits and scope.
+
 ## Recommended Agent Workflow
 
 For meaningful work:

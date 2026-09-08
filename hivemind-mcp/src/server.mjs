@@ -757,7 +757,7 @@ server.registerTool(
   "project_review",
   {
     title: "Review one project's HiveMind memory",
-    description: "Summarize project memory signals and recommend cleanup or triage actions.",
+    description: "Review current project knowledge and a separate verification queue. Recommendations require human/agent assessment; age never implies resolution.",
     inputSchema: {
       project_id: z.string(),
       backend_id: z.string().optional(),

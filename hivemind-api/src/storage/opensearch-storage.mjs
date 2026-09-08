@@ -1419,12 +1419,17 @@ export class OpenSearchStorage extends StorageAdapter {
     };
   }
 
-  async searchEntries(query) {
+  async listEntries(query) {
     const project = await this.getProject(query.project_id);
     ensure(project, 404, "PROJECT_NOT_FOUND", `No project exists with id '${query.project_id}'.`, { project_id: query.project_id });
     let entries = await this.#listProjectEntries(query.project_id);
     entries = entries.filter((entry) => this.#matchesQuery(entry, query));
-    entries = this.#sortEntries(entries, query.sort ?? "recent").slice(0, query.limit ?? 50);
+    return this.#sortEntries(entries, query.sort ?? "recent");
+  }
+
+  async searchEntries(query) {
+    const entries = (await this.listEntries(query)).slice(0, query.limit ?? 50);
+
     return {
       entries,
       facets: {

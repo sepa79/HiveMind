@@ -167,6 +167,11 @@ export class StorageAdapter {
     throw new Error("Not implemented");
   }
 
+  // Internal unbounded read; services apply policy before response limits.
+  async listEntries(_query) {
+    throw new Error("Not implemented");
+  }
+
   async searchEntries(_query) {
     throw new Error("Not implemented");
   }

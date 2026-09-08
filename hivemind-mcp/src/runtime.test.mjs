@@ -1182,6 +1182,17 @@ describe("HiveMind MCP runtime", () => {
       source: "mcp",
       summary: "Updated feedback"
     });
+    const unclassified = await runtime.entryAppend({
+      project_id: "buzz", session_id: recallData(session).session.session_id,
+      branch: "feat/review", author_id: "codex-main", author_type: "agent", source: "mcp",
+      entry_type: "decision", summary: "Decision requiring verification"
+    });
+    const current = await runtime.entryAppend({
+      project_id: "buzz", session_id: recallData(session).session.session_id,
+      branch: "feat/review", author_id: "codex-main", author_type: "agent", source: "mcp",
+      entry_type: "decision", summary: "Implemented but still valid", lifecycle_state: "resolved",
+      applicability: { state: "current", scope: "project", reason: "Verified code", evidence_refs: [{ kind: "repo_file", target: "README.md" }] }
+    });
     const review = await runtime.projectReview({
       project_id: "buzz",
       branch: "feat/review"
@@ -1191,6 +1202,10 @@ describe("HiveMind MCP runtime", () => {
     expect(correction.structuredContent.original_entry.lifecycle_state).toBe("superseded");
     expect(review.isError).toBeUndefined();
     expect(review.structuredContent.signals.open_feedback.map((entry) => entry.summary)).toContain("Updated feedback");
+    expect(review.structuredContent.signals.review_queue.map(entry => entry.entry_id)).toEqual([unclassified.structuredContent.entry.entry_id]);
+    expect(review.structuredContent.signals.recent_decisions.map(entry => entry.entry_id)).toEqual([current.structuredContent.entry.entry_id]);
+    expect(review.structuredContent.recommended_actions.every(action => action.action_type === "review")).toBe(true);
+    expect(JSON.parse(review.content[0].text)).toEqual(review.structuredContent);
   });
 
   it("rule_check.submit returns reminders and list_for_session returns stored checks", async () => {

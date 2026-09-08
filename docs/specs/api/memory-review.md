@@ -68,9 +68,41 @@ Response data includes `project`, `summary`, `signals`, and
 - `reason`
 - `priority`: `low`, `normal`, or `high`
 
+`signals.recent_decisions` and `signals.tooling_notes` contain only knowledge
+with explicit `applicability.state=current`. A resolved decision can remain
+current; resolved tooling notes and resolved incidents are historical.
+Superseded entries and entries with `applicability.state=retired` are excluded
+from every review signal and recommendation. Explicit entry search still
+returns them.
+
+`signals.review_queue` contains unclassified knowledge, entries explicitly
+marked `needs_review`, and incidents without a lifecycle state. It is separate
+from current knowledge. `open_feedback` and `open_risks` describe explicit open
+incidents; an incident awaiting applicability verification can also appear in
+the queue. `stale_open_entries` means open entries without an update for at least
+seven days; it does not imply that their advice is obsolete or their task done.
+
+The current implementation emits only `review` actions. Reasons identify
+missing applicability/lifecycle, explicit verification requests (including the
+stored applicability reason), open concerns, or age-based revalidation. Multiple
+signals for one entry produce one action with combined reasons. High-priority
+actions precede normal ones, then preserve entry recency order. The calling
+agent/human evaluates evidence and explicitly invokes lifecycle/correction tools;
+the API does not infer semantic resolution, successor relationships or conflicts.
+
+The complete matching entry set is classified before applying `limit` (default
+10, maximum 50) independently to each signal and the recommendation list. Branch
+filtering remains exact; without a branch the review covers the project. Review
+is read-only and does not update lifecycle, applicability or timestamps.
+
 ## Admin Memory Review
 
 `POST /v1/admin/memory-review`
+
+Each included project uses the same knowledge filtering, verification queue and
+recommendation policy as project review. The admin `query` filters entry
+summary/details before classification; its per-project limit defaults to 10 and
+has maximum 20.
 
 Requires `Authorization: Bearer <admin-token>`.
 

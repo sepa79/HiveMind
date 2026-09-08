@@ -1,8 +1,27 @@
 # Aktualność pamięci i spójny stan problemów
 
-Status: in_progress — pierwszy zakres P0 (automatyczny recall) zaimplementowany; pozostałe zakresy nadal są planem. Dostarczony kontrakt opisuje [automatic recall](../specs/api/automatic-recall.md).
+Status: in_progress — automatyczny recall i podstawowa polityka project/admin review zaimplementowane; pozostałe zakresy nadal są planem. Kontrakty: [automatic recall](../specs/api/automatic-recall.md), [memory review](../specs/api/memory-review.md).
 Data: 2026-09-07.
 Źródło: [audyt HiveMap i PocketHive](../reviews/hivemap-pockethive-memory-review-2026-09-07.md).
+
+## Uzupełnienie — 2026-09-08, project/admin review
+
+Po [audycie pamięci HiveMind](../reviews/hivemind-memory-review-2026-09-08.md)
+wdrożono lokalnie dodatkowy zakres P0: current-only decyzje/tooling,
+`signals.review_queue` dla nieklasyfikowanych i wymagających weryfikacji wpisów,
+wykluczenie superseded/retired oraz jedną rekomendację review na wpis z połączonymi
+powodami. Wiek co najmniej 7 dni sugeruje rewalidację, nigdy resolved. Decyzja
+resolved+current zachowuje stosowalność. Filtrowanie następuje przed limitami.
+
+To nie jest semantyczna ocena dowodów ani wykrywanie następców/konfliktów.
+Powiązania między różnymi rekordami, kontrola rewizji, lifecycle learningów
+i stabilna paginacja pozostają w planie. Dane historyczne nie zostały zmienione.
+Zmiana nie jest jeszcze wdrożona na .54.
+
+Walidacja: `npm run test:hivemind` — 249/249 testów. Nowe testy REST obejmują oba
+adaptery, wspólną politykę admin review, historię bez mutacji i ponad 200
+wycofanych rekordów przed kwalifikującymi się wpisami. Test MCP sprawdza kolejkę
+weryfikacji i zachowanie resolved+current. Kontrola whitespace bez błędów.
 
 ## Stan realizacji — 2026-09-07
 

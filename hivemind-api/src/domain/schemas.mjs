@@ -682,6 +682,7 @@ const ReviewActionSchema = z.object({
 });
 
 const ProjectReviewSignalsSchema = z.object({
+  review_queue: z.array(EntryRecordSchema),
   recent_decisions: z.array(EntryRecordSchema),
   open_feedback: z.array(EntryRecordSchema),
   open_risks: z.array(EntryRecordSchema),

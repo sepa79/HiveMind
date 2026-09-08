@@ -64,12 +64,23 @@ Output includes:
 
 - project summary
 - recent decisions
+- `signals.review_queue` for knowledge without applicability, explicit
+  `needs_review` records and incidents without lifecycle
 - open feedback
 - open risks
 - stale open entries
 - recommended actions
 
 No mutation.
+
+Recent decisions/tooling require explicit current applicability. Superseded or
+retired records are available through history search and excluded from review
+signals. Resolved decisions can still be current guidance. Seven-day inactivity
+only requests revalidation: recommendations use `review`, combine reasons into
+one action per entry and never recommend resolution based on age alone. API owns
+this policy and filters the full candidate set before response limits; MCP
+forwards the response without a second classification layer. See the
+[REST review contract](../api/memory-review.md#project-review).
 
 ### `hivemind_feedback`
 

@@ -1,6 +1,6 @@
 {
   "name": "hivemind-mcp",
-  "version": "0.5.5",
+  "version": "0.5.6",
   "description": "Thin MCP client for a shared HiveMind API service",
   "type": "module",
   "bin": {
