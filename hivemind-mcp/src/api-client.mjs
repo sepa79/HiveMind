@@ -160,6 +160,16 @@ export class HiveMindApiClient {
     });
   }
 
+  async resolveLearning(input, { idempotencyKey }) {
+    const { project_id, learning_id, idempotencyKey: _ignored, ...body } = input;
+    return this.#request({
+      method: "POST",
+      path: `/v1/projects/${encodeURIComponent(project_id)}/learnings/${encodeURIComponent(learning_id)}/resolve`,
+      body,
+      idempotencyKey
+    });
+  }
+
   async getRecentLearnings(input) {
     return this.#request({
       method: "POST",

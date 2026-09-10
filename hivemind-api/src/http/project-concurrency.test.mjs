@@ -167,6 +167,7 @@ describe("Project-scoped concurrency", () => {
     ["POST", "/v1/projects/alpha/features", "project_id"],
     ["POST", "/v1/projects/alpha/features/old/rename", "feature"],
     ["POST", "/v1/projects/alpha/entries/entry-a/mark", "entry_id"],
+    ["POST", "/v1/projects/alpha/learnings/learning-a/resolve", "learning_id"],
     ["POST", "/v1/issues/issue-a/events", "issue_id"]
   ])("rejects conflicting URL/body identifiers on %s %s", async (method, path, field) => {
     const app = createApp({ service: {} });

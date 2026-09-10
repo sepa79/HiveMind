@@ -107,6 +107,17 @@ For reusable decisions, tooling notes and learnings, record `applicability` with
 applicable after its implementation is resolved. Negative learning feedback
 withholds the advice pending review. Memory does not grant authorization.
 
+To close an active learning after verifying that its concern is no longer
+current, call `learning_resolve`. Supply the project and learning IDs, an active
+context token, the learning's current `expected_revision`, a nonempty `reason`,
+at least one typed `evidence_ref`, and `resolution_scope` (`project`, `branch`,
+or `feature`). A successful resolution changes the status to `resolved`,
+increments the revision, preserves the learning in history/search, and removes
+it from automatic recall globally. The scope is the agent's explicit assertion,
+not a partial lifecycle state. Reusing the same idempotency key with the same payload
+returns the same result; stale revisions and repeated lifecycle transitions fail
+explicitly. Learnings created before revision tracking have revision `0`.
+
 The whole response data fits 8192 UTF-8 bytes, with at most eight memory items
 across sections. `truncated` and `required_rules_omitted` report omissions; fetch
 complete rules using `rules_get` when required guidance does not fit. MCP sends

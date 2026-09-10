@@ -40,6 +40,8 @@ import {
   LearningListResultSchema,
   LearningRecordSchema,
   LearningGetRecentInputSchema,
+  LearningResolveInputSchema,
+  LearningResolveResultSchema,
   LearningSearchInputSchema,
   ProjectDeleteInputSchema,
   ProjectDeleteResultSchema,
@@ -507,6 +509,14 @@ export class HiveMindService {
     return {
       feedback: parseWithSchema(LearningFeedbackRecordSchema, feedback)
     };
+  }
+
+  async resolveLearning(input, { idempotencyKey }) {
+    if (!idempotencyKey) {
+      throw new ApiError(400, "IDEMPOTENCY_KEY_REQUIRED", "Missing required Idempotency-Key header.");
+    }
+    const payload = parseWithSchema(LearningResolveInputSchema, input);
+    return parseWithSchema(LearningResolveResultSchema, await this.storage.resolveLearning(payload, { idempotencyKey }));
   }
 
   async getRecentLearnings(input) {

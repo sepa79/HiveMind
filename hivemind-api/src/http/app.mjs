@@ -52,6 +52,10 @@ export function createApp({ service, accessLogger = null, adminToken = null }) {
     operationGates,
     routeProjectIds("projectId")
   );
+  const withExclusiveProjectJson = exclusiveJsonRoute(
+    operationGates,
+    routeProjectIds("projectId")
+  );
   const withExclusiveProjectsJson = exclusiveJsonRoute(
     operationGates,
     payloadProjectIds("source_project_id", "target_project_id")
@@ -270,6 +274,18 @@ export function createApp({ service, accessLogger = null, adminToken = null }) {
       idempotencyKey: c.req.header("Idempotency-Key")
     });
     return success(c, data, 201);
+  }));
+
+  app.post("/v1/projects/:projectId/learnings/:learningId/resolve", withExclusiveProjectJson(async (c, payload) => {
+    const data = await service.resolveLearning(
+      {
+        ...payload,
+        project_id: c.req.param("projectId"),
+        learning_id: c.req.param("learningId")
+      },
+      { idempotencyKey: c.req.header("Idempotency-Key") }
+    );
+    return success(c, data);
   }));
 
   app.post("/v1/learnings/recent", withSharedResolvedContextPayload(async (c, payload) => {
@@ -510,6 +526,7 @@ async function readJsonBody(c) {
     sessionId: "session_id",
     contextToken: "context_token",
     entryId: "entry_id",
+    learningId: "learning_id",
     issueId: "issue_id",
     feature: "feature"
   };

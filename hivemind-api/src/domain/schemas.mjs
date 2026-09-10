@@ -289,6 +289,15 @@ export const LearningFeedbackSummarySchema = z.object({
   last_feedback_at: NonEmptyString.nullable()
 });
 
+export const LearningResolutionSchema = z.object({
+  reason: NonEmptyString,
+  evidence_refs: z.array(LinkSchema).min(1),
+  resolution_scope: z.enum(["project", "branch", "feature"]),
+  context_token: NonEmptyString,
+  context: LearningContextSnapshotSchema,
+  resolved_at: NonEmptyString
+});
+
 export const LearningRecordSchema = z.object({
   applicability: MemoryApplicabilitySchema.optional(),
   learning_id: NonEmptyString,
@@ -305,8 +314,36 @@ export const LearningRecordSchema = z.object({
   artifacts: z.array(LinkSchema),
   related_issue_ids: z.array(NonEmptyString),
   feedback_summary: LearningFeedbackSummarySchema,
+  revision: z.number().int().nonnegative().default(0),
+  resolution: LearningResolutionSchema.nullable().default(null),
   created_at: NonEmptyString,
   updated_at: NonEmptyString
+});
+
+export const LearningResolveInputSchema = z.object({
+  project_id: NonEmptyString,
+  learning_id: NonEmptyString,
+  context_token: NonEmptyString,
+  expected_revision: z.number().int().nonnegative(),
+  reason: NonEmptyString,
+  evidence_refs: z.array(LinkSchema).min(1),
+  resolution_scope: z.enum(["project", "branch", "feature"])
+});
+
+export const LearningResolveResultSchema = z.object({
+  learning: LearningRecordSchema,
+  action: z.object({
+    learning_id: NonEmptyString,
+    previous_status: z.enum(LEARNING_STATUS_VALUES),
+    status: z.literal("resolved"),
+    previous_revision: z.number().int().nonnegative(),
+    revision: z.number().int().positive(),
+    reason: NonEmptyString,
+    evidence_refs: z.array(LinkSchema).min(1),
+    resolution_scope: z.enum(["project", "branch", "feature"]),
+    context_token: NonEmptyString,
+    resolved_at: NonEmptyString
+  })
 });
 
 export const LearningFeedbackCreateInputSchema = z.object({

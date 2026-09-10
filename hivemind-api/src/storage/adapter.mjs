@@ -67,6 +67,10 @@ export class StorageAdapter {
     throw new Error("Not implemented");
   }
 
+  async resolveLearning(_learningInput, _options) {
+    throw new Error("Not implemented");
+  }
+
   async getRecentLearnings(_query) {
     throw new Error("Not implemented");
   }

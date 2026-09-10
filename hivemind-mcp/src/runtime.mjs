@@ -294,6 +294,18 @@ export function createHiveMindRuntime({ apiClient, apiClients } = {}) {
       }
     },
 
+    async learningResolve(input) {
+      try {
+        const backend = await resolveBackend(backends, input, routeCache);
+        const payload = await backend.apiClient.resolveLearning(stripRouting(input), {
+          idempotencyKey: input.idempotencyKey ?? `learning-resolve-${randomUUID()}`
+        });
+        return jsonResult(payload);
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+
     async learningGetRecent(input) {
       try {
         const backend = await resolveBackend(backends, input, routeCache);

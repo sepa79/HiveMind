@@ -1,4 +1,11 @@
 import { buildAutomaticRecall } from "../domain/automatic-recall.mjs";
+import {
+  buildResolvedLearning,
+  isLearningResolutionRetry,
+  learningResolutionIdempotencyRecord,
+  learningResolveAction,
+  validateLearningResolution
+} from "../domain/learning-lifecycle.mjs";
 import { createHash, randomUUID } from "node:crypto";
 import { Client } from "@opensearch-project/opensearch";
 import { ApiError, ensure } from "../app/errors.mjs";
@@ -147,6 +154,17 @@ const INDEX_DEFINITIONS = {
       scope: { type: "keyword" },
       recommended_action: { type: "text" },
       status: { type: "keyword" },
+      revision: { type: "integer" },
+      resolution: {
+        properties: {
+          reason: { type: "text" },
+          resolution_scope: { type: "keyword" },
+          context_token: { type: "keyword" },
+          resolved_at: { type: "date" },
+          idempotency_key: { type: "keyword" },
+          request_hash: { type: "keyword" }
+        }
+      },
       importance: { type: "keyword" },
       tags: { type: "keyword" },
       related_issue_ids: { type: "keyword" },
@@ -252,10 +270,9 @@ export class OpenSearchStorage extends StorageAdapter {
       const index = this.#index(alias);
       const exists = await this.#indexExists(index);
       if (exists) {
-        // Install new recall fields explicitly before writing source documents.
-        const recallField = alias === "sessions" ? "feature" : ["entries", "learnings"].includes(alias) ? "applicability" : null;
-        if (recallField) {
-          await this.client.indices.putMapping({ index, body: { properties: { [recallField]: mapping.properties[recallField] } } });
+        const upgradeProperties = existingIndexUpgradeProperties(alias, mapping);
+        if (Object.keys(upgradeProperties).length > 0) {
+          await this.client.indices.putMapping({ index, body: { properties: upgradeProperties } });
         }
         continue;
       }
@@ -712,6 +729,8 @@ export class OpenSearchStorage extends StorageAdapter {
       links: learningInput.links ?? [],
       artifacts: learningInput.artifacts ?? [],
       related_issue_ids: learningInput.related_issue_ids ?? [],
+      revision: 0,
+      resolution: null,
       created_at: record.timestamp,
       updated_at: record.timestamp
     });
@@ -784,6 +803,43 @@ export class OpenSearchStorage extends StorageAdapter {
     }
     await this.#put("learning_feedback", feedback.feedback_id, feedback);
     return { feedback, idempotent: false };
+  }
+
+  async resolveLearning(resolveInput, { idempotencyKey }) {
+    const operation = "learning.resolve";
+    const requestHash = digest({ operation, payload: resolveInput });
+    const existingIdempotency = await this.#findIdempotencyRecord(resolveInput.project_id, operation, idempotencyKey);
+    if (existingIdempotency) {
+      this.#ensureIdempotentPayload(existingIdempotency, requestHash);
+      const learning = await this.#readRequiredLearning(resolveInput.project_id, existingIdempotency.resource_id);
+      return { learning, action: learningResolveAction(learning, ensure) };
+    }
+
+    const existing = await this.#readLearning(resolveInput.project_id, resolveInput.learning_id);
+    if (isLearningResolutionRetry(existing, idempotencyKey)) {
+      this.#ensureIdempotentPayload({ key: idempotencyKey, request_hash: existing.resolution.request_hash }, requestHash);
+      await this.#createIdempotencyRecord(resolveInput.project_id, learningResolutionIdempotencyRecord(idempotencyKey, requestHash, existing));
+      const learning = await this.#withLearningFeedbackSummary(resolveInput.project_id, existing);
+      return { learning, action: learningResolveAction(learning, ensure) };
+    }
+
+    const context = await this.getContext(resolveInput.context_token);
+    validateLearningResolution(existing, context, resolveInput, ensure);
+
+    const now = isoNow();
+    const updated = buildResolvedLearning({
+      learning: existing,
+      context,
+      input: resolveInput,
+      idempotencyKey,
+      requestHash,
+      resolvedAt: now,
+      contextSnapshot: (value) => this.#toLearningContextSnapshot(value)
+    });
+    await this.#put("learnings", updated.learning_id, updated);
+    await this.#createIdempotencyRecord(resolveInput.project_id, learningResolutionIdempotencyRecord(idempotencyKey, requestHash, updated));
+    const learning = await this.#withLearningFeedbackSummary(resolveInput.project_id, updated);
+    return { learning, action: learningResolveAction(learning, ensure) };
   }
 
   async getRecentLearnings(query) {
@@ -2151,6 +2207,23 @@ function writeStructuredLog(logger, entry) {
 
 function isoNow() {
   return new Date().toISOString();
+}
+
+function existingIndexUpgradeProperties(alias, mapping) {
+  if (alias === "sessions") {
+    return { feature: mapping.properties.feature };
+  }
+  if (alias === "entries") {
+    return { applicability: mapping.properties.applicability };
+  }
+  if (alias === "learnings") {
+    return {
+      applicability: mapping.properties.applicability,
+      revision: mapping.properties.revision,
+      resolution: mapping.properties.resolution
+    };
+  }
+  return {};
 }
 
 function toCountFacet(values) {

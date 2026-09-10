@@ -50,6 +50,34 @@ Behavior:
 - Marks the original entry `superseded`.
 - Returns both records.
 
+### `learning_resolve`
+
+Marks one active learning as `resolved` without deleting its history.
+
+Input:
+
+- `project_id`
+- `context_token` for an active context in that project
+- `learning_id`
+- `expected_revision`
+- `reason`
+- one or more typed `evidence_refs`
+- `resolution_scope`: `project`, `branch`, or `feature`
+- optional `backend_id` and `idempotencyKey`
+
+Behavior:
+
+- Checks the current revision and rejects stale or repeated transitions.
+- Treats `resolution_scope` as the agent's assertion without constraining the
+  global status transition.
+- Stores the resolution evidence and actor context snapshot.
+- Increments the learning revision and returns the updated learning plus an
+  action summary.
+- Preserves resolved learnings for explicit history searches while automatic
+  recall excludes them.
+
+See the [REST learning lifecycle contract](../api/learning-lifecycle.md).
+
 ### `project_review`
 
 Reviews one project's memory and recommends actions.

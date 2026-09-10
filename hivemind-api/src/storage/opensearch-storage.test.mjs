@@ -10,7 +10,20 @@ describe("OpenSearchStorage", () => {
     const mapping = vi.spyOn(client.indices, "putMapping");
     await storage.initialize();
     expect(mapping).toHaveBeenCalledWith({ index: "test-sessions", body: { properties: { feature: { type: "keyword" } } } });
-    for (const alias of ["entries", "learnings"]) expect(mapping).toHaveBeenCalledWith({ index: `test-${alias}`, body: { properties: { applicability: { type: "object", enabled: false } } } });
+    expect(mapping).toHaveBeenCalledWith({
+      index: "test-entries",
+      body: { properties: { applicability: { type: "object", enabled: false } } }
+    });
+    expect(mapping).toHaveBeenCalledWith({
+      index: "test-learnings",
+      body: {
+        properties: {
+          applicability: { type: "object", enabled: false },
+          revision: { type: "integer" },
+          resolution: expect.objectContaining({ properties: expect.objectContaining({ resolved_at: { type: "date" } }) })
+        }
+      }
+    });
     mapping.mockRejectedValueOnce(new Error("Mapping unavailable"));
     await expect(storage.initialize()).rejects.toThrow("Mapping unavailable");
   });
@@ -767,6 +780,43 @@ describe("OpenSearchStorage", () => {
     expect(result.action.previous_lifecycle_state).toBe("open");
     expect(result.entry.summary).toBe("Needs triage");
     expect(stored.lifecycle_state).toBe("resolved");
+  });
+
+  it("resolves learnings idempotently with revision evidence", async () => {
+    const client = new FakeOpenSearchClient();
+    const storage = new OpenSearchStorage({ client, indexPrefix: "test" });
+    await storage.createProject(projectFixture("alpha"));
+    const { context } = await storage.openContext({
+      project_id: "alpha",
+      branch: "main",
+      workspace_path: "/repo/alpha",
+      author_id: "agent-alpha",
+      author_type: "agent",
+      source: "mcp"
+    }, { idempotencyKey: "resolve-context" });
+    const { learning } = await storage.captureLearning({
+      context_token: context.context_token,
+      summary: "Temporary workaround",
+      scope: "workflow",
+      recommended_action: "Use it until fixed."
+    }, { idempotencyKey: "resolve-capture" });
+    const input = {
+      project_id: "alpha",
+      learning_id: learning.learning_id,
+      context_token: context.context_token,
+      expected_revision: 0,
+      reason: "Permanent fix verified.",
+      evidence_refs: [{ kind: "repo_file", target: "test/fix.test.mjs" }],
+      resolution_scope: "project"
+    };
+
+    client.failNextIndexWrite("test-idempotency");
+    await expect(storage.resolveLearning(input, { idempotencyKey: "resolve" })).rejects.toThrow("Injected index failure");
+    const first = await storage.resolveLearning(input, { idempotencyKey: "resolve" });
+    const same = await storage.resolveLearning(input, { idempotencyKey: "resolve" });
+    expect(first.learning).toMatchObject({ status: "resolved", revision: 1 });
+    expect(first.action.evidence_refs).toEqual(input.evidence_refs);
+    expect(same).toEqual(first);
   });
 });
 

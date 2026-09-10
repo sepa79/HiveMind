@@ -351,6 +351,32 @@ server.registerTool(
 );
 
 server.registerTool(
+  "learning_resolve",
+  {
+    title: "Resolve an existing learning",
+    description: "Mark an active learning as resolved with optimistic revision checking and explicit evidence.",
+    inputSchema: {
+      project_id: z.string(),
+      context_token: z.string(),
+      backend_id: z.string().optional(),
+      learning_id: z.string(),
+      expected_revision: z.number().int().nonnegative(),
+      reason: z.string(),
+      evidence_refs: z.array(
+        z.object({
+          kind: z.enum(["file", "repo_file", "commit", "pr", "command", "url"]),
+          target: z.string(),
+          label: z.string().optional()
+        })
+      ).min(1),
+      resolution_scope: z.enum(["project", "branch", "feature"]),
+      idempotencyKey: z.string().optional()
+    }
+  },
+  runtime.learningResolve
+);
+
+server.registerTool(
   "learning_search",
   {
     title: "Search project learnings",

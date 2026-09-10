@@ -110,7 +110,7 @@ before persistence; idempotent retries still resolve to the same stored object.
 Historical search/list and session closeout remain explicit history surfaces.
 They do not reactivate records or adopt this automatic-recall filter.
 Review counts identify work that still needs classification; they do not mutate
-records. Learning resolution/supersession, revision checks, typed concern-owner
+records. Learning supersession and typed concern-owner
 links (including dedupe across linked records), snapshot pagination and expanded
 revision/environment applicability remain subsequent slices of P0/P1. Historical
 blocked checks are withheld pending explicit owner linking; existing open risks

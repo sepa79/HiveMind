@@ -1,4 +1,11 @@
 import { buildAutomaticRecall } from "../domain/automatic-recall.mjs";
+import {
+  buildResolvedLearning,
+  isLearningResolutionRetry,
+  learningResolutionIdempotencyRecord,
+  learningResolveAction,
+  validateLearningResolution
+} from "../domain/learning-lifecycle.mjs";
 import { randomUUID, createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync, appendFileSync, rmSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -580,6 +587,8 @@ export class FsJsonlStorage extends StorageAdapter {
       links: learningInput.links ?? [],
       artifacts: learningInput.artifacts ?? [],
       related_issue_ids: learningInput.related_issue_ids ?? [],
+      revision: 0,
+      resolution: null,
       created_at: now,
       updated_at: now
     };
@@ -653,6 +662,44 @@ export class FsJsonlStorage extends StorageAdapter {
       timestamp: now
     });
     return { feedback, idempotent: false };
+  }
+
+  async resolveLearning(resolveInput, { idempotencyKey }) {
+    const requestHash = digest({ operation: "learning.resolve", payload: resolveInput });
+    const idempotentRecord = this.#findIdempotencyRecord(resolveInput.project_id, "learning.resolve", idempotencyKey);
+    if (idempotentRecord) {
+      this.#ensureIdempotentPayload(idempotentRecord, requestHash);
+      const learning = this.#readRequiredLearning(resolveInput.project_id, idempotentRecord.resource_id);
+      return { learning, action: learningResolveAction(learning, ensure) };
+    }
+
+    const existing = this.#readLearning(resolveInput.project_id, resolveInput.learning_id);
+    if (isLearningResolutionRetry(existing, idempotencyKey)) {
+      this.#ensureIdempotentPayload({ key: idempotencyKey, request_hash: existing.resolution.request_hash }, requestHash);
+      this.#appendIdempotencyRecord(resolveInput.project_id, learningResolutionIdempotencyRecord(idempotencyKey, requestHash, existing));
+      const learning = this.#withLearningFeedbackSummary(resolveInput.project_id, existing);
+      return { learning, action: learningResolveAction(learning, ensure) };
+    }
+
+    const context = await this.getContext(resolveInput.context_token);
+    validateLearningResolution(existing, context, resolveInput, ensure);
+
+    const now = isoNow();
+    const updated = buildResolvedLearning({
+      learning: existing,
+      context,
+      input: resolveInput,
+      idempotencyKey,
+      requestHash,
+      resolvedAt: now,
+      contextSnapshot: (value) => this.#toLearningContextSnapshot(value)
+    });
+    this.#rewriteJsonLines(this.#learningsFile(resolveInput.project_id), (learning) =>
+      learning.learning_id === resolveInput.learning_id ? updated : learning
+    );
+    this.#appendIdempotencyRecord(resolveInput.project_id, learningResolutionIdempotencyRecord(idempotencyKey, requestHash, updated));
+    const learning = this.#withLearningFeedbackSummary(resolveInput.project_id, updated);
+    return { learning, action: learningResolveAction(learning, ensure) };
   }
 
   async getRecentLearnings(query) {

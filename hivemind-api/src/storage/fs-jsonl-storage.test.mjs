@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -610,6 +610,49 @@ describe("FsJsonlStorage", () => {
     expect(search.learnings).toHaveLength(1);
     expect(search.learnings[0].context.feature).toBe("LEGACY_TESTS");
     expect(search.learnings[0].status).toBe("resolved");
+  });
+
+  it("resolves learnings and rejects stale revisions", async () => {
+    const storage = createStorage();
+    await createProject(storage, "alpha");
+    const { context } = await storage.openContext({
+      project_id: "alpha",
+      branch: "main",
+      workspace_path: "/repo/alpha",
+      author_id: "agent-alpha",
+      author_type: "agent",
+      source: "mcp"
+    }, { idempotencyKey: "resolve-context" });
+    const { learning } = await storage.captureLearning({
+      context_token: context.context_token,
+      summary: "Temporary workaround",
+      scope: "workflow",
+      recommended_action: "Use it until fixed."
+    }, { idempotencyKey: "resolve-capture" });
+    const input = {
+      project_id: "alpha",
+      learning_id: learning.learning_id,
+      context_token: context.context_token,
+      expected_revision: 0,
+      reason: "Permanent fix verified.",
+      evidence_refs: [{ kind: "repo_file", target: "test/fix.test.mjs" }],
+      resolution_scope: "project"
+    };
+    const first = await storage.resolveLearning(input, { idempotencyKey: "resolve" });
+    const idempotencyFile = join(roots.at(-1), "projects", "alpha", "idempotency.jsonl");
+    const retainedRecords = readFileSync(idempotencyFile, "utf8")
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line))
+      .filter((record) => record.operation !== "learning.resolve");
+    writeFileSync(idempotencyFile, `${retainedRecords.map((record) => JSON.stringify(record)).join("\n")}\n`);
+    const same = await storage.resolveLearning(input, { idempotencyKey: "resolve" });
+
+    expect(first.learning).toMatchObject({ status: "resolved", revision: 1 });
+    expect(first.action.previous_revision).toBe(0);
+    expect(same).toEqual(first);
+    await expect(storage.resolveLearning({ ...input, expected_revision: 1 }, { idempotencyKey: "resolve-again" }))
+      .rejects.toMatchObject({ status: 409, code: "LEARNING_NOT_ACTIVE" });
   });
 
   it("tracks issue lifecycle events and filters active versus resolved issues", async () => {

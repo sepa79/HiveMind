@@ -2,6 +2,24 @@
 
 All notable HiveMind changes are recorded here.
 
+## 0.5.7 - 2026-09-10
+
+- Add `POST /v1/projects/{projectId}/learnings/{learningId}/resolve` and the
+  `learning_resolve` MCP tool for closing active learnings with explicit reason,
+  typed evidence, agent-declared scope and actor context.
+- Add learning revisions with optimistic conflict detection. Legacy learnings
+  without a revision are treated as revision `0`; successful resolution
+  increments the revision and preserves the learning for historical search.
+- Make resolution retries idempotent across closed contexts and recover from an
+  interrupted idempotency-record write using metadata stored with the learning.
+- Serialize learning resolution per project within one API instance, while
+  keeping `resolution_scope` informational so it does not constrain the global
+  lifecycle transition.
+- Exclude resolved learnings from automatic recall and install explicit
+  `revision` and `resolution` mappings on new and existing OpenSearch indices.
+- Document the REST and MCP lifecycle contracts and cover API, MCP, fs-jsonl,
+  OpenSearch, concurrency and recovery behavior with tests.
+
 ## 0.5.6 - 2026-09-08
 
 - Filter project/admin review knowledge by current applicability and exclude

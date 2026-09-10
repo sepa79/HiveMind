@@ -34,6 +34,7 @@ describe("HiveMind MCP runtime", () => {
     expect(toolNames).toContain("entry_append");
     expect(toolNames).toContain("entry_mark");
     expect(toolNames).toContain("entry_correct");
+    expect(toolNames).toContain("learning_resolve");
     expect(toolNames).toContain("project_review");
     expect(toolNames).toContain("hivemind_feedback");
     expect(toolNames).toContain("admin_memory_review");
@@ -653,6 +654,20 @@ describe("HiveMind MCP runtime", () => {
     );
     expect(search.structuredContent.learnings).toHaveLength(1);
     expect(search.structuredContent.learnings[0].context.feature).toBe("LEGACY_TESTS");
+
+    const resolved = await runtime.learningResolve({
+      project_id: "buzz",
+      context_token: currentToken,
+      learning_id: captured.structuredContent.learning.learning_id,
+      expected_revision: 0,
+      reason: "The fixture regeneration is now built into the workflow.",
+      evidence_refs: [{ kind: "repo_file", target: "test/fixtures.test.mjs" }],
+      resolution_scope: "feature",
+      idempotencyKey: "resolve-fixtures-learning"
+    });
+    expect(resolved.isError).toBeUndefined();
+    expect(resolved.structuredContent.learning).toMatchObject({ status: "resolved", revision: 1 });
+    expect(resolved.structuredContent.action.resolution_scope).toBe("feature");
   });
 
   it("issue.report/get/list/add_event expose tracked issue lifecycle through MCP-friendly payloads", async () => {

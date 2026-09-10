@@ -1383,6 +1383,118 @@ describe("HiveMind API", () => {
     expect(searchPayload.data.learnings[0].context.feature).toBe("LEGACY_TESTS");
   });
 
+  it("resolves an existing learning with evidence, revision checking, and idempotency", async () => {
+    const app = createTestApp();
+    await createProject(app);
+    const captureContextToken = await openContext(app, { branch: "feat/learning-resolution", feature: "CAPTURE_FEATURE" });
+    const resolveContextToken = await openContext(app, { branch: "feat/other-work", feature: "RESOLUTION_FEATURE" });
+    const capturedResponse = await app.request("/v1/learnings", {
+      method: "POST",
+      headers: { "content-type": "application/json", "Idempotency-Key": "learning-to-resolve" },
+      body: JSON.stringify({
+        context_token: captureContextToken,
+        summary: "Temporary workaround",
+        scope: "workflow",
+        recommended_action: "Keep the workaround until the fix lands."
+      })
+    });
+    const learning = (await capturedResponse.json()).data.learning;
+    const request = () => app.request(`/v1/projects/buzz/learnings/${learning.learning_id}/resolve`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "Idempotency-Key": "resolve-learning" },
+      body: JSON.stringify({
+        context_token: resolveContextToken,
+        expected_revision: 0,
+        reason: "The permanent fix is covered by tests.",
+        evidence_refs: [{ kind: "repo_file", target: "tests/permanent-fix.test.mjs" }],
+        resolution_scope: "feature"
+      })
+    });
+
+    const revisionConflict = await app.request(`/v1/projects/buzz/learnings/${learning.learning_id}/resolve`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "Idempotency-Key": "wrong-learning-revision" },
+      body: JSON.stringify({
+        context_token: resolveContextToken,
+        expected_revision: 7,
+        reason: "Use an intentionally stale revision.",
+        evidence_refs: [{ kind: "repo_file", target: "tests/permanent-fix.test.mjs" }],
+        resolution_scope: "feature"
+      })
+    });
+    expect(revisionConflict.status).toBe(409);
+    expect((await revisionConflict.json()).error.code).toBe("LEARNING_REVISION_CONFLICT");
+
+    const first = await request();
+    const second = await request();
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    const firstPayload = await first.json();
+    const secondPayload = await second.json();
+    expect(firstPayload.data.learning).toMatchObject({ status: "resolved", revision: 1 });
+    expect(firstPayload.data.learning.resolution).toMatchObject({
+      resolution_scope: "feature",
+      context: { branch: "feat/other-work", feature: "RESOLUTION_FEATURE" }
+    });
+    expect(firstPayload.data.action).toMatchObject({ previous_status: "active", previous_revision: 0, revision: 1 });
+    expect(secondPayload.data).toEqual(firstPayload.data);
+
+    const staleResponse = await app.request(`/v1/projects/buzz/learnings/${learning.learning_id}/resolve`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "Idempotency-Key": "resolve-learning-again" },
+      body: JSON.stringify({
+        context_token: resolveContextToken,
+        expected_revision: 0,
+        reason: "Try a second transition.",
+        evidence_refs: [{ kind: "repo_file", target: "tests/permanent-fix.test.mjs" }],
+        resolution_scope: "feature"
+      })
+    });
+    expect(staleResponse.status).toBe(409);
+    expect((await staleResponse.json()).error.code).toBe("LEARNING_NOT_ACTIVE");
+
+    expect((await app.request(`/v1/contexts/${resolveContextToken}/close`, { method: "POST" })).status).toBe(200);
+    const retryAfterContextClose = await request();
+    expect(retryAfterContextClose.status).toBe(200);
+    expect((await retryAfterContextClose.json()).data).toEqual(firstPayload.data);
+  });
+
+  it("serializes concurrent learning resolution requests within one API instance", async () => {
+    const app = createTestApp();
+    await createProject(app);
+    const contextToken = await openContext(app, { branch: "main" });
+    const capturedResponse = await app.request("/v1/learnings", {
+      method: "POST",
+      headers: { "content-type": "application/json", "Idempotency-Key": "concurrent-learning" },
+      body: JSON.stringify({
+        context_token: contextToken,
+        summary: "Concurrent workaround",
+        scope: "workflow",
+        recommended_action: "Resolve once."
+      })
+    });
+    const learning = (await capturedResponse.json()).data.learning;
+    const resolve = (key, reason) => app.request(`/v1/projects/buzz/learnings/${learning.learning_id}/resolve`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "Idempotency-Key": key },
+      body: JSON.stringify({
+        context_token: contextToken,
+        expected_revision: 0,
+        reason,
+        evidence_refs: [{ kind: "repo_file", target: "tests/concurrent-fix.test.mjs" }],
+        resolution_scope: "project"
+      })
+    });
+
+    const responses = await Promise.all([
+      resolve("concurrent-resolve-a", "Resolution A"),
+      resolve("concurrent-resolve-b", "Resolution B")
+    ]);
+    expect(responses.map((response) => response.status).sort()).toEqual([200, 409]);
+    const failed = responses.find((response) => response.status === 409);
+    expect((await failed.json()).error.code).toBe("LEARNING_NOT_ACTIVE");
+  });
+
   it("reports issues, appends lifecycle events, and filters active versus resolved issues", async () => {
     const app = createTestApp();
     await createProject(app);
