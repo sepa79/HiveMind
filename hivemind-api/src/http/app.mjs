@@ -1,8 +1,9 @@
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import { adminAuthorizationMatches } from "../app/admin-token.mjs";
 import { canonicalProjectIdFromRepositorySlug } from "../app/project-identity.mjs";
 import { ApiError } from "../app/errors.mjs";
@@ -91,7 +92,23 @@ export function createApp({ service, accessLogger = null, adminToken = null }) {
     }
   });
 
-  app.get("/", (c) => c.html(renderHumanUi({ version: service.version })));
+  app.use("*", async (c, next) => {
+    c.header("X-Content-Type-Options", "nosniff");
+    c.header("X-Frame-Options", "DENY");
+    c.header("Referrer-Policy", "no-referrer");
+    c.header("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+    c.header("Cache-Control", "no-store");
+    await next();
+  });
+  app.use("*", bodyLimit({
+    maxSize: 1024 * 1024,
+    onError: () => { throw new ApiError(413, "REQUEST_TOO_LARGE", "Request body exceeds 1 MiB."); }
+  }));
+  app.get("/", (c) => {
+    const nonce = randomBytes(24).toString("base64");
+    c.header("Content-Security-Policy", `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'nonce-${nonce}'; img-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; object-src 'none'`);
+    return c.html(renderHumanUi({ version: service.version, nonce }));
+  });
   app.get("/favicon.ico", (c) => c.body(null, 204));
   app.get("/assets/:assetName", async (c) => {
     const assetName = c.req.param("assetName");

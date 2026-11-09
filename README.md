@@ -87,6 +87,12 @@ For HiveForge deployment, use [HiveForge Deployment](#hiveforge-deployment), [hi
 
 For a shared API backed by OpenSearch:
 
+**Upgrading an existing installation:** read the
+[0.6.0 upgrade guide](docs/security-upgrade-0.6.0.md) before running Compose
+or a HiveForge update/upgrade. The new OpenSearch 3.9.0 default must not be
+started directly against 2.17.x data. Existing application data mounts must
+also be writable by UID 1000.
+
 ```bash
 docker compose up
 ```
@@ -296,7 +302,7 @@ or a private registry package you control. Do not assume public
 Refresh the committed, sanitized snapshot intentionally:
 
 ```bash
-npm run hivemind:refresh-demo
+HIVEMIND_DEMO_SOURCE_API_URL=https://hivemind.example.com npm run hivemind:refresh-demo
 ```
 
 `npm run hivemind:save-demo` is still available for ad-hoc local packing of your

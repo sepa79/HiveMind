@@ -11,8 +11,11 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 
 const SOURCE_API_BASE_URL = trimTrailingSlash(
-  process.env.HIVEMIND_DEMO_SOURCE_API_URL || "http://192.168.88.54:4010"
+  process.env.HIVEMIND_DEMO_SOURCE_API_URL || ""
 );
+if (!SOURCE_API_BASE_URL) {
+  throw new Error("Set HIVEMIND_DEMO_SOURCE_API_URL explicitly before refreshing demo data.");
+}
 const SNAPSHOT_PATH = resolve(
   process.env.HIVEMIND_DEMO_SNAPSHOT || join(repoRoot, "bootstrap", "demo-hivemind-state.tar.gz")
 );

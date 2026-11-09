@@ -348,3 +348,16 @@ For isolated spaces, run separate HiveMind deployments and configure MCP with
 and fails when duplicate `project_id` values make routing ambiguous.
 
 Use a small, explicit feature vocabulary for each project. Good feature names are broad work streams, user stories, or plan names.
+
+
+## Security maintenance
+
+The container runs as the unprivileged Node user (UID 1000). Bind-mounted data directories must be writable by that user. The runtime image removes npm, npx, Corepack and Yarn; dependency installation belongs in the build stage.
+
+The API and HTTP MCP server limit request bodies to 1 MiB. MCP additionally limits tool inputs to 10,000 combined object keys and array elements through `maxToolInputElements`. These are resource limits, not authentication or authorization. The existing administrative token requirements remain unchanged.
+
+The human UI uses relative URLs, allowing a reverse proxy to strip a path prefix without rewriting HTML. Preserve a trailing slash on the UI URL. Every response disables caching, enables `nosniff`, denies framing and suppresses referrer information. HTML responses include a fresh script/style nonce in a restrictive Content Security Policy. Proxy configurations must preserve that header and must not cache or rewrite nonce-bearing HTML.
+
+Before applying this release to an existing installation, follow [the 0.6.0 upgrade guide](security-upgrade-0.6.0.md). The development and container defaults use OpenSearch 3.9.0. Existing 2.x storage must follow the supported upgrade path: reach at least 2.19.0 before moving to 3.x. Take a verified backup and snapshot first, check index counts and actual application reads/writes, and retain the pre-upgrade data. OpenSearch cannot be rolled back by starting the old binary against storage modified by the newer binary.
+
+Run `npm audit` and `npm audit --omit=dev`, the test suite and an image vulnerability scan after dependency updates. Counts from package audits and image scans overlap and do not establish exploitability. The HTTP MCP SDK update must retain the explicit input limits; upgrading the package alone does not enable all guards.

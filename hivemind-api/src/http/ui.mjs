@@ -1,12 +1,12 @@
-export function renderHumanUi({ version = "0.0.0" } = {}) {
+export function renderHumanUi({ version = "0.0.0", nonce = "" } = {}) {
   return `<!doctype html>
 <html lang="en" data-theme="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>HiveMind Work Units</title>
-  <link rel="icon" href="/assets/hivemind-radial-grid-mark.svg" type="image/svg+xml">
-  <style>
+  <link rel="icon" href="assets/hivemind-radial-grid-mark.svg" type="image/svg+xml">
+  <style nonce="${nonce}">
     :root {
       color-scheme: dark;
       --bg: #05070b;
@@ -936,8 +936,8 @@ export function renderHumanUi({ version = "0.0.0" } = {}) {
     <header class="topBar">
       <div class="topBarInner">
         <div class="topBarLeft">
-          <a class="logoLink" href="/" aria-label="HiveMind home" title="Home">
-            <img class="brand-mark" src="/assets/hivemind-radial-grid-mark.svg" alt="" aria-hidden="true">
+          <a class="logoLink" href="./" aria-label="HiveMind home" title="Home">
+            <img class="brand-mark" src="assets/hivemind-radial-grid-mark.svg" alt="" aria-hidden="true">
             <span class="brandWordmark" aria-hidden="true"><span class="brandWordHive">Hive</span><span class="brandWordMind">Mind</span></span>
           </a>
         </div>
@@ -976,7 +976,7 @@ export function renderHumanUi({ version = "0.0.0" } = {}) {
           <section class="home-hero">
             <div class="home-hero-main">
               <div class="home-brand-row">
-                <img class="home-brand-logo" src="/assets/hivemind-radial-grid-logo.svg" alt="HiveMind">
+                <img class="home-brand-logo" src="assets/hivemind-radial-grid-logo.svg" alt="HiveMind">
               </div>
               <div class="home-kicker">Shared engineering memory for AI-assisted teams</div>
               <h1 class="sr-only">HiveMind</h1>
@@ -1132,7 +1132,7 @@ export function renderHumanUi({ version = "0.0.0" } = {}) {
       <div id="entryDetailBody" class="entry-detail-body"></div>
     </article>
   </section>
-  <script>
+  <script nonce="${nonce}">
     const THEME_KEY = "HIVEMIND_UI_THEME";
     const PROJECT_KEY = "HIVEMIND_UI_PROJECT";
     const BRANCH_KEY = "HIVEMIND_UI_BRANCH";
@@ -1268,7 +1268,7 @@ export function renderHumanUi({ version = "0.0.0" } = {}) {
     async function api(path, options = {}) {
       const requestBody =
         options.body && typeof options.body !== "string" ? JSON.stringify(options.body) : options.body;
-      const response = await fetch(path, {
+      const response = await fetch(path.replace(/^\\//, ""), {
         ...options,
         headers: {
           ...(options.body ? { "content-type": "application/json" } : {}),

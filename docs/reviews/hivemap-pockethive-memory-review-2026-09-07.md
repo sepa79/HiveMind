@@ -1,5 +1,7 @@
 # HiveMap i PocketHive — przegląd pamięci HiveMind, 2026-09-07
 
+Publication note (9 November 2026): historical lab addresses and host names below use documentation-only replacements; they are not connection instructions.
+
 Status: raport audytu; rekomendacje nie zostały zastosowane do historycznej pamięci. Dodano do repo HiveMind 2026-09-07. Odnośniki do `/tmp`, lokalnych workspace i plików innych projektów w treści są historyczną proweniencją; aktualny task jest podlinkowany poniżej.
 
 To jest propozycja porządkowania, nie wykonana zmiana historycznych statusów. Zakres: 107 unikalnych learnings pozyskanych z wyszukiwania projektu i gałęzi, 85 wpisów dziennika, 6 issues oraz 32 wątki w odpowiedzi context_get_open_threads. Przejrzano inwentarz i recommended_action; wpisy wskazane do korekty porównano z późniejszymi wpisami i odpowiednimi dokumentami repo. Nie jest to ponowna akceptacja całego runtime ani weryfikacja aktualnego Swarm/GHCR/HiveForge.
@@ -119,10 +121,10 @@ Pełne identyfikatory dla nawigacji. Pozycje bez propozycji w tabeli korekt nie 
 | lrn-6a03dea52d744338c5e0bc91a6b6e7c2 | active | PocketHive and CaravanWorld do not produce the same encoder winner; current evidence suggests dataset-sensitive quality rather than one universal best local model. |
 | lrn-ba0158dcba7edf55baaa2f159bdaa1df | active | PocketHive embedding test-set expansion now uses a reusable scan-bundle generator plus live import to the .50 HiveMap runtime. |
 | lrn-ce3c756ff4978d104a330835d2c093ee | active | CaravanWorld embedding smoke on 2026-08-20 found mxbai-embed-large to be the strongest current Ollama candidate among nomic-embed-text, mxbai-embed-large, and qwen3-embedding:0.6b for HiveMap concept similarity. |
-| lrn-a501a79acf7ccf051512d4a2e9c3919d | active | External provider-backed vector smoke on the shared swarm is currently blocked on 192.168.88.50 because the live runtime only wires Ollama from HIVEMAP_OLLAMA_BASE_URL and the official ollama/ollama image cannot be unpacked there with only about 3.3G free in /var/lib/docker. |
-| lrn-f1dd0ad4f64acc47e30c8f00255597a2 | active | HiveMap development on the shared swarm is now live on dev-latest with a node-local Postgres bind source pinned to docker-swarm-mgr-1; the swarm environment allow-list includes /opt/pockethive-data/hivemap/data and CaravanWorld was re-imported after switching to the new local state path. |
-| lrn-b115fcb29697f151d3a3fde2290b8de9 | active | HiveMap docker-swarm deployments now require an explicit placement constraint whenever Postgres uses a node-local bind source; the temporary shared-swarm dev setup is pinned to docker-swarm-mgr-1 via node.hostname while reusing /opt/pockethive-data/hivemap/data on 192.168.88.50. |
-| lrn-322d4709ab8bf37da14284c9cf066eb4 | active | HiveForge runtime env for hivemap-development on the swarm environment now pins HIVEMAP_DATA_BIND_SOURCE to /opt/pockethive-data/hivemap/data as the intended non-NFS local persistence path on 192.168.88.50, but the current environment metadata does not yet advertise that path in the bind-source allow-list. |
+| lrn-a501a79acf7ccf051512d4a2e9c3919d | active | External provider-backed vector smoke on the shared swarm is currently blocked on 192.0.2.50 because the live runtime only wires Ollama from HIVEMAP_OLLAMA_BASE_URL and the official ollama/ollama image cannot be unpacked there with only about 3.3G free in /var/lib/docker. |
+| lrn-f1dd0ad4f64acc47e30c8f00255597a2 | active | HiveMap development on the shared swarm is now live on dev-latest with a node-local Postgres bind source pinned to example-swarm-node; the swarm environment allow-list includes /opt/pockethive-data/hivemap/data and CaravanWorld was re-imported after switching to the new local state path. |
+| lrn-b115fcb29697f151d3a3fde2290b8de9 | active | HiveMap docker-swarm deployments now require an explicit placement constraint whenever Postgres uses a node-local bind source; the temporary shared-swarm dev setup is pinned to example-swarm-node via node.hostname while reusing /opt/pockethive-data/hivemap/data on 192.0.2.50. |
+| lrn-322d4709ab8bf37da14284c9cf066eb4 | active | HiveForge runtime env for hivemap-development on the swarm environment now pins HIVEMAP_DATA_BIND_SOURCE to /opt/pockethive-data/hivemap/data as the intended non-NFS local persistence path on 192.0.2.50, but the current environment metadata does not yet advertise that path in the bind-source allow-list. |
 | lrn-de27f2b08de3d3b5da3efd907fb1e2cd | active | Legacy CaravanWorld HiveMap bundles with formatVersion 1 and storageSchemaVersion 2 remain semantically importable; the blocker was the strict legacy schema gate, and a schema-2 compatibility bridge plus temporary manifest rewrite allowed direct import into the current Postgres runtime. |
 | lrn-a2971b3182d496dd4b17bc41aab9ae15 | active | Finding cards need typographic hierarchy instead of concatenated labels |
 | lrn-5ce790111148666d7e8e033549ccaf18 | active | Scan categories must render as explicit priority columns inside the canvas |
@@ -477,7 +479,7 @@ Inwentarz odzwierciedla stan odczytany przed dodaniem wpisu zamykającego ten au
 | ent-8bbe5eac693d2e311d89c73c6a993405 | decision | open | Capability lookup will use image name without version tag |
 | ent-9913383bd00d6a28820cf9e763c40dba | decision | open | Split HiveMind and PocketHive single-node testing onto separate Proxmox Docker nodes. |
 | ent-fc612f7690a9c716c7309951f5d107da | decision | brak | PocketHive remote image tooling now uses one SSOT image manifest. |
-| ent-d34f82e23e396ecf4ad0c5592a8238b1 | decision | brak | Use Swarm leader 192.168.88.50, not Proxmox host 192.168.88.12, for PocketHive runtime and E2E access. |
+| ent-d34f82e23e396ecf4ad0c5592a8238b1 | decision | brak | Use Swarm leader 192.0.2.50, not Proxmox host 192.0.2.12, for PocketHive runtime and E2E access. |
 | ent-9c833ba9403adf22332515c2ede64d5f | risk | open | Repository SSOT audit: eight additional critical ownership groups beyond RabbitMQ; five behavioral contradictions reproduced offline |
 | ent-14b6407de01635861fd5c21cc79ca706 | risk | open | Repository-wide RabbitMQ audit finds remaining SSOT violations beyond repaired CP-N01 |
 | ent-52e7e2d473e17bb057404b027a46387e | risk | open | HIGH: executor timestamps can invalidate otherwise successful lifecycle results |
@@ -539,7 +541,7 @@ Inwentarz odzwierciedla stan odczytany przed dodaniem wpisu zamykającego ten au
 | ent-4219cb3acd5a8d5a60ca9c5f917773d7 | risk | open | Post-hardening smoke fails one auth/debug-tap scenario with 500 from POST /api/debug/taps. |
 | ent-5532454ec81d683fdabb72e403bc2cd5 | risk | open | Swarm can report orchestrator 1/1 while Tomcat is dead after early tasks.postgres DNS failure. |
 | ent-cd9416b2a523aaeec8e08503b9236771 | risk | open | RabbitMQ persisted test data can corrupt local Swarm redeploys; clean nodes should not need this reset. |
-| ent-342959092253f33c650ffb9cac24416e | risk | open | Full PocketHive compose profile is too heavy for docker-swarm-mgr-1 while HiveMind/OpenSearch also runs there. |
+| ent-342959092253f33c650ffb9cac24416e | risk | open | Full PocketHive compose profile is too heavy for example-swarm-node while HiveMind/OpenSearch also runs there. |
 | ent-0e88306ca369b9c62f85df9eb501b47f | feedback | resolved | SwarmSignalListener jest efektywnym wieloźródłowym sinkiem decyzyjnym, nie adapterem persistence |
 | ent-f2d75e6acfce55a365b86208f0352611 | feedback | superseded | Ponowny review: duplikacja roli ownera usunięta; pozostają dwa blokery HIGH |
 | ent-c40dad69eb974db1cce8e94136eb011c | feedback | open | Correction: the nested SUT endpoint id migration predates the lifecycle-control-plane branch and is already included in v0.15.35. |
@@ -779,14 +781,14 @@ Inwentarz odzwierciedla stan odczytany przed dodaniem wpisu zamykającego ten au
 | ent-bb7f228f3f8a2a526a278eeeea85474a | progress | resolved | Remote .55 lifecycle subset passed after adding explicit WireMock SUT runtime |
 | ent-20018e58b91a0241a999c3ace660a612 | progress | open | Remote E2E smoke passes against pockethive-single-1 through .55 ingress |
 | ent-db35fda41cbb2d8727fa3692a1792d10 | progress | open | Deployed reduced PocketHive runtime on pockethive-single-1 and passed ingress lifecycle smoke |
-| ent-da35db15f0d3b0b8293247d9204dbdf8 | progress | open | Moved PocketHive Docker registry from Swarm manager .50 to docker-infra-1 .54 |
-| ent-6db760b7b3edbc1c611e464dd7ecada6 | progress | open | Moved HiveMind API and OpenSearch to docker-infra-1 |
-| ent-c9788b274f33ae90732321200b84166e | progress | open | Starting HiveMind migration from Swarm manager .50 to docker-infra-1 .54 |
+| ent-da35db15f0d3b0b8293247d9204dbdf8 | progress | open | Moved PocketHive Docker registry from Swarm manager .50 to example-infra-node .54 |
+| ent-6db760b7b3edbc1c611e464dd7ecada6 | progress | open | Moved HiveMind API and OpenSearch to example-infra-node |
+| ent-c9788b274f33ae90732321200b84166e | progress | open | Starting HiveMind migration from Swarm manager .50 to example-infra-node .54 |
 | ent-810c75d55b347250b650da026b0f3c6c | progress | open | Prepared dedicated Proxmox Docker nodes for infra and single-node PocketHive tests |
-| ent-7cd6616d0b3964cbff494be3a9662b1c | progress | open | Phase 4 partial: registry-backed single-node compose reached healthy ingress, but full profile overloaded docker-swarm-mgr-1. |
+| ent-7cd6616d0b3964cbff494be3a9662b1c | progress | open | Phase 4 partial: registry-backed single-node compose reached healthy ingress, but full profile overloaded example-swarm-node. |
 | ent-b55a249dc2687f2487dc6e74860480f5 | progress | resolved | Phase 3 complete: full PocketHive image set pushed to remote registry and representative remote pulls passed. |
 | ent-1ab34933695e5152a59c17e156fbcf9f | progress | open | Remote Swarm plan is staged through registry, full image push, single-node runtime, then Swarm hardening. |
-| ent-79a0fc8160bf58663472662be2a2babc | progress | brak | Phase 2 registry is deployed and verified at 192.168.88.50:5000. |
+| ent-79a0fc8160bf58663472662be2a2babc | progress | brak | Phase 2 registry is deployed and verified at 192.0.2.50:5000. |
 | ent-b6ecf8a997453ca52e8a2f4ab5111696 | progress | brak | Continued auth rollout stabilization on current PocketHive branch |
 | ent-fee67163ba12996d6983f87a459cc9de | progress | brak | Initialized PocketHive in the global HiveMind service. |
 | ent-f16368a9d9b7b35a2ac559f1f304e1a5 | progress | resolved | pockethive-development deployed from test branch with fresh d7928b38 images and runtime is running. |

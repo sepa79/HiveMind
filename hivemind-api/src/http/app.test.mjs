@@ -2137,6 +2137,47 @@ describe("HiveMind API", () => {
     expect(listPayload.data.sessions[0].activity_counts.rule_checks).toBe(0);
   });
 
+  it("uses fresh matching CSP nonces and blocks framing", async () => {
+    const app = createTestApp();
+    const first = await app.request("/");
+    const second = await app.request("/");
+    const csp = first.headers.get("content-security-policy");
+    const nonce = /script-src 'nonce-([^']+)'/.exec(csp)[1];
+    const html = await first.text();
+    expect(html).toContain(`<script nonce="${nonce}">`);
+    expect(html).toContain(`<style nonce="${nonce}">`);
+    expect(csp).toContain("frame-ancestors 'none'");
+    expect(csp).not.toContain("unsafe-inline");
+    expect(second.headers.get("content-security-policy")).not.toBe(csp);
+    expect(first.headers.get("x-frame-options")).toBe("DENY");
+    expect(first.headers.get("x-content-type-options")).toBe("nosniff");
+  });
+
+  it("rejects oversized JSON before creating a project", async () => {
+    const app = createTestApp();
+    const response = await app.request("/v1/projects", {
+      method: "POST", headers: {"content-type": "application/json"},
+      body: JSON.stringify({name: "x".repeat(1024 * 1024)})
+    });
+    expect(response.status).toBe(413);
+    expect((await response.json()).error.code).toBe("REQUEST_TOO_LARGE");
+    expect((await (await app.request("/v1/projects")).json()).data.projects).toEqual([]);
+  });
+
+  it("bounds streamed bodies even without Content-Length", async () => {
+    const app = createTestApp();
+    const stream = new ReadableStream({start(controller) {
+      controller.enqueue(new Uint8Array(700000));
+      controller.enqueue(new Uint8Array(700000));
+      controller.close();
+    }});
+    const response = await app.request("/v1/projects", {
+      method: "POST", headers: {"content-type": "application/json"},
+      body: stream, duplex: "half"
+    });
+    expect(response.status).toBe(413);
+  });
+
   it("serves the human sessions UI", async () => {
     const app = createTestApp();
 
@@ -2145,12 +2186,12 @@ describe("HiveMind API", () => {
     expect(response.headers.get("content-type")).toContain("text/html");
     const html = await response.text();
     expect(html).toContain("HiveMind");
-    expect(html).toContain("/assets/hivemind-radial-grid-mark.svg");
+    expect(html).toContain("assets/hivemind-radial-grid-mark.svg");
     expect(html).toContain('class="appShell"');
     expect(html).toContain('class="sideNav"');
     expect(html).toContain('id="homeTab"');
     expect(html).toContain('id="homePanel"');
-    expect(html).toContain('class="home-brand-logo" src="/assets/hivemind-radial-grid-logo.svg"');
+    expect(html).toContain('class="home-brand-logo" src="assets/hivemind-radial-grid-logo.svg"');
     expect(html).not.toContain("home-brand-mark");
     expect(html).toContain('select id="projectId"');
     expect(html).toContain('select id="branch"');

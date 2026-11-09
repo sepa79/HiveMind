@@ -4,7 +4,7 @@
 {% set hivemind_mcp_admin_token_secret_path = '/run/secrets/' ~ hivemind_mcp_admin_token_secret %}
 services:
   opensearch:
-    image: opensearchproject/opensearch:2.17.1
+    image: opensearchproject/opensearch:3.9.0
     restart: on-failure
     environment:
       discovery.type: single-node

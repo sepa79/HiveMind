@@ -1,7 +1,9 @@
 # Pamięć projektu HiveMind — audyt po wdrożeniu 0.5.5
 
+Publication note (9 November 2026): historical lab addresses and host names below use documentation-only replacements; they are not connection instructions.
+
 Data: 2026-09-08. Status: propozycja porządkowania; historyczne wpisy nie zostały zmienione.
-Źródło: MCP 0.5.5 na `192.168.88.54:4011`, projekt `hivemind`, kod `9a9412c`.
+Źródło: MCP 0.5.5 na `192.0.2.54:4011`, projekt `hivemind`, kod `9a9412c`.
 Sesja audytu: `sess-ce6c5803ba5f06a9100c3a73ac5e36dc`.
 
 ## Inwentarz i zachowanie nowego startupu
