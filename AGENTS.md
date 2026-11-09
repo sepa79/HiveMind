@@ -29,6 +29,9 @@ It keeps the core rules here and points to the authoritative project docs for de
   - Do not duplicate DTOs, validators, or parallel request/response definitions for the same contract.
 - **KISS.**
   - Prefer straightforward implementation over framework cleverness.
+- **Keep review reports out of this repository.**
+  - Never create, restore, or commit `docs/reviews/`.
+  - Keep audit and review reports outside the public repository; do not recreate them under another repository directory.
 - **No transcript dumping.**
   - HiveMind stores concise structured memory, not raw conversation archives.
 - **Repo-portable references first.**

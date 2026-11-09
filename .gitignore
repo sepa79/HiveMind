@@ -4,3 +4,6 @@ dist/
 *.log
 .hivemind/
 .env
+
+# Review reports are intentionally kept outside this repository.
+/docs/reviews/

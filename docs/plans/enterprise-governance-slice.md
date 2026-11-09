@@ -1,5 +1,13 @@
 # Enterprise Governance Slice
 
+Status: proposed, not implemented or scheduled. Reconciled on 9 November 2026.
+
+The existing `guidance_check` checks a project's stored repository-standard
+marker against the ruleset catalog. It does not provide the organization
+profile, inherited rules or version-delta handshake proposed here. Proposed
+endpoints and phases below are design options, not supported API contracts.
+See the [plan index](README.md) and [current user guide](../user-guide.md).
+
 ## Goal
 
 Extend HiveMind from project memory plus rule checks into a lightweight
