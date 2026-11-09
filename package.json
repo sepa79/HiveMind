@@ -1,6 +1,6 @@
 {
   "name": "hivemind",
-  "version": "0.5.7",
+  "version": "0.6.0",
   "private": true,
   "type": "module",
   "description": "Standalone MCP memory service for agent and team development context",
@@ -21,13 +21,13 @@
     "test:hivemind": "vitest run hivemind-api/src hivemind-mcp/src scripts/bootstrap-hivemind.test.mjs scripts/hivemind-work-unit.test.mjs scripts/hivemind-standard.test.mjs scripts/opensearch-init.test.mjs"
   },
   "dependencies": {
-    "@hono/node-server": "^1.19.14",
-    "@modelcontextprotocol/sdk": "^1.25.1",
+    "@hono/node-server": "^2.1.6",
+    "@modelcontextprotocol/sdk": "^1.32.0",
     "@opensearch-project/opensearch": "^3.5.1",
-    "hono": "^4.12.14",
-    "zod": "^3.24.1"
+    "hono": "^4.13.11",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
-    "vitest": "^3.2.4"
+    "vitest": "^4.1.12"
   }
 }

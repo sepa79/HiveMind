@@ -21,7 +21,7 @@ function createHiveMindMcpServer({ requireAdminAuthorization = false } = {}) {
 const server = new McpServer({
   name: "hivemind",
   version: packageJson.version
-});
+}, { maxToolInputElements: 10000 });
 
 const backendProfiles = parseBackendProfiles();
 const runtime = createHiveMindRuntime({
@@ -1006,7 +1006,7 @@ async function startHttpServer() {
         req.auth = authInfo;
       }
       const mcpServer = createHiveMindMcpServer({ requireAdminAuthorization: true });
-      const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+      const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, maxRequestBodySize: 1024 * 1024 });
       await mcpServer.connect(transport);
       await transport.handleRequest(req, res, body);
       res.on("close", () => {
@@ -1016,7 +1016,7 @@ async function startHttpServer() {
     } catch (error) {
       console.error("HiveMind MCP HTTP request failed:", error);
       if (!res.headersSent) {
-        res.writeHead(500, { "content-type": "application/json" });
+        res.writeHead(error.statusCode || 500, { "content-type": "application/json" });
         res.end(JSON.stringify({
           jsonrpc: "2.0",
           error: { code: -32603, message: "Internal server error" },
@@ -1038,7 +1038,20 @@ async function startHttpServer() {
 
 async function readJsonBody(req) {
   const chunks = [];
+  let bytes = 0;
+  const limit = 1024 * 1024;
+  if (Number(req.headers["content-length"] || 0) > limit) {
+    const error = new Error("Request body exceeds 1 MiB.");
+    error.statusCode = 413;
+    throw error;
+  }
   for await (const chunk of req) {
+    bytes += chunk.length;
+    if (bytes > limit) {
+      const error = new Error("Request body exceeds 1 MiB.");
+      error.statusCode = 413;
+      throw error;
+    }
     chunks.push(chunk);
   }
   if (chunks.length === 0) {

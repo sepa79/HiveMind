@@ -78,14 +78,19 @@ Upgrade from an older standard profile:
 
 For the full local onboarding flow, use [docs/team-quickstart.md](docs/team-quickstart.md).
 For runtime concepts and workflow, use [docs/user-guide.md](docs/user-guide.md).
-For the memory freshness follow-up, see the [implementation task](docs/plans/memory-freshness-lifecycle.md)
-and the [HiveMap/PocketHive memory audit](docs/reviews/hivemap-pockethive-memory-review-2026-09-07.md).
+For current work, proposals and completed scope, see the [product plan index](docs/plans/README.md).
 For AI ruleset catalog usage, use [docs/ai-ruleset-catalog.md](docs/ai-ruleset-catalog.md).
 For HiveForge deployment, use [HiveForge Deployment](#hiveforge-deployment), [hiveforge.yaml](hiveforge.yaml), and the HiveForge repo docs at [github.com/sepa79/HiveForge](https://github.com/sepa79/HiveForge).
 
 ## Shared Docker Stack
 
 For a shared API backed by OpenSearch:
+
+**Upgrading an existing installation:** read the
+[0.6.0 upgrade guide](docs/security-upgrade-0.6.0.md) before running Compose
+or a HiveForge update/upgrade. The new OpenSearch 3.9.0 default must not be
+started directly against 2.17.x data. Existing application data mounts must
+also be writable by UID 1000.
 
 ```bash
 docker compose up
@@ -118,7 +123,7 @@ process. The supplied deployment keeps the API at one replica and uses
 `stop-first` Swarm updates. MCP clients and the MCP service may scale
 independently.
 
-OpenSearch `9200` is not published on the host. `docker-compose.yml` uses the image named by `HIVEMIND_API_IMAGE` for both `hivemind-api` and `hivemind-mcp`; CI publishes that image to GHCR. See [docs/plans/opensearch-storage-stack.md](docs/plans/opensearch-storage-stack.md). For a company rollout with shared VS Code MCP clients, use [docs/company-swarm-rollout.md](docs/company-swarm-rollout.md).
+OpenSearch `9200` is not published on the host. `docker-compose.yml` uses the image named by `HIVEMIND_API_IMAGE` for both `hivemind-api` and `hivemind-mcp`; CI publishes that image to GHCR. See [OpenSearch storage](docs/opensearch-storage.md). For a company rollout with shared VS Code MCP clients, use [docs/company-swarm-rollout.md](docs/company-swarm-rollout.md).
 
 ## HiveForge Deployment
 
@@ -296,7 +301,7 @@ or a private registry package you control. Do not assume public
 Refresh the committed, sanitized snapshot intentionally:
 
 ```bash
-npm run hivemind:refresh-demo
+HIVEMIND_DEMO_SOURCE_API_URL=https://hivemind.example.com npm run hivemind:refresh-demo
 ```
 
 `npm run hivemind:save-demo` is still available for ad-hoc local packing of your

@@ -2,6 +2,24 @@
 
 All notable HiveMind changes are recorded here.
 
+## 0.6.0 - 2026-11-09
+
+- **Operator action required:** the Compose and HiveForge templates now pin
+  OpenSearch 3.9.0. Do not apply them to existing 2.x data before following
+  [the upgrade guide](docs/security-upgrade-0.6.0.md). No automatic data
+  migration is provided.
+- Run the application image as UID 1000, remove runtime package managers and
+  update OS packages during builds. Existing data mounts need matching write
+  permissions, including the directory holding the administrative token.
+- Update MCP SDK, Zod, Hono, the Node adapter, Vitest and locked dependencies.
+  Bound API/HTTP MCP bodies to 1 MiB and MCP tool arguments to 10,000 combined
+  object members and array elements.
+- Add nonce-based UI CSP, framing/referrer/content-type/cache protections and
+  relative UI URLs for reverse proxies that strip a trailing-slash prefix.
+- Remove a machine-specific demo refresh default and replace historical lab
+  addresses in review documents with documentation addresses. Git history is
+  retained. Ordinary memory access still has no per-user authentication.
+
 ## 0.5.7 - 2026-09-10
 
 - Add `POST /v1/projects/{projectId}/learnings/{learningId}/resolve` and the

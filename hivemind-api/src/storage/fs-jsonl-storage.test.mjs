@@ -793,7 +793,7 @@ describe("FsJsonlStorage", () => {
           goal: "Seed brief context",
           plan_ref: {
             kind: "file",
-            target: "docs/plans/context-learning-issue-slice.md",
+            target: "docs/plans/archive/context-learning-issue-slice.md",
             label: "Plan",
             source: "agent_plan"
           }

@@ -22,7 +22,7 @@ is present.
 Refresh the committed anonymized demo snapshot:
 
 ```bash
-npm run hivemind:refresh-demo
+HIVEMIND_DEMO_SOURCE_API_URL=https://hivemind.example.com npm run hivemind:refresh-demo
 ```
 
 Pack the current local data root without sanitizing:
@@ -59,7 +59,7 @@ For a narrower MCP slice:
 npm test -- hivemind-mcp/src/api-client.test.mjs hivemind-mcp/src/runtime.test.mjs
 ```
 
-For maintenance integration against a disposable local OpenSearch **2.17.1**
+For maintenance integration against a disposable local OpenSearch **3.9.0**
 node (no authentication, loopback only):
 
 ```bash

@@ -29,7 +29,7 @@ async function request(path, payload, { method = "POST", status = 200, key = ran
 
 try {
   const info = await client.info();
-  assert.equal(info.body.version.number, "2.17.1", "Validate against the repository's pinned OpenSearch version.");
+  assert.equal(info.body.version.number, "3.9.0", "Validate against the repository's pinned OpenSearch version.");
   await storage.initialize();
   for (const id of ["source", "target"]) {
     await request("/v1/projects", { project_id: id, name: id, repository_slug: `example/${id}`,
@@ -93,7 +93,7 @@ try {
   assert.equal(deleted.deleted_counts.issues, 1);
   assert.equal(deleted.deleted_counts.rule_checks, 1);
   assert.equal((await client.count({ index: `${prefix}-*` })).body.count, 0);
-  console.log("OpenSearch 2.17.1: recall mappings/filtering/budget/history, create/retry idempotency, merge, missing-index failure, delete and zero residual documents passed.");
+  console.log("OpenSearch 3.9.0: recall mappings/filtering/budget/history, create/retry idempotency, merge, missing-index failure, delete and zero residual documents passed.");
 } finally {
   await client.indices.delete({ index: `${prefix}-*` });
   await client.close();

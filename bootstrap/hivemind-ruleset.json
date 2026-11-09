@@ -87,11 +87,11 @@
     },
     {
       "rule_id": "align_with_mvp_plan",
-      "label": "Align Structural Changes With MVP Plan",
-      "description": "Before widening contracts or making structural changes, align with docs/hivemind-mcp-mvp-plan.md or update the docs first.",
+      "label": "Align Structural Changes With Current Architecture and Contracts",
+      "description": "Before widening contracts or making structural changes, align with docs/ARCHITECTURE.md and the canonical contracts under docs/specs/, updating them in the same change. Use docs/plans/README.md for current work; historical plans are not contract authority.",
       "severity": "required",
       "check_mode": "file_reference_required",
-      "evidence_hint": "Reference the MVP plan or updated design doc when changing structure or public shape.",
+      "evidence_hint": "Reference the owning architecture/contract document and its update when changing structure or public shape.",
       "tags": ["planning", "architecture", "contracts"]
     }
   ]
