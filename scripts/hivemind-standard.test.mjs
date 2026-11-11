@@ -14,6 +14,28 @@ afterEach(() => {
 });
 
 describe("hivemind standard CLI", () => {
+  it("upgrades to v4 without replacing customized authorities and is repeatable", () => {
+    const target = tempDir();
+    applyStandard(config(), { projectId: "buzz", profileRef: "base@v3", target, projectName: "Buzz", write: true });
+    const custom = "# Buzz project authority\nKeep the project-specific deployment rules.\n";
+    writeFileSync(join(target, "AGENTS.md"), custom);
+    // A missing target may be created only after the adopting maintainer checks
+    // that no equivalent authority exists elsewhere; this fixture has none.
+    rmSync(join(target, "docs/ai/TASK_TEMPLATE.md"));
+    const options = { projectId: "buzz", profileRef: "base@v4", target, projectName: "Buzz" };
+    const dry = applyStandard(config(), options);
+    expect(dry.files.every(file => file.action === "dry_run")).toBe(true);
+    expect(existsSync(join(target, "docs/ai/TASK_TEMPLATE.md"))).toBe(false);
+    expect(readFileSync(join(target, "AGENTS.md"), "utf8")).toBe(custom);
+    const applied = applyStandard(config(), { ...options, write: true, conflict: "skip" });
+    expect(applied.files.find(file => file.target === "AGENTS.md").action).toBe("skipped");
+    expect(readFileSync(join(target, "AGENTS.md"), "utf8")).toBe(custom);
+    expect(readFileSync(join(target, "docs/ai/TASK_TEMPLATE.md"), "utf8")).toContain("Documentation before implementation");
+    const repeated = applyStandard(config(), { ...options, write: true, conflict: "skip" });
+    expect(repeated.files.every(file => ["skipped", "unchanged"].includes(file.action))).toBe(true);
+    expect(existsSync(join(target, ".hivemind-standard.json"))).toBe(false);
+  });
+
   it("parses apply options without a subcommand", () => {
     expect(parseCli(["apply", "--project", "buzz", "--profile", "aws-microservice@v3"])).toEqual({
       command: "apply",

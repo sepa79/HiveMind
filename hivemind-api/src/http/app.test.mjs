@@ -938,6 +938,44 @@ describe("HiveMind API", () => {
     ).toBe(true);
   });
 
+  it("activates the v4 rule explicitly without losing custom rules or reassigning another project", async () => {
+    const app = createTestApp();
+    await createProject(app, { standard_profile_ref: "base@v3" });
+    await createProject(app, {
+      project_id: "other", name: "Other", repository_slug: "example/other",
+      repository_url: "https://github.com/example/other.git", standard_profile_ref: "base@v3"
+    });
+    const customRule = {
+      rule_id: "project_specific", label: "Project rule", description: "Keep local deployment instructions.",
+      severity: "required", check_mode: "manual_confirm"
+    };
+    const put = (path, body) => app.request(path, {
+      method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(body)
+    });
+    expect((await put("/v1/projects/buzz/ruleset", { rules: [customRule] })).status).toBe(200);
+    const bundleResponse = await app.request("/v1/ruleset-catalog/profiles/base/versions/v4/bundle");
+    expect(bundleResponse.status).toBe(200);
+    const bundle = (await bundleResponse.json()).data;
+    expect((await put("/v1/projects/buzz/standard-profile", { standard_profile_ref: "base@v4" })).status).toBe(200);
+    const before = (await (await app.request("/v1/projects/buzz/ruleset")).json()).data.ruleset.rules;
+    expect(before).toEqual([expect.objectContaining(customRule)]);
+    const rule = bundle.manifest.rules.find(item => item.rule_id === "documentation_before_implementation");
+    expect(rule).toMatchObject({ severity: "required", check_mode: "file_reference_required" });
+    expect((await put("/v1/projects/buzz/ruleset", { rules: [...before, rule] })).status).toBe(200);
+    const active = (await (await app.request("/v1/projects/buzz/ruleset")).json()).data.ruleset.rules;
+    expect(active).toEqual([expect.objectContaining(customRule), expect.objectContaining(rule)]);
+    const session = await app.request("/v1/sessions", {
+      method: "POST", headers: { "content-type": "application/json", "Idempotency-Key": "v4-activation" },
+      body: JSON.stringify({ project_id: "buzz", branch: "main", workspace_path: "/repo/buzz",
+        author_id: "test", author_type: "agent", source: "mcp", agent_id: "test", goal: "Verify v4 rule recall" })
+    });
+    expect(session.status).toBe(201);
+    const recall = (await session.json()).data.recall;
+    expect(recall.rules.some(item => JSON.stringify(item).includes("documentation_before_implementation"))).toBe(true);
+    const projects = (await (await app.request("/v1/projects")).json()).data.projects;
+    expect(projects.find(project => project.project_id === "other").standard_profile_ref).toBe("base@v3");
+  });
+
   it("assigns a project standard profile and treats customized starter files as current", async () => {
     const app = createTestApp();
     await createProject(app);

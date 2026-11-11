@@ -2,6 +2,8 @@
 
 This directory is the canonical home for project specs and contracts.
 
+Catalog profile changes: [base@v4 documentation-first specification](base-v4-documentation-first.md).
+
 Use it for:
 - REST/OpenAPI contracts,
 - message/event contracts,
