@@ -1,0 +1,153 @@
+{
+  "profile_id": "base",
+  "version": "v4",
+  "profile_ref": "base@v4",
+  "label": "Base AI Project Starter v4",
+  "description": "Reference-first AI contributor starter with documentation before implementation, repository-wide SSOT, and canonical stored standard markers.",
+  "template_variables": [
+    "PROJECT_NAME",
+    "PROJECT_ID",
+    "PROFILE_REF",
+    "HIVEMIND_API_URL"
+  ],
+  "files": [
+    {
+      "source": "AGENTS.md",
+      "target": "AGENTS.md",
+      "required": true
+    },
+    {
+      "source": "BOOTSTRAP_PROMPT.md",
+      "target": "BOOTSTRAP_PROMPT.md",
+      "required": false
+    },
+    {
+      "source": "BOOTSTRAP_PROMPT_SIMPLE.md",
+      "target": "BOOTSTRAP_PROMPT_SIMPLE.md",
+      "required": false
+    },
+    {
+      "source": "docs/ARCHITECTURE.md",
+      "target": "docs/ARCHITECTURE.md",
+      "required": true
+    },
+    {
+      "source": "docs/adr/README.md",
+      "target": "docs/adr/README.md",
+      "required": false
+    },
+    {
+      "source": "docs/ai/AI_HATS.md",
+      "target": "docs/ai/AI_HATS.md",
+      "required": true
+    },
+    {
+      "source": "docs/ai/COMMANDS.md",
+      "target": "docs/ai/COMMANDS.md",
+      "required": true
+    },
+    {
+      "source": "docs/ai/EVIDENCE_TEMPLATE.md",
+      "target": "docs/ai/EVIDENCE_TEMPLATE.md",
+      "required": false
+    },
+    {
+      "source": "docs/ai/HIVEMIND_RULES.md",
+      "target": "docs/ai/HIVEMIND_RULES.md",
+      "required": true
+    },
+    {
+      "source": "docs/ai/JESTER_CHECKS.md",
+      "target": "docs/ai/JESTER_CHECKS.md",
+      "required": true
+    },
+    {
+      "source": "docs/ai/LESSONS_LEARNED.md",
+      "target": "docs/ai/LESSONS_LEARNED.md",
+      "required": false
+    },
+    {
+      "source": "docs/ai/PROJECT_CONTEXT.md",
+      "target": "docs/ai/PROJECT_CONTEXT.md",
+      "required": true
+    },
+    {
+      "source": "docs/ai/PR_PREPARATION.md",
+      "target": "docs/ai/PR_PREPARATION.md",
+      "required": false
+    },
+    {
+      "source": "docs/ai/REVIEW_CHECKS.md",
+      "target": "docs/ai/REVIEW_CHECKS.md",
+      "required": true
+    },
+    {
+      "source": "docs/ai/TASK_TEMPLATE.md",
+      "target": "docs/ai/TASK_TEMPLATE.md",
+      "required": false
+    },
+    {
+      "source": "docs/ai/STANDARD_PROFILE_UPGRADE.md",
+      "target": "docs/ai/STANDARD_PROFILE_UPGRADE.md",
+      "required": false
+    },
+    {
+      "source": "docs/specs/README.md",
+      "target": "docs/specs/README.md",
+      "required": true
+    }
+  ],
+  "rules": [
+    {
+      "rule_id": "no_silent_fallbacks",
+      "label": "No silent fallbacks",
+      "description": "Do not add hidden fallback chains, heuristic recovery, or implicit compatibility behavior.",
+      "severity": "required",
+      "check_mode": "manual_confirm",
+      "evidence_hint": "Review summary confirming failure behavior is explicit.",
+      "tags": [
+        "architecture",
+        "nff"
+      ]
+    },
+    {
+      "rule_id": "ssot_contracts",
+      "label": "Keep authority single-source",
+      "description": "Require one authoritative owner for each contract, domain fact, state transition, configuration value, parser/mapper/factory, and operation-success postcondition; read-only projections must derive from that owner.",
+      "severity": "required",
+      "check_mode": "file_reference_required",
+      "evidence_hint": "Reference the canonical owner and record the repository-wide search used to exclude competing active authorities.",
+      "tags": [
+        "architecture",
+        "contracts",
+        "state",
+        "configuration",
+        "ssot"
+      ]
+    },
+    {
+      "rule_id": "test_meaningful_behavior",
+      "label": "Test meaningful behavior",
+      "description": "Test behavior, contracts, and failure handling instead of decorative mocks.",
+      "severity": "required",
+      "check_mode": "command_reference_required",
+      "evidence_hint": "Command and result summary for the relevant test slice.",
+      "tags": [
+        "testing"
+      ]
+    },
+    {
+      "rule_id": "documentation_before_implementation",
+      "label": "Documentation before implementation",
+      "description": "Read-only investigation may precede documentation. Before editing implementation or tests for changes to behavior, architecture, contracts, configuration, commands, deployment or risk, update the canonical docs/specs with responsibility owners, expected behavior and acceptance criteria. If the plan changes, revise those documents before further implementation or test edits. A plan is not evidence of implementation, verification, deployment or acceptance.",
+      "severity": "required",
+      "check_mode": "file_reference_required",
+      "evidence_hint": "Reference the canonical docs/specs updated before implementation/test edits, identify owners, expected behavior and acceptance criteria, and record documentation-first ordering including plan revisions. Report actual verification and deployment evidence separately.",
+      "tags": [
+        "documentation",
+        "workflow",
+        "contracts"
+      ]
+    }
+  ]
+}
